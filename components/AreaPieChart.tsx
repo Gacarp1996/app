@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartDataPoint } from '../types';
 
@@ -29,6 +29,17 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 const AreaPieChart: React.FC<AreaPieChartProps> = ({ data, chartTitle, onSliceClick, height = '100%' }) => {
+  // --- PASO 1: AÑADIR ESTADOS PARA DETECCIÓN ---
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    // Esto se ejecuta solo en el navegador para evitar errores
+    setIsClient(true);
+  }, []);
+
+  // --- PASO 2: DETECTAR SI ES UN DISPOSITIVO TÁCTIL ---
+  const isTouchDevice = isClient && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
   // Calcular el total de minutos
   const totalMinutes = data.reduce((sum, item) => sum + (item.value || 0), 0);
 
@@ -79,7 +90,10 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({ data, chartTitle, onSliceCl
               <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+
+          {/* --- PASO 3: RENDERIZAR EL TOOLTIP CONDICIONALMENTE --- */}
+          {!isTouchDevice && <Tooltip content={<CustomTooltip />} />}
+          
           <Legend 
             formatter={(value: string) => {
               const item = dataWithPercentages.find(d => d.name === value);
