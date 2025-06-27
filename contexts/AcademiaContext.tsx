@@ -99,7 +99,16 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       // Obtener el ID público de la academia
       const academiaDoc = await getDoc(doc(db, 'academias', academiaId));
       const academiaData = academiaDoc.exists() ? academiaDoc.data() : null;
-      
+      await cargarMisAcademias();
+
+        // Forzar recarga del rol después de registrar acceso
+        const role = await getUserRoleInAcademia(academiaId, currentUser.uid);setRolActual(role);} catch (error) {
+        console.error('Error registrando acceso:', error);
+        }
+        };
+
+
+
       // Verificar si el usuario tiene un rol en esta academia
       let userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
       

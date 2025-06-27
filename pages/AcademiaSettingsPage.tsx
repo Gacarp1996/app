@@ -10,8 +10,7 @@ import {
   deleteAcademia,
   AcademiaUser,
   UserRole,
-  getUserRoleInAcademia,
-  addUserToAcademia
+  getUserRoleInAcademia
 } from '../Database/FirebaseRoles';
 import Modal from '../components/Modal';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
@@ -36,24 +35,18 @@ const AcademiaSettingsPage: React.FC = () => {
     const loadData = async () => {
       if (academiaActual && currentUser) {
         try {
-          // Si no hay rol, intentar cargarlo
+          // Si no hay rol, solo intentar cargarlo
           if (!rolActual) {
             const role = await getUserRoleInAcademia(academiaActual.id, currentUser.uid);
+            
+            // Si no se encuentra rol, no asignar nada automáticamente
+            // El rol debería haberse asignado al crear o unirse a la academia
             if (!role) {
-              // Si el usuario no tiene rol, intentar asignarlo como entrenador
-              try {
-                await addUserToAcademia(
-                  academiaActual.id,
-                  currentUser.uid,
-                  currentUser.email || '',
-                  'entrenador',
-                  currentUser.displayName || currentUser.email?.split('@')[0]
-                );
-              } catch (addError) {
-                console.error('Error al asignar rol:', addError);
-              }
+              console.log('Usuario sin rol en la academia. Rol debe asignarse al crear o unirse.');
             }
           }
+          
+          // Cargar usuarios independientemente del rol
           await loadUsers();
         } catch (error: any) {
           console.error('Error cargando datos:', error);
@@ -252,8 +245,8 @@ const AcademiaSettingsPage: React.FC = () => {
     );
   }
 
-  // Si llegamos aquí pero no hay rol, mostrar como entrenador por defecto
-  const currentRole = rolActual || 'entrenador';
+  // Usar el rol actual sin valor por defecto
+  const currentRole = rolActual;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
@@ -268,9 +261,13 @@ const AcademiaSettingsPage: React.FC = () => {
           </p>
           <p className="text-app-primary">
             <span className="font-semibold">Mi rol:</span>{' '}
-            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(currentRole)}`}>
-              {getRoleDisplayName(currentRole)}
-            </span>
+            {currentRole ? (
+              <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(currentRole)}`}>
+                {getRoleDisplayName(currentRole)}
+              </span>
+            ) : (
+              <span className="text-app-secondary italic">Cargando rol...</span>
+            )}
           </p>
         </div>
       </div>
@@ -295,7 +292,7 @@ const AcademiaSettingsPage: React.FC = () => {
       </div>
 
       {/* Lista de Usuarios - Solo visible para directores y subdirectores */}
-      {(currentRole === 'director' || currentRole === 'subdirector') && !permissionError && (
+      {currentRole && (currentRole === 'director' || currentRole === 'subdirector') && !permissionError && (
         <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
           <h2 className="text-2xl font-semibold text-app-accent mb-4">
             Usuarios de la Academia ({users.length})
@@ -323,7 +320,7 @@ const AcademiaSettingsPage: React.FC = () => {
                   </div>
                   
                   {/* Solo los directores pueden modificar usuarios */}
-                  {currentRole === 'director' && user.userId !== currentUser?.uid && (
+                  {currentRole && currentRole === 'director' && user.userId !== currentUser?.uid && (
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
@@ -369,7 +366,7 @@ const AcademiaSettingsPage: React.FC = () => {
       </div>
 
       {/* Sección de Eliminar Academia - Solo para directores */}
-      {currentRole === 'director' && (
+      {currentRole && currentRole === 'director' && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-6 rounded-lg">
           <h2 className="text-2xl font-semibold text-red-600 dark:text-red-400 mb-4">
             Zona de Peligro
