@@ -16,6 +16,8 @@ import EditObjectivesPage from '../pages/EditObjectivesPage';
 import ObjectiveDetailPage from '../pages/ObjectiveDetailPage';
 import SessionDetailPage from '../pages/SessionDetailPage';
 import { Player, Objective, TrainingSession, Tournament } from '../types';
+import AcademiaSettingsPage from '../pages/AcademiaSettingsPage';
+
 
 const AppWithAcademia: React.FC = () => {
   const { academiaActual } = useAcademia();
@@ -61,7 +63,12 @@ const AppWithAcademia: React.FC = () => {
                 onDataChange={fetchData} 
                 academiaId={academiaActual.id} 
               />
+              
             } />
+            <Route path="/academia-settings" element={
+              <AcademiaSettingsPage />
+                } />
+
             <Route path="/player/:playerId" element={
               <PlayerProfilePage 
                 players={players} 
@@ -71,6 +78,9 @@ const AppWithAcademia: React.FC = () => {
                 onDataChange={fetchData}
                 academiaId={academiaActual.id}
               />
+
+                
+
             } />
             <Route path="/start-training" element={
               <StartTrainingPage 

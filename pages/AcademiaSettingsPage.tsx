@@ -1,4 +1,3 @@
-// pages/AcademiaSettingsPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,7 +9,9 @@ import {
   countDirectors,
   deleteAcademia,
   AcademiaUser,
-  UserRole 
+  UserRole,
+  getUserRoleInAcademia,
+  addUserToAcademia
 } from '../Database/FirebaseRoles';
 import Modal from '../components/Modal';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
@@ -22,6 +23,8 @@ const AcademiaSettingsPage: React.FC = () => {
   
   const [users, setUsers] = useState<AcademiaUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRole, setLoadingRole] = useState(true);
+  const [permissionError, setPermissionError] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -30,10 +33,43 @@ const AcademiaSettingsPage: React.FC = () => {
   const [processingAction, setProcessingAction] = useState(false);
 
   useEffect(() => {
-    if (academiaActual) {
-      loadUsers();
-    }
-  }, [academiaActual]);
+    const loadData = async () => {
+      if (academiaActual && currentUser) {
+        try {
+          // Si no hay rol, intentar cargarlo
+          if (!rolActual) {
+            const role = await getUserRoleInAcademia(academiaActual.id, currentUser.uid);
+            if (!role) {
+              // Si el usuario no tiene rol, intentar asignarlo como entrenador
+              try {
+                await addUserToAcademia(
+                  academiaActual.id,
+                  currentUser.uid,
+                  currentUser.email || '',
+                  'entrenador',
+                  currentUser.displayName || currentUser.email?.split('@')[0]
+                );
+              } catch (addError) {
+                console.error('Error al asignar rol:', addError);
+              }
+            }
+          }
+          await loadUsers();
+        } catch (error: any) {
+          console.error('Error cargando datos:', error);
+          if (error.code === 'permission-denied' || error.message?.includes('permissions')) {
+            setPermissionError(true);
+          }
+        } finally {
+          setLoadingRole(false);
+        }
+      } else {
+        setLoadingRole(false);
+      }
+    };
+
+    loadData();
+  }, [academiaActual, currentUser, rolActual]);
 
   const loadUsers = async () => {
     if (!academiaActual) return;
@@ -47,8 +83,11 @@ const AcademiaSettingsPage: React.FC = () => {
         return roleOrder[a.role] - roleOrder[b.role];
       });
       setUsers(sortedUsers);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cargando usuarios:', error);
+      if (error.code === 'permission-denied' || error.message?.includes('permissions')) {
+        setPermissionError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -154,7 +193,8 @@ const AcademiaSettingsPage: React.FC = () => {
     }
   };
 
-  if (!academiaActual || !rolActual) {
+  // Cambiar la validación inicial
+  if (!academiaActual) {
     return (
       <div className="text-center py-10">
         <p className="text-app-secondary">No hay academia seleccionada</p>
@@ -167,6 +207,53 @@ const AcademiaSettingsPage: React.FC = () => {
       </div>
     );
   }
+
+  if (loadingRole) {
+    return (
+      <div className="text-center py-10">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-accent mx-auto"></div>
+        <p className="mt-4 text-app-secondary">Cargando configuración...</p>
+      </div>
+    );
+  }
+
+  // Si hay error de permisos, mostrar mensaje específico
+  if (permissionError) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-6 rounded-lg">
+          <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-4">
+            Error de Permisos
+          </h2>
+          <p className="text-app-primary mb-4">
+            No tienes permisos para acceder a la configuración de la academia. 
+            Esto puede deberse a que las reglas de seguridad de Firebase no están configuradas correctamente.
+          </p>
+          <p className="text-app-primary mb-4">
+            Por favor, contacta al administrador del sistema para que configure las reglas de Firestore 
+            para permitir el acceso a la subcolección de usuarios.
+          </p>
+          <div className="mt-6 space-y-2">
+            <button 
+              onClick={() => navigate('/')} 
+              className="app-button btn-primary mr-2"
+            >
+              Volver al Inicio
+            </button>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="app-button btn-secondary"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Si llegamos aquí pero no hay rol, mostrar como entrenador por defecto
+  const currentRole = rolActual || 'entrenador';
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
@@ -181,8 +268,8 @@ const AcademiaSettingsPage: React.FC = () => {
           </p>
           <p className="text-app-primary">
             <span className="font-semibold">Mi rol:</span>{' '}
-            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(rolActual)}`}>
-              {getRoleDisplayName(rolActual)}
+            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(currentRole)}`}>
+              {getRoleDisplayName(currentRole)}
             </span>
           </p>
         </div>
@@ -208,7 +295,7 @@ const AcademiaSettingsPage: React.FC = () => {
       </div>
 
       {/* Lista de Usuarios - Solo visible para directores y subdirectores */}
-      {(rolActual === 'director' || rolActual === 'subdirector') && (
+      {(currentRole === 'director' || currentRole === 'subdirector') && !permissionError && (
         <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
           <h2 className="text-2xl font-semibold text-app-accent mb-4">
             Usuarios de la Academia ({users.length})
@@ -236,7 +323,7 @@ const AcademiaSettingsPage: React.FC = () => {
                   </div>
                   
                   {/* Solo los directores pueden modificar usuarios */}
-                  {rolActual === 'director' && user.userId !== currentUser?.uid && (
+                  {currentRole === 'director' && user.userId !== currentUser?.uid && (
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
@@ -282,7 +369,7 @@ const AcademiaSettingsPage: React.FC = () => {
       </div>
 
       {/* Sección de Eliminar Academia - Solo para directores */}
-      {rolActual === 'director' && (
+      {currentRole === 'director' && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-6 rounded-lg">
           <h2 className="text-2xl font-semibold text-red-600 dark:text-red-400 mb-4">
             Zona de Peligro
