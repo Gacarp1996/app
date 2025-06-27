@@ -16,7 +16,9 @@ const HomePage: React.FC = () => {
           to="/start-training"
           className="app-button btn-success text-white py-6 px-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 flex flex-col items-center justify-center"
         >
-          {/* SE HA ELIMINADO EL ÍCONO SVG DE AQUÍ */}
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16 mb-3">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+          </svg>
           <span className="text-2xl">Comenzar Entrenamiento</span>
         </Link>
         <Link

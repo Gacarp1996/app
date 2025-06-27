@@ -2,7 +2,6 @@ export interface Player {
   id: string;
   name: string;
   estado: 'activo' | 'archivado';
-  // --- ¡NUEVOS CAMPOS PARA EL PERFIL! ---
   edad?: number;
   altura?: number;
   peso?: number;
@@ -24,7 +23,7 @@ export interface Objective {
   id: string;
   jugadorId: string;
   textoObjetivo: string;
-  cuerpoObjetivo?: string; // Detailed description
+  cuerpoObjetivo?: string; 
   estado: ObjectiveEstado; 
 }
 

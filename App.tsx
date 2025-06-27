@@ -6,7 +6,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AcademiaProvider, useAcademia } from './contexts/AcademiaContext';
 import ProtectedRoute from './components/protectedRoute';
 import LoginPage from './pages/LoginPage';
-import AcademiaSelectPage from './Database/AcademiaSelectPage';
+import AcademiaSelectPage from './pages/AcademiaSelectPage';
 import AppWithAcademia from './components/AppWithAcademia';
 
 // Componente que maneja la lógica de rutas después de la autenticación

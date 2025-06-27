@@ -14,6 +14,7 @@ interface Academia {
 interface UserAcademia {
   academiaId: string;
   nombre: string;
+  id?: string; // ID público de la academia
   ultimoAcceso: Date;
 }
 
@@ -52,7 +53,22 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       const userDoc = await getDoc(doc(db, 'userAcademias', currentUser.uid));
       if (userDoc.exists()) {
         const data = userDoc.data();
-        setMisAcademias(data.academias || []);
+        const academias = data.academias || [];
+        
+        // Cargar el ID de cada academia si no está presente
+        const academiasConId = await Promise.all(
+          academias.map(async (academia: UserAcademia) => {
+            if (!academia.id && academia.academiaId) {
+              const academiaDoc = await getDoc(doc(db, 'academias', academia.academiaId));
+              if (academiaDoc.exists()) {
+                return { ...academia, id: academiaDoc.data().id };
+              }
+            }
+            return academia;
+          })
+        );
+        
+        setMisAcademias(academiasConId);
       }
     } catch (error) {
       console.error('Error cargando mis academias:', error);
@@ -62,13 +78,18 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
   const registrarAccesoAcademia = async (academiaId: string, nombre: string) => {
     if (!currentUser) return;
 
-    const nuevoAcceso = {
-      academiaId,
-      nombre,
-      ultimoAcceso: new Date()
-    };
-
     try {
+      // Obtener el ID público de la academia
+      const academiaDoc = await getDoc(doc(db, 'academias', academiaId));
+      const academiaData = academiaDoc.exists() ? academiaDoc.data() : null;
+      
+      const nuevoAcceso = {
+        academiaId,
+        nombre,
+        id: academiaData?.id || '',
+        ultimoAcceso: new Date()
+      };
+
       const userRef = doc(db, 'userAcademias', currentUser.uid);
       const userDoc = await getDoc(userRef);
 

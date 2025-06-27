@@ -30,7 +30,11 @@ const AcademiaSelectPage: React.FC = () => {
       const academiaData = await obtenerAcademiaPorId(academiaId);
       
       if (academiaData) {
-        await registrarAccesoAcademia(academiaId, academiaData.nombre);
+        await registrarAccesoAcademia(academiaId, academiaData.);
+        
+        // Mostrar el ID antes de redirigir
+        alert(`¡Academia creada exitosamente!\n\nNombre: ${academiaData.nombre}\nID: ${academiaData.id}\n\nGuarda este ID para que otros puedan unirse.`);
+        
         setAcademiaActual(academiaData as any);
         navigate('/');
       }
@@ -134,9 +138,10 @@ const AcademiaSelectPage: React.FC = () => {
                   className="w-full text-left p-4 bg-app-surface-alt rounded-lg hover:bg-app-accent hover:text-white transition-colors group"
                 >
                   <div className="flex justify-between items-center">
-                    <div>
+                    <div className="flex-grow">
                       <h3 className="text-lg font-medium">{academia.nombre}</h3>
                       <p className="text-sm opacity-70">
+                        ID: <span className="font-mono font-bold">{academia.academiaId || 'Cargando...'}</span> • 
                         Último acceso: {new Date(academia.ultimoAcceso).toLocaleDateString('es-ES')}
                       </p>
                     </div>
