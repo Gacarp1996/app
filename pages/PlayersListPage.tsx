@@ -6,30 +6,15 @@ import { addPlayer, updatePlayer } from '../Database/FirebasePlayers';
 interface PlayersListPageProps {
   players: Player[];
   onDataChange: () => void;
-  academiaId: string; // NUEVO
+  academiaId: string;
 }
 
-interface PlayersListPageProps {
-  players: Player[];
-  onDataChange: () => void;
-}
-
-const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange }) => {
+const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange, academiaId }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
-  const handleAddPlayer = async (e: React.FormEvent) => {
-  // ... validaciones ...
-  await addPlayer(academiaId, newPlayer); // MODIFICADO
-  // ...};
-
-  const handleSaveEdit = async (playerId: string) => {
-  // ... validaciones ...
-  await updatePlayer(academiaId, playerId, { name: editingName.trim() }); // MODIFICADO
-  // ...};
-  
   const handleAddPlayer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlayerName.trim()) {
@@ -40,7 +25,7 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange
       name: newPlayerName.trim(),
       estado: 'activo',
     };
-    await addPlayer(newPlayer);
+    await addPlayer(academiaId, newPlayer);
     setNewPlayerName('');
     onDataChange(); 
   };
@@ -60,7 +45,7 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange
       alert('El nombre no puede estar vacío.');
       return;
     }
-    await updatePlayer(playerId, { name: editingName.trim() });
+    await updatePlayer(academiaId, playerId, { name: editingName.trim() });
     setEditingPlayerId(null);
     setEditingName('');
     onDataChange();

@@ -7,12 +7,12 @@ import { NEW_EXERCISE_HIERARCHY_CONST, NEW_EXERCISE_HIERARCHY_MAPPING } from '..
 import ObjectiveModal from '../components/ObjectiveModal';
 import Modal from '../components/Modal';
 
-// La interfaz de props que espera de App.tsx
 interface TrainingSessionPageProps {
   allPlayers: Player[];
   allObjectives: Objective[];
   allTournaments: Tournament[];
   onDataChange: () => void;
+  academiaId: string;
 }
 
 // El modal para gestionar participantes, sin cambios.
@@ -63,7 +63,7 @@ const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({ isOpe
 };
 
 
-const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, allObjectives, allTournaments, onDataChange }) => {
+const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, allObjectives, allTournaments, onDataChange, academiaId }) => {
   const navigate = useNavigate();
   const { participants, setParticipants, exercises, addExercise, endSession, loadSession } = useTraining();
 
@@ -155,7 +155,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
     }).filter(session => session.ejercicios.length > 0 || (session.observaciones && session.observaciones.length > 0));
 
     if (sessionsToSave.length > 0) {
-      await Promise.all(sessionsToSave.map(session => addSession(session)));
+      await Promise.all(sessionsToSave.map(session => addSession(academiaId, session)));
       alert(`Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es).`);
       onDataChange();
     } else {

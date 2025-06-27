@@ -10,9 +10,10 @@ interface EditObjectivesPageProps {
   players: Player[];
   allObjectives: Objective[];
   onDataChange: () => void;
+  academiaId: string;
 }
 
-const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ players, allObjectives, onDataChange }) => {
+const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ players, allObjectives, onDataChange, academiaId }) => {
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
 
@@ -31,8 +32,6 @@ const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ players, allObj
   const playerObjectives = allObjectives.filter(obj => obj.jugadorId === playerId);
   const objectivesByEstado = (estado: ObjectiveEstado) => playerObjectives.filter(obj => obj.estado === estado);
   
-  // --- MODIFICADO ---
-  // El contador ahora se basa en el nuevo estado 'actual-progreso'.
   const actualObjectivesCount = objectivesByEstado('actual-progreso').length;
 
   const handleAddNewObjective = async (e: React.FormEvent) => {
@@ -48,31 +47,27 @@ const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ players, allObj
     const newObj: Omit<Objective, 'id'> = {
       jugadorId: playerId!,
       textoObjetivo: newObjectiveText.trim(),
-      // --- MODIFICADO ---
-      // Los nuevos objetivos se crean en el estado 'actual-progreso'.
       estado: 'actual-progreso',
       cuerpoObjetivo: ''
     };
-    await addObjective(newObj);
+    await addObjective(academiaId, newObj);
     setNewObjectiveText('');
     onDataChange();
   };
   
   const handleDeleteObjective = async (objectiveId: string) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este objetivo?')) {
-      await deleteObjective(objectiveId);
+      await deleteObjective(academiaId, objectiveId);
       onDataChange();
     }
   };
 
   const handleChangeEstado = async (objectiveId: string, newEstado: ObjectiveEstado) => {
-    // --- MODIFICADO ---
-    // La validación se hace contra el nuevo estado.
     if (newEstado === 'actual-progreso' && actualObjectivesCount >= MAX_ACTIVE_OBJECTIVES) {
       alert(`No puedes tener más de ${MAX_ACTIVE_OBJECTIVES} objetivos en 'Actual/En Progreso'.`);
       return;
     }
-    await updateObjective(objectiveId, { estado: newEstado });
+    await updateObjective(academiaId, objectiveId, { estado: newEstado });
     onDataChange();
   };
 
@@ -85,7 +80,6 @@ const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ players, allObj
     return (
       <div className="mb-8">
         <h3 className="text-xl font-semibold text-app-accent mb-3">{OBJECTIVE_ESTADOS[estadoToList]} ({objectives.length})</h3>
-        {/* --- MODIFICADO --- */}
         {estadoToList === 'actual-progreso' && <p className="text-sm text-app-secondary mb-2">Máximo {MAX_ACTIVE_OBJECTIVES} objetivos.</p>}
         {objectives.length > 0 ? (
           <ul className="space-y-3">
@@ -100,8 +94,6 @@ const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ players, allObj
                          <button onClick={() => handleDeleteObjective(obj.id)} className="p-1.5 app-button btn-danger text-white rounded">Eliminar</button>
                     </div>
                 </div>
-                {/* --- MODIFICADO --- */}
-                {/* Se actualizan los botones para mover entre los nuevos estados. */}
                 <div className="mt-3 pt-2 border-t border-app flex flex-wrap gap-2 text-xs">
                     Mover a:
                     {obj.estado !== 'actual-progreso' && <button onClick={() => handleChangeEstado(obj.id, 'actual-progreso')} disabled={actualObjectivesCount >= MAX_ACTIVE_OBJECTIVES} className="py-1 px-2 app-button bg-blue-500 rounded">Actual/En Progreso</button>}
@@ -144,8 +136,6 @@ const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ players, allObj
         </button>
       </form>
 
-      {/* --- MODIFICADO --- */}
-      {/* Se renderizan las listas para los nuevos estados. */}
       <div className="bg-app-surface p-6 rounded-lg shadow-lg">
         {renderObjectiveList('actual-progreso')}
         {renderObjectiveList('consolidacion')}
