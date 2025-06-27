@@ -30,7 +30,7 @@ const AcademiaSelectPage: React.FC = () => {
       const academiaData = await obtenerAcademiaPorId(academiaId);
       
       if (academiaData) {
-        await registrarAccesoAcademia(academiaId, academiaData.);
+        await registrarAccesoAcademia(academiaId, academiaData.nombre);
         
         // Mostrar el ID antes de redirigir
         alert(`¡Academia creada exitosamente!\n\nNombre: ${academiaData.nombre}\nID: ${academiaData.id}\n\nGuarda este ID para que otros puedan unirse.`);

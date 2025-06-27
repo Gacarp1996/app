@@ -1,7 +1,8 @@
 import { db } from "../firebase/firebase-config";
 import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
 
-interface AcademiaData {
+// 1. MUEVE LA INTERFAZ FUERA DE LAS FUNCIONES Y EXPORTALA
+export interface Academia {
   nombre: string;
   id: string;
   creadorId: string;
@@ -9,7 +10,7 @@ interface AcademiaData {
   activa: boolean;
 }
 
-// Generar ID único de 6 caracteres
+// 2. Generar ID único de 6 caracteres
 const generarIdUnico = (): string => {
   const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let resultado = '';
@@ -19,6 +20,7 @@ const generarIdUnico = (): string => {
   return resultado;
 };
 
+// 3. ACTUALIZA crearAcademia para usar la interfaz exportada
 export const crearAcademia = async (nombre: string, creadorId: string): Promise<string> => {
   try {
     let idUnico = generarIdUnico();
@@ -35,7 +37,7 @@ export const crearAcademia = async (nombre: string, creadorId: string): Promise<
       }
     }
 
-    const nuevaAcademia: AcademiaData = {
+    const nuevaAcademia: Academia = {
       nombre,
       id: idUnico,
       creadorId,
@@ -52,7 +54,8 @@ export const crearAcademia = async (nombre: string, creadorId: string): Promise<
   }
 };
 
-export const buscarAcademiaPorIdYNombre = async (id: string, nombre: string) => {
+// 4. ACTUALIZA buscarAcademiaPorIdYNombre con el tipo de retorno
+export const buscarAcademiaPorIdYNombre = async (id: string, nombre: string): Promise<Academia | null> => {
   try {
     const q = query(
       collection(db, "academias"), 
@@ -68,7 +71,7 @@ export const buscarAcademiaPorIdYNombre = async (id: string, nombre: string) => 
       return {
         id: doc.id,
         ...doc.data()
-      };
+      } as Academia;
     }
     
     return null;
@@ -78,7 +81,8 @@ export const buscarAcademiaPorIdYNombre = async (id: string, nombre: string) => 
   }
 };
 
-export const obtenerAcademiaPorId = async (academiaId: string) => {
+// 5. ACTUALIZA obtenerAcademiaPorId con el tipo de retorno
+export const obtenerAcademiaPorId = async (academiaId: string): Promise<Academia | null> => {
   try {
     const docRef = doc(db, "academias", academiaId);
     const docSnap = await getDoc(docRef);
@@ -87,7 +91,7 @@ export const obtenerAcademiaPorId = async (academiaId: string) => {
       return {
         id: docSnap.id,
         ...docSnap.data()
-      };
+      } as Academia;
     }
     return null;
   } catch (error) {

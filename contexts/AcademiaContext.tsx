@@ -1,33 +1,27 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase-config';
-
-interface Academia {
-  id: string;
-  nombre: string;
-  creadorId: string;
-  fechaCreacion: Date;
-  activa: boolean;
-}
+import { Academia } from '../Database/FirebaseAcademias'; // AGREGAR ESTE IMPORT
 
 interface UserAcademia {
   academiaId: string;
   nombre: string;
-  id?: string; // ID público de la academia
+  id?: string;
   ultimoAcceso: Date;
 }
 
 interface AcademiaContextType {
-  academiaActual: Academia | null;
+  academiaActual: Academia | null; // CAMBIAR any por Academia
   misAcademias: UserAcademia[];
   loading: boolean;
-  setAcademiaActual: (academia: Academia | null) => void;
+  setAcademiaActual: (academia: Academia | null) => void; // CAMBIAR any por Academia
   cargarMisAcademias: () => Promise<void>;
   registrarAccesoAcademia: (academiaId: string, nombre: string) => Promise<void>;
   limpiarAcademiaActual: () => void;
 }
 
+// ... resto del código sin cambios
 const AcademiaContext = createContext<AcademiaContextType | undefined>(undefined);
 
 export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
