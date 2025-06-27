@@ -77,7 +77,8 @@ const ObjectiveModal: React.FC<ObjectiveModalProps> = ({ isOpen, onClose, select
       {selectedPlayers.length === 0 && <p className="text-app-secondary">No hay jugadores seleccionados.</p>}
       <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
         {selectedPlayers.map(player => {
-          const playerActiveObjectives = allObjectives.filter(obj => obj.jugadorId === player.id && obj.estado === 'actual');
+          // LÍNEA CORREGIDA:
+const playerActiveObjectives = allObjectives.filter(obj => obj.jugadorId === player.id && obj.estado === 'actual-progreso');
           return (
             <div key={player.id} className="bg-app-surface-alt p-4 rounded-lg">
               <h4 className="text-xl font-semibold text-app-accent mb-2">{player.name}</h4>

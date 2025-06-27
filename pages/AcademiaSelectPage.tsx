@@ -35,7 +35,7 @@ const AcademiaSelectPage: React.FC = () => {
         // Mostrar el ID antes de redirigir
         alert(`¡Academia creada exitosamente!\n\nNombre: ${academiaData.nombre}\nID: ${academiaData.id}\n\nGuarda este ID para que otros puedan unirse.`);
         
-        setAcademiaActual(academiaData as any);
+        setAcademiaActual(academiaData);
         navigate('/');
       }
     } catch (error) {
@@ -43,6 +43,7 @@ const AcademiaSelectPage: React.FC = () => {
       console.error(error);
     } finally {
       setLoading(false);
+      setIsCrearModalOpen(false);
     }
   };
 
@@ -58,7 +59,7 @@ const AcademiaSelectPage: React.FC = () => {
       
       if (academia) {
         await registrarAccesoAcademia(academia.id, academia.nombre);
-        setAcademiaActual(academia as any);
+        setAcademiaActual(academia);
         navigate('/');
       } else {
         setError('No se encontró una academia con esos datos');
@@ -72,16 +73,26 @@ const AcademiaSelectPage: React.FC = () => {
   };
 
   const handleSeleccionarAcademia = async (academiaId: string) => {
+    console.log('Seleccionando academia:', academiaId); // Para debug
+    if (!academiaId) {
+      console.error('No se proporcionó academiaId');
+      return;
+    }
+    
     setLoading(true);
     try {
       const academia = await obtenerAcademiaPorId(academiaId);
       if (academia) {
-        setAcademiaActual(academia as any);
+        setAcademiaActual(academia);
         await registrarAccesoAcademia(academiaId, academia.nombre);
         navigate('/');
+      } else {
+        console.error('No se encontró la academia');
+        alert('No se pudo cargar la academia. Por favor, intenta de nuevo.');
       }
     } catch (error) {
       console.error('Error al cargar academia:', error);
+      alert('Error al cargar la academia. Por favor, intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -97,7 +108,8 @@ const AcademiaSelectPage: React.FC = () => {
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <button
             onClick={() => setIsCrearModalOpen(true)}
-            className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
+            disabled={loading}
+            className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group disabled:opacity-50"
           >
             <div className="text-center">
               <div className="mb-4 text-app-accent">
@@ -112,7 +124,8 @@ const AcademiaSelectPage: React.FC = () => {
 
           <button
             onClick={() => setIsIngresarModalOpen(true)}
-            className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
+            disabled={loading}
+            className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group disabled:opacity-50"
           >
             <div className="text-center">
               <div className="mb-4 text-app-accent">
@@ -135,13 +148,13 @@ const AcademiaSelectPage: React.FC = () => {
                   key={academia.academiaId}
                   onClick={() => handleSeleccionarAcademia(academia.academiaId)}
                   disabled={loading}
-                  className="w-full text-left p-4 bg-app-surface-alt rounded-lg hover:bg-app-accent hover:text-white transition-colors group"
+                  className="w-full text-left p-4 bg-app-surface-alt rounded-lg hover:bg-app-accent hover:text-white transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex justify-between items-center">
                     <div className="flex-grow">
                       <h3 className="text-lg font-medium">{academia.nombre}</h3>
                       <p className="text-sm opacity-70">
-                        ID: <span className="font-mono font-bold">{academia.academiaId || 'Cargando...'}</span> • 
+                        ID: <span className="font-mono font-bold">{academia.id || 'Cargando...'}</span> • 
                         Último acceso: {new Date(academia.ultimoAcceso).toLocaleDateString('es-ES')}
                       </p>
                     </div>
@@ -154,10 +167,19 @@ const AcademiaSelectPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {loading && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-app-surface p-6 rounded-lg">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-accent mx-auto"></div>
+              <p className="mt-4 text-app-secondary">Cargando...</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal Crear Academia */}
-      <Modal isOpen={isCrearModalOpen} onClose={() => setIsCrearModalOpen(false)} title="Crear Nueva Academia">
+      <Modal isOpen={isCrearModalOpen} onClose={() => {setIsCrearModalOpen(false); setError('');}} title="Crear Nueva Academia">
         <form onSubmit={handleCrearAcademia} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-app-secondary mb-2">
@@ -175,8 +197,8 @@ const AcademiaSelectPage: React.FC = () => {
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full app-button btn-success py-3"
+            disabled={loading || !nombreNuevaAcademia.trim()}
+            className="w-full app-button btn-success py-3 disabled:opacity-50"
           >
             {loading ? 'Creando...' : 'Crear Academia'}
           </button>
@@ -184,7 +206,7 @@ const AcademiaSelectPage: React.FC = () => {
       </Modal>
 
       {/* Modal Ingresar Academia */}
-      <Modal isOpen={isIngresarModalOpen} onClose={() => setIsIngresarModalOpen(false)} title="Ingresar a Academia">
+      <Modal isOpen={isIngresarModalOpen} onClose={() => {setIsIngresarModalOpen(false); setError('');}} title="Ingresar a Academia">
         <form onSubmit={handleIngresarAcademia} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-app-secondary mb-2">
@@ -216,8 +238,8 @@ const AcademiaSelectPage: React.FC = () => {
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full app-button btn-primary py-3"
+            disabled={loading || !nombreIngreso.trim() || !idIngreso.trim()}
+            className="w-full app-button btn-primary py-3 disabled:opacity-50"
           >
             {loading ? 'Buscando...' : 'Ingresar'}
           </button>

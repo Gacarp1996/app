@@ -1,8 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Player } from '../types';
-
-const LOCAL_STORAGE_KEY = 'inProgressTrainingSession';
+import { useAcademia } from './AcademiaContext';
 
 export interface SessionExercise {
   id: string;
@@ -33,27 +32,40 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [participants, setParticipants] = useState<Player[]>([]);
   const [exercises, setExercises] = useState<SessionExercise[]>([]);
   const navigate = useNavigate();
+  const { academiaActual } = useAcademia();
 
-  // Al cargar la app por primera vez, solo revisamos si hay algo en localStorage.
+  // Generar clave dinámica basada en la academia
+  const getStorageKey = useCallback(() => {
+    if (!academiaActual?.id) return null;
+    return `inProgressTrainingSession_${academiaActual.id}`;
+  }, [academiaActual]);
+
+  // Al cargar la app por primera vez, solo revisamos si hay algo en localStorage para esa academia
   useEffect(() => {
-    const savedSession = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const storageKey = getStorageKey();
+    if (!storageKey) return;
+    
+    const savedSession = localStorage.getItem(storageKey);
     if (savedSession) {
       setIsSessionActive(true);
     }
-  }, []);
+  }, [getStorageKey]);
 
-  // Guardamos el estado en localStorage CADA VEZ que los participantes o ejercicios cambian.
+  // Guardamos el estado en localStorage CADA VEZ que los participantes o ejercicios cambian
   useEffect(() => {
-    // Si no hay participantes, no hay sesión activa, así que no guardamos nada.
-    if (participants.length === 0) return;
+    const storageKey = getStorageKey();
+    // Si no hay participantes o no hay key, no hay sesión activa, así que no guardamos nada
+    if (!storageKey || participants.length === 0) return;
     
     const sessionData = JSON.stringify({ participants, exercises });
-    localStorage.setItem(LOCAL_STORAGE_KEY, sessionData);
-  }, [participants, exercises]);
-
+    localStorage.setItem(storageKey, sessionData);
+  }, [participants, exercises, getStorageKey]);
 
   const loadSession = useCallback(() => {
-    const savedSession = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const storageKey = getStorageKey();
+    if (!storageKey) return false;
+    
+    const savedSession = localStorage.getItem(storageKey);
     if (savedSession) {
       const { participants: savedParticipants, exercises: savedExercises } = JSON.parse(savedSession);
       if (savedParticipants && savedParticipants.length > 0) {
@@ -64,7 +76,7 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
     return false;
-  }, []);
+  }, [getStorageKey]);
 
   const startSession = useCallback((players: Player[]) => {
     setParticipants(players);
@@ -78,18 +90,27 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setExercises(prev => [...prev, exercise]);
   }, []);
 
-  // ESTA ES LA FUNCIÓN CLAVE MEJORADA
   const endSession = useCallback(() => {
-    // 1. Limpiamos el localStorage.
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
-    // 2. Reiniciamos los estados a su valor inicial.
+    const storageKey = getStorageKey();
+    if (storageKey) {
+      localStorage.removeItem(storageKey);
+    }
     setParticipants([]);
     setExercises([]);
     setIsSessionActive(false);
-  }, []);
+  }, [getStorageKey]);
 
   return (
-    <TrainingContext.Provider value={{ isSessionActive, participants, exercises, setParticipants, startSession, addExercise, endSession, loadSession }}>
+    <TrainingContext.Provider value={{ 
+      isSessionActive, 
+      participants, 
+      exercises, 
+      setParticipants, 
+      startSession, 
+      addExercise, 
+      endSession, 
+      loadSession 
+    }}>
       {children}
     </TrainingContext.Provider>
   );

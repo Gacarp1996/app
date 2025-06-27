@@ -23,7 +23,8 @@ const StartTrainingPage: React.FC<StartTrainingPageProps> = ({ players }) => {
       if (window.confirm("Hemos detectado un entrenamiento en curso. ¿Deseas reanudarlo?")) {
         const sessionWasLoaded = loadSession();
         if (sessionWasLoaded) {
-          const savedSession = JSON.parse(localStorage.getItem('inProgressTrainingSession') || '{}');
+          const storageKey = `inProgressTrainingSession_${JSON.parse(localStorage.getItem('academiaActual') || '{}').id}`;
+          const savedSession = JSON.parse(localStorage.getItem(storageKey) || '{}');
           const playerIds = (savedSession.participants || []).map((p: Player) => p.id).join(',');
           if(playerIds) navigate(`/training/${playerIds}`);
         }
@@ -54,8 +55,6 @@ const StartTrainingPage: React.FC<StartTrainingPageProps> = ({ players }) => {
   const activePlayers = useMemo(() => {
     return players
       .filter(p => p.estado === 'activo')
-      // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
-      // Ordenamos la lista de jugadores activos alfabéticamente.
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [players]);
   
@@ -96,7 +95,7 @@ const StartTrainingPage: React.FC<StartTrainingPageProps> = ({ players }) => {
       )}
 
       <button onClick={handleStartSession} disabled={selectedPlayerIds.size === 0} className="w-full app-button btn-success text-white font-bold py-3 px-4 rounded-lg">
-        Iniciar Sesión
+        Iniciar Entrenamiento
       </button>
 
       <div className="mt-8 text-center"><Link to="/" className="app-link font-medium">&larr; Volver al Inicio</Link></div>
