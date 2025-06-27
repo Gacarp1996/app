@@ -2,10 +2,9 @@ import { db } from "../firebase/firebase-config";
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { TrainingSession } from "../types";
 
-const sessionsCollection = collection(db, "sessions");
-
-export const addSession = async (sessionData: Omit<TrainingSession, "id">) => {
+export const addSession = async (academiaId: string, sessionData: Omit<TrainingSession, "id">) => {
   try {
+    const sessionsCollection = collection(db, "academias", academiaId, "sessions");
     const docRef = await addDoc(sessionsCollection, sessionData);
     console.log("Sesión agregada con ID:", docRef.id);
     return docRef.id;
@@ -15,8 +14,9 @@ export const addSession = async (sessionData: Omit<TrainingSession, "id">) => {
   }
 };
 
-export const getSessions = async (): Promise<TrainingSession[]> => {
+export const getSessions = async (academiaId: string): Promise<TrainingSession[]> => {
   try {
+    const sessionsCollection = collection(db, "academias", academiaId, "sessions");
     const querySnapshot = await getDocs(sessionsCollection);
     const sessions: TrainingSession[] = querySnapshot.docs.map((doc) => {
       const data = doc.data() as Omit<TrainingSession, "id">;
@@ -33,7 +33,7 @@ export const getSessions = async (): Promise<TrainingSession[]> => {
   }
 };
 
-export const deleteSession = async (sessionId: string): Promise<void> => {
+export const deleteSession = async (academiaId: string, sessionId: string): Promise<void> => {
   try {
     if (!sessionId) {
       throw new Error('ID de sesión no proporcionado');
@@ -41,7 +41,7 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
     
     console.log('Intentando eliminar sesión con ID:', sessionId);
     
-    const sessionDoc = doc(db, "sessions", sessionId);
+    const sessionDoc = doc(db, "academias", academiaId, "sessions", sessionId);
     await deleteDoc(sessionDoc);
     
     console.log("Sesión eliminada exitosamente:", sessionId);
@@ -51,13 +51,13 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
   }
 };
 
-export const updateSession = async (sessionId: string, updates: Partial<Omit<TrainingSession, "id">>): Promise<void> => {
+export const updateSession = async (academiaId: string, sessionId: string, updates: Partial<Omit<TrainingSession, "id">>): Promise<void> => {
   try {
     if (!sessionId) {
       throw new Error('ID de sesión no proporcionado');
     }
     
-    const sessionDoc = doc(db, "sessions", sessionId);
+    const sessionDoc = doc(db, "academias", academiaId, "sessions", sessionId);
     await updateDoc(sessionDoc, updates);
     
     console.log("Sesión actualizada exitosamente:", sessionId);

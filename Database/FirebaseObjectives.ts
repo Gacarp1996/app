@@ -1,12 +1,10 @@
 import { db } from "../firebase/firebase-config";
-// Añadimos deleteDoc para poder borrar
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { Objective } from "../types";
 
-const objectivesCollection = collection(db, "objectives");
-
-export const addObjective = async (objectiveData: Omit<Objective, "id">) => {
+export const addObjective = async (academiaId: string, objectiveData: Omit<Objective, "id">) => {
   try {
+    const objectivesCollection = collection(db, "academias", academiaId, "objectives");
     const docRef = await addDoc(objectivesCollection, objectiveData);
     console.log("Objetivo agregado con ID:", docRef.id);
   } catch (error) {
@@ -14,8 +12,9 @@ export const addObjective = async (objectiveData: Omit<Objective, "id">) => {
   }
 };
 
-export const getObjectives = async (): Promise<Objective[]> => {
+export const getObjectives = async (academiaId: string): Promise<Objective[]> => {
   try {
+    const objectivesCollection = collection(db, "academias", academiaId, "objectives");
     const querySnapshot = await getDocs(objectivesCollection);
     const objectives: Objective[] = querySnapshot.docs.map((doc) => {
       const data = doc.data() as Omit<Objective, "id">;
@@ -32,9 +31,9 @@ export const getObjectives = async (): Promise<Objective[]> => {
 };
 
 // Esta función ahora puede actualizar cualquier campo del objetivo
-export const updateObjective = async (id: string, dataToUpdate: Partial<Objective>) => {
+export const updateObjective = async (academiaId: string, id: string, dataToUpdate: Partial<Objective>) => {
   try {
-    const objectiveDoc = doc(db, "objectives", id);
+    const objectiveDoc = doc(db, "academias", academiaId, "objectives", id);
     await updateDoc(objectiveDoc, dataToUpdate);
     console.log("Objetivo actualizado con éxito:", id);
   } catch (error) {
@@ -42,10 +41,9 @@ export const updateObjective = async (id: string, dataToUpdate: Partial<Objectiv
   }
 };
 
-// --- ¡NUEVA FUNCIÓN PARA BORRAR! ---
-export const deleteObjective = async (id: string) => {
+export const deleteObjective = async (academiaId: string, id: string) => {
   try {
-    const objectiveDoc = doc(db, "objectives", id);
+    const objectiveDoc = doc(db, "academias", academiaId, "objectives", id);
     await deleteDoc(objectiveDoc);
     console.log("Objetivo eliminado con éxito:", id);
   } catch (error) {

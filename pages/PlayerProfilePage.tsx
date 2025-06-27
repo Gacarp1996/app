@@ -16,6 +16,7 @@ interface PlayerProfilePageProps {
   sessions: TrainingSession[];
   tournaments: Tournament[];
   onDataChange: () => void;
+  academiaId: string; // NUEVO
 }
 
 type Tab = "perfil" | "trainings" | "objectives" | "tournaments";
@@ -55,7 +56,7 @@ const parseTimeToMinutes = (tiempoCantidad: string): number => {
   return 0;
 };
 
-const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectives, sessions, tournaments, onDataChange }) => {
+const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectives, sessions, tournaments, onDataChange, academiaId }) => {
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
 
@@ -170,20 +171,64 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
       }
     }
   };
+  
   const handleBreadcrumbClick = (index: number) => setDrillDownPath(drillDownPath.slice(0, index));
   const resetDateFilters = () => { setStartDate(''); setEndDate(''); };
   const handleOpenAddTournamentModal = () => { setEditingTournament(null); setIsTournamentModalOpen(true); };
   const handleEditTournamentClick = (tournament: Tournament) => { setEditingTournament(tournament); setIsTournamentModalOpen(true); };
-  const handleSaveTournament = async (data: Omit<Tournament, 'id'|'jugadorId'>) => { if (editingTournament) await updateTournament(editingTournament.id, data); else await addTournament({ ...data, jugadorId: playerId! }); onDataChange(); setIsTournamentModalOpen(false); };
-  const handleDeleteTournament = async (id: string) => { if (window.confirm("¿Seguro?")) { await deleteTournament(id); onDataChange(); }};
+  
+  const handleSaveTournament = async (data: Omit<Tournament, 'id'|'jugadorId'>) => { 
+    if (editingTournament) {
+      await updateTournament(academiaId, editingTournament.id, data);
+    } else {
+      await addTournament(academiaId, { ...data, jugadorId: playerId! });
+    }
+    onDataChange(); 
+    setIsTournamentModalOpen(false); 
+  };
+  
+  const handleDeleteTournament = async (id: string) => { 
+    if (window.confirm("¿Seguro?")) { 
+      await deleteTournament(academiaId, id); 
+      onDataChange(); 
+    }
+  };
+  
   const handleArchivePlayer = () => setIsArchiveModalOpen(true);
-  const confirmArchivePlayer = async () => { if(player) { await updatePlayer(player.id, { estado: 'archivado' }); onDataChange(); navigate('/players'); }};
-  const handleProfileSave = async () => { if (!player) return; const profileData: Partial<Player> = { edad: Number(edad) || undefined, altura: Number(altura) || undefined, peso: Number(peso) || undefined, pesoIdeal: Number(pesoIdeal) || undefined, brazoDominante, canalComunicacion, ojoDominante, historiaDeportiva, lesionesActuales, lesionesPasadas, frecuenciaSemanal, }; await updatePlayer(player.id, profileData); onDataChange(); alert("Perfil actualizado."); };
+  
+  const confirmArchivePlayer = async () => { 
+    if(player) { 
+      await updatePlayer(academiaId, player.id, { estado: 'archivado' }); 
+      onDataChange(); 
+      navigate('/players'); 
+    }
+  };
+  
+  const handleProfileSave = async () => { 
+    if (!player) return; 
+    const profileData: Partial<Player> = { 
+      edad: Number(edad) || undefined, 
+      altura: Number(altura) || undefined, 
+      peso: Number(peso) || undefined, 
+      pesoIdeal: Number(pesoIdeal) || undefined, 
+      brazoDominante, 
+      canalComunicacion, 
+      ojoDominante, 
+      historiaDeportiva, 
+      lesionesActuales, 
+      lesionesPasadas, 
+      frecuenciaSemanal, 
+    }; 
+    await updatePlayer(academiaId, player.id, profileData); 
+    onDataChange(); 
+    alert("Perfil actualizado."); 
+  };
+  
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (window.confirm("¿Estás seguro de que quieres eliminar este entrenamiento? Esta acción no se puede deshacer.")) {
-      await deleteSession(sessionId);
+      await deleteSession(academiaId, sessionId);
       onDataChange();
       alert("Entrenamiento eliminado.");
     }

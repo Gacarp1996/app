@@ -6,6 +6,12 @@ import { addPlayer, updatePlayer } from '../Database/FirebasePlayers';
 interface PlayersListPageProps {
   players: Player[];
   onDataChange: () => void;
+  academiaId: string; // NUEVO
+}
+
+interface PlayersListPageProps {
+  players: Player[];
+  onDataChange: () => void;
 }
 
 const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange }) => {
@@ -14,6 +20,16 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
+  const handleAddPlayer = async (e: React.FormEvent) => {
+  // ... validaciones ...
+  await addPlayer(academiaId, newPlayer); // MODIFICADO
+  // ...};
+
+  const handleSaveEdit = async (playerId: string) => {
+  // ... validaciones ...
+  await updatePlayer(academiaId, playerId, { name: editingName.trim() }); // MODIFICADO
+  // ...};
+  
   const handleAddPlayer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlayerName.trim()) {

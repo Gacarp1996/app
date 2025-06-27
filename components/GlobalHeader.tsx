@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useAcademia } from '../contexts/AcademiaContext';
 import { getAuth, signOut } from 'firebase/auth';
 
 const GlobalHeader: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { currentUser } = useAuth();
+  const { academiaActual, limpiarAcademiaActual } = useAcademia();
   const navigate = useNavigate();
   const location = useLocation();
   const auth = getAuth();
@@ -22,6 +24,11 @@ const GlobalHeader: React.FC = () => {
     }
   };
 
+  const handleCambiarAcademia = () => {
+    limpiarAcademiaActual();
+    navigate('/select-academia');
+  };
+
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
@@ -35,10 +42,8 @@ const GlobalHeader: React.FC = () => {
   return (
     <>
       <header style={{ backgroundColor: 'var(--color-global-header-bg)'}} className="shadow-md fixed top-0 left-0 right-0 z-50">
-        {/* Header principal */}
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo/Título - Más pequeño en móviles */}
             <Link 
               to="/" 
               className="text-xl sm:text-2xl font-bold text-app-accent flex items-center"
@@ -46,9 +51,13 @@ const GlobalHeader: React.FC = () => {
             >
               <span className="hidden sm:inline">TenisCoaching</span>
               <span className="sm:hidden">TC</span>
+              {academiaActual && (
+                <span className="ml-2 text-sm font-normal text-app-secondary">
+                  - {academiaActual.nombre}
+                </span>
+              )}
             </Link>
 
-            {/* Navegación Desktop - Oculta en móviles */}
             {currentUser && (
               <nav className="hidden md:flex items-center space-x-6">
                 <Link 
@@ -78,9 +87,7 @@ const GlobalHeader: React.FC = () => {
               </nav>
             )}
 
-            {/* Botones de acción - Desktop y Móvil */}
             <div className="flex items-center space-x-2 sm:space-x-4">
-              {/* Botón de tema */}
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg hover:bg-app-surface-alt transition-colors"
@@ -98,7 +105,18 @@ const GlobalHeader: React.FC = () => {
                 )}
               </button>
 
-              {/* Botón Cerrar Sesión - Solo Desktop */}
+              {currentUser && academiaActual && (
+                <button
+                  onClick={handleCambiarAcademia}
+                  className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-app-surface-alt hover:bg-app-accent hover:text-white transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                  </svg>
+                  <span>Cambiar Academia</span>
+                </button>
+              )}
+
               {currentUser && (
                 <button
                   onClick={handleLogout}
@@ -111,7 +129,6 @@ const GlobalHeader: React.FC = () => {
                 </button>
               )}
 
-              {/* Menú Hamburguesa - Solo Móvil */}
               {currentUser && (
                 <button
                   onClick={toggleMobileMenu}
@@ -133,7 +150,6 @@ const GlobalHeader: React.FC = () => {
           </div>
         </div>
 
-        {/* Menú Móvil Desplegable */}
         {currentUser && isMobileMenuOpen && (
           <div className="md:hidden bg-app-surface border-t border-app">
             <nav className="px-4 pt-2 pb-4 space-y-2">
@@ -188,6 +204,25 @@ const GlobalHeader: React.FC = () => {
                 </div>
               </Link>
 
+              {academiaActual && (
+                <div className="border-t border-app my-2 pt-2">
+                  <button
+                    onClick={() => {
+                      handleCambiarAcademia();
+                      closeMobileMenu();
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg font-medium text-app-secondary hover:bg-app-surface-alt transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                      </svg>
+                      <span>Cambiar Academia</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+
               <div className="border-t border-app my-2 pt-2">
                 <button
                   onClick={() => {
@@ -209,7 +244,6 @@ const GlobalHeader: React.FC = () => {
         )}
       </header>
 
-      {/* Overlay para cerrar el menú al hacer click fuera */}
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"

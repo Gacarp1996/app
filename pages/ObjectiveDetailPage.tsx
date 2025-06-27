@@ -2,20 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Objective, Player } from '../types';
 import { updateObjective } from '../Database/FirebaseObjectives'; 
-// 1. Importamos el hook para usar nuestro contexto de entrenamiento
 import { useTraining } from '../contexts/TrainingContext';
 
 interface ObjectiveDetailPageProps {
   allObjectives: Objective[];
   players: Player[];
   onDataChange: () => void;
+  academiaId: string; // NUEVO - necesario para las llamadas a Firebase
 }
 
-const ObjectiveDetailPage: React.FC<ObjectiveDetailPageProps> = ({ allObjectives, players, onDataChange }) => {
+const ObjectiveDetailPage: React.FC<ObjectiveDetailPageProps> = ({ allObjectives, players, onDataChange, academiaId }) => {
   const { objectiveId } = useParams<{ objectiveId: string }>();
   const navigate = useNavigate();
-
-  // 2. Obtenemos el estado de la sesión del contexto
+  
   const { isSessionActive, participants } = useTraining();
 
   const [objective, setObjective] = useState<Objective | null>(null);
@@ -36,7 +35,6 @@ const ObjectiveDetailPage: React.FC<ObjectiveDetailPageProps> = ({ allObjectives
     }
   }, [objectiveId, allObjectives, players, navigate]);
   
-  // 3. Creamos la función para volver al entrenamiento en curso
   const handleReturnToTraining = () => {
     if (participants.length > 0) {
         const playerIds = participants.map(p => p.id).join(',');
@@ -57,11 +55,11 @@ const ObjectiveDetailPage: React.FC<ObjectiveDetailPageProps> = ({ allObjectives
       cuerpoObjetivo: editBody.trim() ? editBody.trim() : undefined
     };
 
-    await updateObjective(objective.id, updatedData);
+    // MODIFICADO - ahora incluye academiaId
+    await updateObjective(academiaId, objective.id, updatedData);
     onDataChange();
     alert('Objetivo actualizado con éxito.');
 
-    // Navegación inteligente después de guardar
     if (isSessionActive) {
       handleReturnToTraining();
     } else if (player) {
@@ -113,10 +111,9 @@ const ObjectiveDetailPage: React.FC<ObjectiveDetailPageProps> = ({ allObjectives
             Guardar Cambios
           </button>
           
-          {/* 4. ¡AQUÍ ESTÁ LA LÓGICA! Mostramos un botón u otro según el contexto */}
           {isSessionActive ? (
             <button
-              type="button" // Importante para que no envíe el formulario
+              type="button"
               onClick={handleReturnToTraining}
               className="app-button btn-secondary text-white text-center font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex-grow"
             >
