@@ -52,7 +52,7 @@ const GlobalHeader: React.FC = () => {
               <span className="hidden sm:inline">TenisCoaching</span>
               <span className="sm:hidden">TC</span>
               {academiaActual && (
-                <span className="ml-2 text-sm font-normal text-app-secondary">
+                <span className="ml-2 text-sm font-normal text-app-secondary hidden lg:inline">
                   - {academiaActual.nombre} <span className="text-xs">(ID: {academiaActual.id})</span>
                 </span>
               )}
@@ -106,15 +106,27 @@ const GlobalHeader: React.FC = () => {
               </button>
 
               {currentUser && academiaActual && (
-                <button
-                  onClick={handleCambiarAcademia}
-                  className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-app-surface-alt hover:bg-app-accent hover:text-white transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                  </svg>
-                  <span>Cambiar Academia</span>
-                </button>
+                <>
+                  <button
+                    onClick={() => navigate('/academia-settings')}
+                    className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-app-surface-alt hover:bg-app-accent hover:text-white transition-colors"
+                    title="Configuración de Academia"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                    </svg>
+                    <span>Configuración</span>
+                  </button>
+                  <button
+                    onClick={handleCambiarAcademia}
+                    className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-app-surface-alt hover:bg-app-accent hover:text-white transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                    </svg>
+                    <span>Cambiar Academia</span>
+                  </button>
+                </>
               )}
 
               {currentUser && (
@@ -206,6 +218,20 @@ const GlobalHeader: React.FC = () => {
 
               {academiaActual && (
                 <div className="border-t border-app my-2 pt-2">
+                  <button
+                    onClick={() => {
+                      navigate('/academia-settings');
+                      closeMobileMenu();
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg font-medium text-app-secondary hover:bg-app-surface-alt transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                      </svg>
+                      <span>Configuración de Academia</span>
+                    </div>
+                  </button>
                   <button
                     onClick={() => {
                       handleCambiarAcademia();

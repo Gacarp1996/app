@@ -168,28 +168,29 @@ const AcademiaSettingsPage: React.FC = () => {
     );
   }
 
-  // Solo directores y subdirectores pueden ver esta página
-  if (rolActual !== 'director' && rolActual !== 'subdirector') {
-    return (
-      <div className="text-center py-10">
-        <p className="text-app-secondary mb-4">No tienes permisos para ver esta página</p>
-        <button 
-          onClick={() => navigate('/')} 
-          className="app-button btn-primary"
-        >
-          Volver al Inicio
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
       <h1 className="text-3xl font-bold text-app-accent mb-8">Configuración de Academia</h1>
 
+      {/* Información del Usuario */}
+      <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
+        <h2 className="text-2xl font-semibold text-app-accent mb-4">Mi Perfil</h2>
+        <div className="space-y-2">
+          <p className="text-app-primary">
+            <span className="font-semibold">Email:</span> {currentUser?.email}
+          </p>
+          <p className="text-app-primary">
+            <span className="font-semibold">Mi rol:</span>{' '}
+            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(rolActual)}`}>
+              {getRoleDisplayName(rolActual)}
+            </span>
+          </p>
+        </div>
+      </div>
+
       {/* Información de la Academia */}
       <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
-        <h2 className="text-2xl font-semibold text-app-accent mb-4">Información General</h2>
+        <h2 className="text-2xl font-semibold text-app-accent mb-4">Información de la Academia</h2>
         <div className="space-y-2">
           <p className="text-app-primary">
             <span className="font-semibold">Nombre:</span> {academiaActual.nombre}
@@ -200,67 +201,84 @@ const AcademiaSettingsPage: React.FC = () => {
               {academiaActual.id}
             </span>
           </p>
-          <p className="text-app-primary">
-            <span className="font-semibold">Tu rol:</span>{' '}
-            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(rolActual)}`}>
-              {getRoleDisplayName(rolActual)}
-            </span>
+          <p className="text-sm text-app-secondary mt-2">
+            Comparte este ID con otros entrenadores para que puedan unirse a la academia
           </p>
         </div>
       </div>
 
-      {/* Lista de Usuarios */}
-      <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
-        <h2 className="text-2xl font-semibold text-app-accent mb-4">
-          Usuarios de la Academia ({users.length})
-        </h2>
-        
-        {loading ? (
-          <div className="text-center py-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-app-accent mx-auto"></div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {users.map((user) => (
-              <div 
-                key={user.userId} 
-                className="bg-app-surface-alt p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-              >
-                <div className="flex-grow">
-                  <p className="text-app-primary font-medium">{user.userName || user.userEmail}</p>
-                  <p className="text-app-secondary text-sm">{user.userEmail}</p>
-                  <div className="mt-2">
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(user.role)}`}>
-                      {getRoleDisplayName(user.role)}
-                    </span>
+      {/* Lista de Usuarios - Solo visible para directores y subdirectores */}
+      {(rolActual === 'director' || rolActual === 'subdirector') && (
+        <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
+          <h2 className="text-2xl font-semibold text-app-accent mb-4">
+            Usuarios de la Academia ({users.length})
+          </h2>
+          
+          {loading ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-app-accent mx-auto"></div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {users.map((user) => (
+                <div 
+                  key={user.userId} 
+                  className="bg-app-surface-alt p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                >
+                  <div className="flex-grow">
+                    <p className="text-app-primary font-medium">{user.userName || user.userEmail}</p>
+                    <p className="text-app-secondary text-sm">{user.userEmail}</p>
+                    <div className="mt-2">
+                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(user.role)}`}>
+                        {getRoleDisplayName(user.role)}
+                      </span>
+                    </div>
                   </div>
+                  
+                  {/* Solo los directores pueden modificar usuarios */}
+                  {rolActual === 'director' && user.userId !== currentUser?.uid && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedUserId(user.userId);
+                          setIsRoleModalOpen(true);
+                        }}
+                        className="app-button btn-primary text-sm px-3 py-1"
+                        disabled={processingAction}
+                      >
+                        Cambiar Rol
+                      </button>
+                      <button
+                        onClick={() => handleRemoveUser(user.userId)}
+                        className="app-button btn-danger text-sm px-3 py-1"
+                        disabled={processingAction}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
                 </div>
-                
-                {rolActual === 'director' && user.userId !== currentUser?.uid && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedUserId(user.userId);
-                        setIsRoleModalOpen(true);
-                      }}
-                      className="app-button btn-primary text-sm px-3 py-1"
-                      disabled={processingAction}
-                    >
-                      Cambiar Rol
-                    </button>
-                    <button
-                      onClick={() => handleRemoveUser(user.userId)}
-                      className="app-button btn-danger text-sm px-3 py-1"
-                      disabled={processingAction}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Botón de Cambiar Academia - Visible para todos */}
+      <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
+        <h2 className="text-2xl font-semibold text-app-accent mb-4">Cambiar de Academia</h2>
+        <p className="text-app-secondary mb-4">
+          Si necesitas acceder a otra academia, puedes cambiar desde aquí.
+        </p>
+        <button
+          onClick={() => {
+            limpiarAcademiaActual();
+            navigate('/select-academia');
+          }}
+          className="app-button btn-primary"
+        >
+          Cambiar Academia
+        </button>
       </div>
 
       {/* Sección de Eliminar Academia - Solo para directores */}
@@ -271,7 +289,7 @@ const AcademiaSettingsPage: React.FC = () => {
           </h2>
           <p className="text-app-primary mb-4">
             Eliminar la academia es una acción permanente que no se puede deshacer. 
-            Se eliminarán todos los datos asociados.
+            Se eliminarán todos los datos asociados (jugadores, objetivos, sesiones, torneos).
           </p>
           <button
             onClick={() => setIsDeleteModalOpen(true)}
@@ -394,6 +412,16 @@ const AcademiaSettingsPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Botón para volver */}
+      <div className="mt-8 text-center">
+        <button 
+          onClick={() => navigate('/')} 
+          className="app-link font-medium"
+        >
+          &larr; Volver al Inicio
+        </button>
+      </div>
     </div>
   );
 };

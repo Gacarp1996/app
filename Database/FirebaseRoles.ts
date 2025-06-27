@@ -1,8 +1,6 @@
 // Database/FirebaseRoles.ts
 import { db } from "../firebase/firebase-config";
-import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp, writeBatch } from "firebase/firestore";
-
-export type UserRole = 'director' | 'subdirector' | 'entrenador';
+import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp } from "firebase/firestore";
 
 export type UserRole = 'director' | 'subdirector' | 'entrenador';
 
