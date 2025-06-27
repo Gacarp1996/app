@@ -15,7 +15,7 @@ interface TrainingSessionPageProps {
   academiaId: string;
 }
 
-// El modal para gestionar participantes, sin cambios.
+// El modal para gestionar participantes permanece igual
 interface ManageParticipantsModalProps {
     isOpen: boolean; onClose: () => void; currentParticipants: Player[];
     allPlayersFromStorage: Player[]; onRemoveParticipant: (playerId: string) => void;
@@ -62,11 +62,12 @@ const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({ isOpe
     );
 };
 
-
 const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, allObjectives, allTournaments, onDataChange, academiaId }) => {
   const navigate = useNavigate();
   const { participants, setParticipants, exercises, addExercise, endSession, loadSession } = useTraining();
 
+  // TODOS los useState deben estar ANTES de cualquier return condicional
+  const [isLoading, setIsLoading] = useState(true);
   const [activePlayerIds, setActivePlayerIds] = useState<Set<string>>(new Set(participants.map(p => p.id)));
   const [isObjectiveModalOpen, setIsObjectiveModalOpen] = useState(false);
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
@@ -76,26 +77,9 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
   const [currentEjercicioName, setCurrentEjercicioName] = useState<string>('');
   const [tiempoCantidad, setTiempoCantidad] = useState<string>('');
   const [intensidad, setIntensidad] = useState<number>(5);
-
   const [observaciones, setObservaciones] = useState('');
-  
-  useEffect(() => {
-    if (participants.length === 0) {
-      const loaded = loadSession();
-      if (!loaded) {
-        navigate('/start-training');
-      }
-    }
-  }, []);
 
-  useEffect(() => {
-    setActivePlayerIds(new Set(participants.map(p => p.id)));
-    if (participants.length > 0 && !modalOpenedOnceRef.current) {
-        setIsObjectiveModalOpen(true);
-        modalOpenedOnceRef.current = true;
-    }
-  }, [participants]);
-
+  // TODOS los useMemo también deben estar antes de cualquier return
   const playerNamesDisplay = useMemo(() => participants.map(p => p.name).join(', '), [participants]);
   const singleActivePlayer = useMemo(() => (activePlayerIds.size === 1) ? participants.find(p => p.id === Array.from(activePlayerIds)[0]) : null, [activePlayerIds, participants]);
   const objectivesForSingleActivePlayer = useMemo(() => singleActivePlayer ? allObjectives.filter(obj => obj.jugadorId === singleActivePlayer.id && obj.estado === 'actual-progreso') : [], [singleActivePlayer, allObjectives]);
@@ -104,6 +88,30 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
   const availableAreaKeys = currentTipoKey ? Object.keys(NEW_EXERCISE_HIERARCHY_CONST[currentTipoKey] || {}) : [];
   const availableEjercicioNames = currentTipoKey && currentAreaKey ? NEW_EXERCISE_HIERARCHY_CONST[currentTipoKey]?.[currentAreaKey]! : [];
 
+  // useEffect para cargar la sesión
+  useEffect(() => {
+    if (participants.length === 0) {
+      const loaded = loadSession();
+      if (!loaded) {
+        navigate('/start-training');
+      } else {
+        setIsLoading(false);
+      }
+    } else {
+      setIsLoading(false);
+    }
+  }, [participants.length, loadSession, navigate]);
+
+  // useEffect para actualizar activePlayerIds y mostrar modal
+  useEffect(() => {
+    setActivePlayerIds(new Set(participants.map(p => p.id)));
+    if (participants.length > 0 && !modalOpenedOnceRef.current) {
+        setIsObjectiveModalOpen(true);
+        modalOpenedOnceRef.current = true;
+    }
+  }, [participants]);
+
+  // Todas las funciones handler
   const handlePlayerToggleActive = (playerId: string) => {
     const newSelection = new Set(activePlayerIds);
     newSelection.has(playerId) ? newSelection.delete(playerId) : newSelection.add(playerId);
@@ -169,8 +177,31 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
   const handleAddParticipant = (player: Player) => setParticipants(prev => [...prev, player]);
   const handleRemoveParticipant = (playerId: string) => setParticipants(prev => prev.filter(p => p.id !== playerId));
 
-  if (participants.length === 0) return <div className="text-center py-10">Cargando o reanudando sesión...</div>;
+  // AHORA SÍ, después de todos los hooks, podemos hacer returns condicionales
+  if (isLoading) {
+    return (
+      <div className="text-center py-10">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-accent mx-auto"></div>
+        <p className="mt-4 text-app-secondary">Cargando sesión de entrenamiento...</p>
+      </div>
+    );
+  }
 
+  if (participants.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-app-secondary mb-4">No se pudo cargar la sesión</p>
+        <button 
+          onClick={() => navigate('/start-training')} 
+          className="app-button btn-primary"
+        >
+          Volver a Inicio
+        </button>
+      </div>
+    );
+  }
+
+  // Render principal del componente
   return (
     <div className="max-w-4xl mx-auto pb-8">
       <ObjectiveModal isOpen={isObjectiveModalOpen} onClose={() => setIsObjectiveModalOpen(false)} selectedPlayers={participants} allObjectives={allObjectives} allTournaments={allTournaments} />

@@ -31,6 +31,7 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
   const [participants, setParticipants] = useState<Player[]>([]);
   const [exercises, setExercises] = useState<SessionExercise[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const navigate = useNavigate();
   const { academiaActual } = useAcademia();
 
@@ -40,48 +41,79 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return `inProgressTrainingSession_${academiaActual.id}`;
   }, [academiaActual]);
 
-  // Al cargar la app por primera vez, solo revisamos si hay algo en localStorage para esa academia
+  // Verificar si hay una sesión guardada al inicializar
   useEffect(() => {
+  if (!isInitialized && academiaActual) {
+    const storageKey = getStorageKey();
+    if (storageKey) {
+      const savedSession = localStorage.getItem(storageKey);
+      if (savedSession) {
+        try {
+          const parsedSession = JSON.parse(savedSession);
+          // Solo verificamos si hay participantes para marcar que hay una sesión activa
+          if (parsedSession.participants && Array.isArray(parsedSession.participants) && parsedSession.participants.length > 0) {
+            setIsSessionActive(true);
+            // No cargamos los datos aquí, solo marcamos que hay una sesión activa
+          }
+        } catch (error) {
+          console.error('Error al verificar sesión guardada:', error);
+          localStorage.removeItem(storageKey);
+        }
+      }
+    }
+    setIsInitialized(true);
+  }
+}, [academiaActual, getStorageKey, isInitialized]);
+
+  // Guardar el estado cuando cambian los participantes o ejercicios
+  useEffect(() => {
+    if (!isInitialized) return;
+    
     const storageKey = getStorageKey();
     if (!storageKey) return;
     
-    const savedSession = localStorage.getItem(storageKey);
-    if (savedSession) {
-      setIsSessionActive(true);
+    if (participants.length > 0 || exercises.length > 0) {
+      const sessionData = JSON.stringify({ participants, exercises });
+      localStorage.setItem(storageKey, sessionData);
+    } else if (participants.length === 0 && exercises.length === 0 && !isSessionActive) {
+      // Si no hay datos y la sesión no está activa, limpiar localStorage
+      localStorage.removeItem(storageKey);
     }
-  }, [getStorageKey]);
-
-  // Guardamos el estado en localStorage CADA VEZ que los participantes o ejercicios cambian
-  useEffect(() => {
-    const storageKey = getStorageKey();
-    // Si no hay participantes o no hay key, no hay sesión activa, así que no guardamos nada
-    if (!storageKey || participants.length === 0) return;
-    
-    const sessionData = JSON.stringify({ participants, exercises });
-    localStorage.setItem(storageKey, sessionData);
-  }, [participants, exercises, getStorageKey]);
+  }, [participants, exercises, getStorageKey, isInitialized, isSessionActive]);
 
   const loadSession = useCallback(() => {
     const storageKey = getStorageKey();
     if (!storageKey) return false;
     
-    const savedSession = localStorage.getItem(storageKey);
-    if (savedSession) {
-      const { participants: savedParticipants, exercises: savedExercises } = JSON.parse(savedSession);
-      if (savedParticipants && savedParticipants.length > 0) {
-        setParticipants(savedParticipants);
-        setExercises(savedExercises || []);
-        setIsSessionActive(true);
-        return true;
+    try {
+      const savedSession = localStorage.getItem(storageKey);
+      if (savedSession) {
+        const { participants: savedParticipants, exercises: savedExercises } = JSON.parse(savedSession);
+        if (savedParticipants && Array.isArray(savedParticipants) && savedParticipants.length > 0) {
+          setParticipants(savedParticipants);
+          setExercises(savedExercises || []);
+          setIsSessionActive(true);
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar sesión:', error);
+      const storageKey = getStorageKey();
+      if (storageKey) {
+        localStorage.removeItem(storageKey);
       }
     }
     return false;
   }, [getStorageKey]);
 
   const startSession = useCallback((players: Player[]) => {
+    if (players.length === 0) return;
+    
     setParticipants(players);
     setExercises([]);
     setIsSessionActive(true);
+    
+    // Navegar inmediatamente a la página de entrenamiento
     const playerIds = players.map(p => p.id).join(',');
     navigate(`/training/${playerIds}`);
   }, [navigate]);

@@ -1,41 +1,59 @@
+// contexts/AcademiaContext.tsx
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase-config';
-import { Academia } from '../Database/FirebaseAcademias'; // AGREGAR ESTE IMPORT
+import { Academia } from '../Database/FirebaseAcademias';
+import { getUserRoleInAcademia, addUserToAcademia, UserRole } from '../Database/FirebaseRoles';
 
 interface UserAcademia {
   academiaId: string;
   nombre: string;
   id?: string;
   ultimoAcceso: Date;
+  role?: UserRole; // Agregamos el rol aquí
 }
 
 interface AcademiaContextType {
-  academiaActual: Academia | null; // CAMBIAR any por Academia
+  academiaActual: Academia | null;
+  rolActual: UserRole | null; // Nuevo: rol del usuario en la academia actual
   misAcademias: UserAcademia[];
   loading: boolean;
-  setAcademiaActual: (academia: Academia | null) => void; // CAMBIAR any por Academia
+  setAcademiaActual: (academia: Academia | null) => void;
   cargarMisAcademias: () => Promise<void>;
   registrarAccesoAcademia: (academiaId: string, nombre: string) => Promise<void>;
   limpiarAcademiaActual: () => void;
 }
 
-// ... resto del código sin cambios
 const AcademiaContext = createContext<AcademiaContextType | undefined>(undefined);
 
 export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [academiaActual, setAcademiaActual] = useState<Academia | null>(null);
+  const [academiaActual, setAcademiaActualState] = useState<Academia | null>(null);
+  const [rolActual, setRolActual] = useState<UserRole | null>(null);
   const [misAcademias, setMisAcademias] = useState<UserAcademia[]>([]);
   const [loading, setLoading] = useState(true);
   const { currentUser } = useAuth();
+
+  // Función actualizada para establecer la academia actual y cargar el rol
+  const setAcademiaActual = async (academia: Academia | null) => {
+    setAcademiaActualState(academia);
+    
+    if (academia && currentUser) {
+      // Cargar el rol del usuario en esta academia
+      const role = await getUserRoleInAcademia(academia.id, currentUser.uid);
+      setRolActual(role);
+    } else {
+      setRolActual(null);
+    }
+  };
 
   useEffect(() => {
     if (currentUser) {
       cargarMisAcademias();
     } else {
       setMisAcademias([]);
-      setAcademiaActual(null);
+      setAcademiaActualState(null);
+      setRolActual(null);
     }
     setLoading(false);
   }, [currentUser]);
@@ -49,20 +67,25 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
         const data = userDoc.data();
         const academias = data.academias || [];
         
-        // Cargar el ID de cada academia si no está presente
-        const academiasConId = await Promise.all(
+        // Cargar el ID y rol de cada academia
+        const academiasConIdYRol = await Promise.all(
           academias.map(async (academia: UserAcademia) => {
             if (!academia.id && academia.academiaId) {
               const academiaDoc = await getDoc(doc(db, 'academias', academia.academiaId));
               if (academiaDoc.exists()) {
-                return { ...academia, id: academiaDoc.data().id };
+                academia.id = academiaDoc.data().id;
               }
             }
+            
+            // Cargar el rol del usuario en esta academia
+            const role = await getUserRoleInAcademia(academia.academiaId, currentUser.uid);
+            academia.role = role || undefined;
+            
             return academia;
           })
         );
         
-        setMisAcademias(academiasConId);
+        setMisAcademias(academiasConIdYRol);
       }
     } catch (error) {
       console.error('Error cargando mis academias:', error);
@@ -77,11 +100,27 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       const academiaDoc = await getDoc(doc(db, 'academias', academiaId));
       const academiaData = academiaDoc.exists() ? academiaDoc.data() : null;
       
+      // Verificar si el usuario tiene un rol en esta academia
+      let userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
+      
+      // Si no tiene rol, asignarlo como entrenador
+      if (!userRole) {
+        await addUserToAcademia(
+          academiaId,
+          currentUser.uid,
+          currentUser.email || '',
+          'entrenador',
+          currentUser.displayName || currentUser.email?.split('@')[0]
+        );
+        userRole = 'entrenador';
+      }
+      
       const nuevoAcceso = {
         academiaId,
         nombre,
         id: academiaData?.id || '',
-        ultimoAcceso: new Date()
+        ultimoAcceso: new Date(),
+        role: userRole
       };
 
       const userRef = doc(db, 'userAcademias', currentUser.uid);
@@ -106,12 +145,14 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const limpiarAcademiaActual = () => {
-    setAcademiaActual(null);
+    setAcademiaActualState(null);
+    setRolActual(null);
   };
 
   return (
     <AcademiaContext.Provider value={{
       academiaActual,
+      rolActual,
       misAcademias,
       loading,
       setAcademiaActual,

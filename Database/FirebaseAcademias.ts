@@ -1,7 +1,9 @@
+// Database/FirebaseAcademias.ts
 import { db } from "../firebase/firebase-config";
 import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
+import { addUserToAcademia } from "./FirebaseRoles";
+import { getAuth } from "firebase/auth";
 
-// 1. MUEVE LA INTERFAZ FUERA DE LAS FUNCIONES Y EXPORTALA
 export interface Academia {
   nombre: string;
   id: string;
@@ -10,7 +12,7 @@ export interface Academia {
   activa: boolean;
 }
 
-// 2. Generar ID único de 6 caracteres
+// Generar ID único de 6 caracteres
 const generarIdUnico = (): string => {
   const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let resultado = '';
@@ -20,7 +22,7 @@ const generarIdUnico = (): string => {
   return resultado;
 };
 
-// 3. ACTUALIZA crearAcademia para usar la interfaz exportada
+// ACTUALIZADO: Ahora también asigna el rol de director al creador
 export const crearAcademia = async (nombre: string, creadorId: string): Promise<string> => {
   try {
     let idUnico = generarIdUnico();
@@ -45,8 +47,26 @@ export const crearAcademia = async (nombre: string, creadorId: string): Promise<
       activa: true
     };
 
+    // Crear la academia
     const docRef = await addDoc(collection(db, "academias"), nuevaAcademia);
     console.log("Academia creada con ID:", docRef.id);
+    
+    // Obtener el email del usuario actual
+    const auth = getAuth();
+    const userEmail = auth.currentUser?.email || '';
+    const userName = auth.currentUser?.displayName || userEmail.split('@')[0];
+    
+    // Asignar rol de director al creador
+    await addUserToAcademia(
+      docRef.id,
+      creadorId,
+      userEmail,
+      'director',
+      userName
+    );
+    
+    console.log("Rol de director asignado al creador");
+    
     return docRef.id;
   } catch (error) {
     console.error("Error al crear academia:", error);
@@ -54,7 +74,7 @@ export const crearAcademia = async (nombre: string, creadorId: string): Promise<
   }
 };
 
-// 4. ACTUALIZA buscarAcademiaPorIdYNombre con el tipo de retorno
+// Sin cambios en el resto de las funciones
 export const buscarAcademiaPorIdYNombre = async (id: string, nombre: string): Promise<Academia | null> => {
   try {
     const q = query(
@@ -81,7 +101,6 @@ export const buscarAcademiaPorIdYNombre = async (id: string, nombre: string): Pr
   }
 };
 
-// 5. ACTUALIZA obtenerAcademiaPorId con el tipo de retorno
 export const obtenerAcademiaPorId = async (academiaId: string): Promise<Academia | null> => {
   try {
     const docRef = doc(db, "academias", academiaId);
