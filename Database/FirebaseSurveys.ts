@@ -1,155 +1,145 @@
 import { db } from "../firebase/firebase-config";
-import { collection, addDoc, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  Timestamp,
+} from "firebase/firestore";
 import { PostTrainingSurvey } from "../types";
 
-// Agregar una encuesta post-entrenamiento
 export const addPostTrainingSurvey = async (
   academiaId: string,
-  surveyData: Omit<PostTrainingSurvey, "id">
-): Promise<void> => {
+  surveyData: Omit<PostTrainingSurvey, 'id'>
+): Promise<string> => {
   try {
+    const surveyWithTimestamp = {
+      ...surveyData,
+      // Se asegura de que la fecha se guarde como un tipo de dato nativo de Firebase
+      fecha: Timestamp.fromDate(new Date(surveyData.fecha)),
+    };
     const surveysCollection = collection(db, "academias", academiaId, "surveys");
-    await addDoc(surveysCollection, {
-      jugadorId: surveyData.jugadorId,
-      sessionId: surveyData.sessionId,
-      cansancioFisico: surveyData.cansancioFisico,
-      concentracion: surveyData.concentracion,
-      actitudMental: surveyData.actitudMental,
-      sensacionesTenisticas: surveyData.sensacionesTenisticas,
-      fecha: Timestamp.now() // Usar Timestamp.now() en lugar de convertir desde string
-    });
-    console.log("Encuesta post-entrenamiento agregada exitosamente");
+    const docRef = await addDoc(surveysCollection, surveyWithTimestamp);
+    return docRef.id;
   } catch (error) {
-    console.error("Error al agregar encuesta:", error);
-    throw error;
+    console.error("Error al guardar la encuesta:", error);
+    throw new Error("No se pudo guardar la encuesta");
   }
 };
 
-// Verificar si ya existe una encuesta para un jugador en una sesión específica
 export const checkSurveyExists = async (
   academiaId: string,
   jugadorId: string,
-  sessionId: string
+  fecha: Date
 ): Promise<boolean> => {
   try {
+    const startOfDay = new Date(fecha);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(fecha);
+    endOfDay.setHours(23, 59, 59, 999);
+
     const surveysCollection = collection(db, "academias", academiaId, "surveys");
     const q = query(
       surveysCollection,
       where("jugadorId", "==", jugadorId),
-      where("sessionId", "==", sessionId)
+      where("fecha", ">=", Timestamp.fromDate(startOfDay)),
+      where("fecha", "<=", Timestamp.fromDate(endOfDay))
     );
     const querySnapshot = await getDocs(q);
     return !querySnapshot.empty;
   } catch (error) {
-    console.error("Error verificando encuesta:", error);
+    console.error("Error al chequear si la encuesta existe:", error);
     return false;
   }
 };
 
-// Obtener todas las encuestas de un jugador
 export const getPlayerSurveys = async (
   academiaId: string,
   jugadorId: string,
   startDate?: Date,
   endDate?: Date
 ): Promise<PostTrainingSurvey[]> => {
-  console.log('getPlayerSurveys llamada con:', { academiaId, jugadorId, startDate, endDate });
+  // Esta función ahora es más simple. Confía en las fechas que recibe.
+  console.log('Recibiendo fechas para query:', { startDate, endDate });
 
   try {
     const surveysCollection = collection(db, "academias", academiaId, "surveys");
-    let q = query(
-      surveysCollection,
+    
+    // El 'any' es para darle flexibilidad a la construcción dinámica de la consulta
+    const queryConstraints: any[] = [
       where("jugadorId", "==", jugadorId),
-      orderBy("fecha", "desc")
-    );
+    ];
+
+    if (startDate) {
+      queryConstraints.push(where("fecha", ">=", Timestamp.fromDate(startDate)));
+    }
+    if (endDate) {
+      queryConstraints.push(where("fecha", "<=", Timestamp.fromDate(endDate)));
+    }
+    
+    // El orderBy de fecha debe ir después de los filtros de desigualdad de fecha
+    queryConstraints.push(orderBy("fecha", "desc"));
+    
+    const q = query(surveysCollection, ...queryConstraints);
 
     const querySnapshot = await getDocs(q);
-    console.log('Query ejecutada, documentos encontrados:', querySnapshot.size);
-    const surveys: PostTrainingSurvey[] = [];
 
-    // Obtener el offset de zona horaria del usuario (en minutos)
-    const userTimezoneOffset = new Date().getTimezoneOffset();
-
-    querySnapshot.forEach((doc) => {
+    const surveys: PostTrainingSurvey[] = querySnapshot.docs.map((doc) => {
       const data = doc.data();
-      const surveyDateUTC = data.fecha.toDate();
-
-      // Convertir la fecha UTC de la encuesta a la zona horaria del usuario
-      const surveyDateLocal = new Date(surveyDateUTC.getTime() - (userTimezoneOffset * 60 * 1000));
-
-      console.log('Fecha UTC:', surveyDateUTC.toISOString());
-      console.log('Fecha Local:', surveyDateLocal.toISOString());
-
-      let includeInResults = true;
-
-      if (startDate) {
-        const startOfDay = new Date(startDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        if (surveyDateLocal < startOfDay) includeInResults = false;
-      }
-
-      if (endDate && includeInResults) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (surveyDateLocal > endOfDay) includeInResults = false;
-      }
-
-      if (includeInResults) {
-        surveys.push({
-          id: doc.id,
-          ...data,
-          fecha: surveyDateUTC.toISOString()
-        } as PostTrainingSurvey);
-      }
+      return {
+        id: doc.id,
+        ...data,
+        fecha: data.fecha.toDate().toISOString()
+      } as PostTrainingSurvey;
     });
 
-    console.log('Encuestas procesadas:', surveys.length);
-    return surveys.sort((a, b) =>
-      new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-    );
+    return surveys;
+
   } catch (error) {
     console.error('Error obteniendo encuestas del jugador:', error);
+    // Este tipo de error de Firebase suele ocurrir si falta un índice.
+    // La consola del navegador te dará un link para crearlo con un solo click.
+    if (error instanceof Error && error.message.includes("indexes")) {
+        alert("Error de base de datos: Falta un índice compuesto. Revisa la consola del navegador (F12) para encontrar un link para crearlo automáticamente en Firebase.");
+    }
     return [];
   }
 };
 
-
-
-
-// Obtener encuestas múltiples para varios jugadores y sesiones
 export const getBatchSurveys = async (
-  academiaId: string,
-  playerSessionPairs: { jugadorId: string; sessionId: string }[]
-): Promise<Map<string, PostTrainingSurvey>> => {
-  try {
-    const surveysMap = new Map<string, PostTrainingSurvey>();
-    
-    // Para optimizar, podríamos hacer una sola consulta con múltiples condiciones
-    // Pero por simplicidad, haremos consultas individuales
-    for (const pair of playerSessionPairs) {
-      const surveysCollection = collection(db, "academias", academiaId, "surveys");
+    academiaId: string,
+    playerIds: string[],
+    startDate: Date,
+    endDate: Date
+  ): Promise<PostTrainingSurvey[]> => {
+    try {
+      const surveysCollection = collection(db, 'academias', academiaId, 'surveys');
+      
+      const adjustedEndDate = new Date(endDate);
+      adjustedEndDate.setHours(23, 59, 59, 999);
+      
       const q = query(
         surveysCollection,
-        where("jugadorId", "==", pair.jugadorId),
-        where("sessionId", "==", pair.sessionId)
+        where('jugadorId', 'in', playerIds),
+        where('fecha', '>=', Timestamp.fromDate(startDate)),
+        where('fecha', '<=', Timestamp.fromDate(adjustedEndDate)),
+        orderBy('fecha', 'desc')
       );
-      
+  
       const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
+      const surveys: PostTrainingSurvey[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        const key = `${pair.jugadorId}-${pair.sessionId}`;
-        surveysMap.set(key, {
+        return {
           id: doc.id,
           ...data,
-          fecha: data.fecha.toDate().toISOString()
-        } as PostTrainingSurvey);
-      }
+          fecha: data.fecha.toDate().toISOString(),
+        } as PostTrainingSurvey;
+      });
+      return surveys;
+    } catch (error) {
+      console.error('Error al obtener las encuestas del lote:', error);
+      return [];
     }
-    
-    return surveysMap;
-  } catch (error) {
-    console.error("Error obteniendo encuestas en lote:", error);
-    return new Map();
-  }
-};
+  };

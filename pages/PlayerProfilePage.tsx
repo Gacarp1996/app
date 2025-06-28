@@ -1,5 +1,5 @@
 // pages/PlayerProfilePage.tsx
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Player, Objective, TrainingSession, Tournament, ObjectiveEstado, TrainingType, TrainingArea, ChartDataPoint, LoggedExercise, IntensityDataPoint, PostTrainingSurvey } from '../types';
 import { OBJECTIVE_ESTADOS, MAX_ACTIVE_OBJECTIVES, EXERCISE_HIERARCHY } from '../constants';
@@ -13,7 +13,6 @@ import { updatePlayer } from '../Database/FirebasePlayers';
 import { deleteSession } from '../Database/FirebaseSessions';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
 
-
 interface PlayerProfilePageProps {
   players: Player[];
   objectives: Objective[];
@@ -23,10 +22,8 @@ interface PlayerProfilePageProps {
   academiaId: string;
 }
 
-// MODIFICADO: Eliminar "surveys" del tipo Tab
 type Tab = "perfil" | "trainings" | "objectives" | "tournaments";
 
-// Función helper para parsear el tiempo y convertirlo a minutos
 const parseTimeToMinutes = (tiempoCantidad: string): number => {
   const cleanTime = tiempoCantidad.trim().toLowerCase();
   
@@ -55,7 +52,6 @@ const parseTimeToMinutes = (tiempoCantidad: string): number => {
   return 0;
 };
 
-// NUEVO: Función helper para obtener fechas por defecto (últimos 6 días)
 const getDefaultDateRange = () => {
   const endDate = new Date();
   const startDate = new Date();
@@ -85,7 +81,6 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
   const [lesionesPasadas, setLesionesPasadas] = useState('');
   const [frecuenciaSemanal, setFrecuenciaSemanal] = useState('');
   
-  // MODIFICADO: Inicializar con los últimos 6 días
   const defaultDates = getDefaultDateRange();
   const [startDate, setStartDate] = useState<string>(defaultDates.start);
   const [endDate, setEndDate] = useState<string>(defaultDates.end);
@@ -97,26 +92,18 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   
-  // Estados para las encuestas
   const [playerSurveys, setPlayerSurveys] = useState<PostTrainingSurvey[]>([]);
   const [surveysLoading, setSurveysLoading] = useState(false);
 
-  // NUEVO: Ref para controlar si ya se cargaron las encuestas iniciales
-  const surveysLoadedRef = useRef(false);
-
   const userTimeZone = useMemo(() => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch (error) {
-    console.warn('No se pudo detectar la zona horaria, usando default');
-    return 'America/Argentina/Buenos_Aires';
-  }
-}, []);
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch (error) {
+      console.warn('No se pudo detectar la zona horaria, usando default');
+      return 'America/Argentina/Buenos_Aires';
+    }
+  }, []);
 
-
-
-
-  // Cargar datos del jugador
   useEffect(() => {
     const foundPlayer = players.find(p => p.id === playerId);
     if (foundPlayer) {
@@ -137,28 +124,23 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
     }
   }, [playerId, players, navigate]);
 
-  // MODIFICADO: Cargar encuestas cuando se selecciona la pestaña de entrenamientos
-  useEffect(() => {
-    if (activeTab === 'trainings' && playerId && !surveysLoadedRef.current) {
-      surveysLoadedRef.current = true;
-      loadPlayerSurveys();
-    }
-  }, [activeTab, playerId]);
-
-  // MODIFICADO: Cargar encuestas cuando cambian las fechas
-  useEffect(() => {
-    if (activeTab === 'trainings' && playerId && surveysLoadedRef.current) {
-      loadPlayerSurveys();
-    }
-  }, [startDate, endDate]);
-
   const loadPlayerSurveys = async () => {
     if (!playerId) return;
     
     setSurveysLoading(true);
     try {
-      const startDateObj = startDate ? new Date(startDate) : undefined;
-      const endDateObj = endDate ? new Date(endDate) : undefined;
+      const userTimezoneOffset = new Date().getTimezoneOffset() * 60000;
+      
+      const startDateObj = startDate ? new Date(new Date(startDate).getTime() + userTimezoneOffset) : undefined;
+      
+      let endDateObj;
+      if (endDate) {
+          endDateObj = new Date(new Date(endDate).getTime() + userTimezoneOffset);
+          endDateObj.setHours(23, 59, 59, 999);
+      } else {
+          endDateObj = undefined;
+      }
+
       const surveys = await getPlayerSurveys(academiaId, playerId, startDateObj, endDateObj);
       setPlayerSurveys(surveys);
     } catch (error) {
@@ -168,16 +150,30 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
     }
   };
 
-  // Cálculos memoizados existentes
+  useEffect(() => {
+    if (activeTab === 'trainings' && playerId) {
+      loadPlayerSurveys();
+    }
+  }, [activeTab, playerId, startDate, endDate]);
+
   const playerAllObjectives = useMemo(() => objectives.filter(obj => obj.jugadorId === playerId), [objectives, playerId]);
   const playerActualObjectivesCount = useMemo(() => playerAllObjectives.filter(obj => obj.estado === 'actual-progreso').length, [playerAllObjectives]);
   const playerTournaments = useMemo(() => tournaments.filter(t => t.jugadorId === playerId).sort((a,b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime()), [tournaments, playerId]);
   
   const dateFilteredSessions = useMemo(() => {
-    let s = sessions.filter(s => s.jugadorId === playerId);
-    if (startDate) { const start = new Date(startDate); start.setHours(0,0,0,0); s = s.filter(session => new Date(session.fecha) >= start); }
-    if (endDate) { const end = new Date(endDate); end.setHours(23,59,59,999); s = s.filter(session => new Date(session.fecha) <= end); }
-    return s.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    if (!startDate || !endDate) return [];
+    
+    const userTimezoneOffset = new Date().getTimezoneOffset() * 60000;
+    const start = new Date(new Date(startDate).getTime() + userTimezoneOffset);
+    const end = new Date(new Date(endDate).getTime() + userTimezoneOffset);
+    end.setHours(23, 59, 59, 999);
+
+    return sessions
+      .filter(s => {
+        const sessionDate = new Date(s.fecha);
+        return s.jugadorId === playerId && sessionDate >= start && sessionDate <= end;
+      })
+      .sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
   }, [sessions, playerId, startDate, endDate]);
 
   const drillDownData = useMemo((): ChartDataPoint[] => {
@@ -228,7 +224,6 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
     return data.reverse();
   }, [dateFilteredSessions, drillDownPath]);
 
-  // Handlers existentes
   const handlePieSliceClick = (dataPoint: ChartDataPoint) => {
     if (!dataPoint.name || (drillDownPath.length > 1 && dataPoint.type === 'Exercise')) return;
     if (drillDownPath.length < 2) {
@@ -241,7 +236,6 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
   
   const handleBreadcrumbClick = (index: number) => setDrillDownPath(drillDownPath.slice(0, index));
   
-  // MODIFICADO: Resetear fechas a los últimos 6 días
   const resetDateFilters = () => {
     const defaultDates = getDefaultDateRange();
     setStartDate(defaultDates.start);
@@ -353,7 +347,6 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
         <section className="bg-app-surface p-4 sm:p-6 rounded-lg shadow-lg">
           <h2 className="text-2xl sm:text-3xl font-semibold text-app-accent mb-6 sm:mb-8">Información Detallada</h2>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-10">
-            {/* Datos Físicos */}
             <div className="bg-app-surface-alt p-5 sm:p-6 rounded-lg space-y-4">
               <h3 className="text-lg sm:text-xl font-semibold text-app-accent border-b pb-3 mb-4">Datos Físicos</h3>
               <div className="space-y-4">
@@ -376,7 +369,6 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
               </div>
             </div>
             
-            {/* Dominancias */}
             <div className="bg-app-surface-alt p-5 sm:p-6 rounded-lg space-y-4">
               <h3 className="text-lg sm:text-xl font-semibold text-app-accent border-b pb-3 mb-4">Dominancias</h3>
               <div className="space-y-4">
@@ -401,7 +393,6 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
               </div>
             </div>
             
-            {/* Entrenamiento */}
             <div className="bg-app-surface-alt p-5 sm:p-6 rounded-lg space-y-4">
               <h3 className="text-lg sm:text-xl font-semibold text-app-accent border-b pb-3 mb-4">Entrenamiento</h3>
               <div>
@@ -411,7 +402,6 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
             </div>
           </div>
           
-          {/* Historia y Lesiones */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 mt-8 sm:mt-10">
             <div className="bg-app-surface-alt p-5 sm:p-6 rounded-lg">
               <h3 className="text-lg sm:text-xl font-semibold text-app-accent mb-4">Historia Deportiva</h3>
@@ -440,9 +430,8 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
 
       {activeTab === "trainings" && (
         <section className="space-y-8">
-          {/* Filtro de fechas compartido */}
           <div className="bg-app-surface p-4 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-app-accent mb-3">Filtrar por Fecha (aplica a todos los gráficos)</h3>
+            <h3 className="text-lg font-semibold text-app-accent mb-3">Filtrar por Fecha</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
               <div>
                 <label htmlFor="startDate" className="block text-sm font-medium">Desde</label>
@@ -452,56 +441,32 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
                 <label htmlFor="endDate" className="block text-sm font-medium">Hasta</label>
                 <input type="date" id="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 app-input"/>
               </div>
-              <button onClick={resetDateFilters} className="app-button btn-secondary h-10">Restablecer (últimos 6 días)</button>
+              <button onClick={resetDateFilters} className="app-button btn-secondary h-10">Restablecer (últimos 7 días)</button>
             </div>
           </div>
 
-          {/* Gráficos de ejercicios */}
-          {dateFilteredSessions.length === 0 ? (
-            <p className="text-center p-4 text-app-secondary">No hay sesiones de entrenamiento en el período seleccionado</p>
-          ) : (
-            <>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  {drillDownPath.length > 0 && (
-                    <nav className="mb-2 text-sm">
-                      <button onClick={() => handleBreadcrumbClick(0)} className="hover:underline">Inicio</button>
-                      {drillDownPath.map((item, i) => (
-                        <span key={i}> &gt; <button onClick={() => handleBreadcrumbClick(i + 1)} className="hover:underline">{item}</button></span>
-                      ))}
-                    </nav>
-                  )}
-                  <AreaPieChart data={drillDownData} chartTitle={areaChartTitle} onSliceClick={handlePieSliceClick} height={384}/>
+          <div className="border-t border-app pt-8">
+            <h2 className="text-2xl font-semibold text-app-accent mb-6">Análisis de Ejercicios</h2>
+            {dateFilteredSessions.length === 0 ? (
+              <p className="text-center p-4 text-app-secondary">No hay sesiones de entrenamiento en el período seleccionado</p>
+            ) : (
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    {drillDownPath.length > 0 && (
+                      <nav className="mb-2 text-sm">
+                        <button onClick={() => handleBreadcrumbClick(0)} className="hover:underline">Inicio</button>
+                        {drillDownPath.map((item, i) => (
+                          <span key={i}> &gt; <button onClick={() => handleBreadcrumbClick(i + 1)} className="hover:underline">{item}</button></span>
+                        ))}
+                      </nav>
+                    )}
+                    <AreaPieChart data={drillDownData} chartTitle={areaChartTitle} onSliceClick={handlePieSliceClick} height={384}/>
+                  </div>
+                  <IntensityLineChart data={intensityChartData} chartTitle={intensityChartTitle} />
                 </div>
-                <IntensityLineChart data={intensityChartData} chartTitle={intensityChartTitle} />
-              </div>
-
-              {/* Sesiones registradas */}
-              <div className="bg-app-surface p-6 rounded-lg shadow">
-                <h3 className="text-xl font-semibold mb-4">Sesiones Registradas ({dateFilteredSessions.length})</h3>
-                <ul className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                  {dateFilteredSessions.map(session => (
-                    <li key={session.id} className="bg-app-surface-alt p-4 rounded-md shadow group flex justify-between items-center">
-                      <Link to={`/session/${session.id}`} className="flex-grow">
-                        <p className="font-semibold">Fecha: {formatDate(session.fecha)}</p>
-                        <p className="text-sm">Ejercicios: {session.ejercicios.length}</p>
-                        <ul className="mt-1 text-xs">{session.ejercicios.map((ex: LoggedExercise, i) => <li key={i}>{ex.ejercicio}</li>)}</ul>
-                      </Link>
-                      <button 
-                        onClick={(e) => handleDeleteSession(session.id, e)}
-                        className="app-button btn-danger text-xs font-bold py-1 px-2 rounded-md opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                        title="Eliminar permanentemente"
-                      >
-                        Eliminar
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </>
-          )}
-
-          {/* NUEVO: Sección de encuestas post-entrenamiento */}
+            )}
+          </div>
+          
           <div className="border-t border-app pt-8">
             <h2 className="text-2xl font-semibold text-app-accent mb-6">Encuestas Post-Entrenamiento</h2>
             {surveysLoading ? (
@@ -510,15 +475,36 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
                 <p className="mt-4 text-app-secondary">Cargando encuestas...</p>
               </div>
             ) : (
-              
-              
-
-
-
               <SurveyVisualization 
                 surveys={playerSurveys}
                 timeZone={userTimeZone}
               />
+            )}
+          </div>
+
+          <div className="border-t border-app pt-8">
+            <h2 className="text-2xl font-semibold text-app-accent mb-6">Sesiones Registradas ({dateFilteredSessions.length})</h2>
+            {dateFilteredSessions.length > 0 && (
+                <div className="bg-app-surface p-6 rounded-lg shadow">
+                    <ul className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                        {dateFilteredSessions.map(session => (
+                        <li key={session.id} className="bg-app-surface-alt p-4 rounded-md shadow group flex justify-between items-center">
+                            <Link to={`/session/${session.id}`} className="flex-grow">
+                            <p className="font-semibold">Fecha: {formatDate(session.fecha)}</p>
+                            <p className="text-sm">Ejercicios: {session.ejercicios.length}</p>
+                            <ul className="mt-1 text-xs">{session.ejercicios.map((ex: LoggedExercise, i) => <li key={i}>{ex.ejercicio}</li>)}</ul>
+                            </Link>
+                            <button 
+                            onClick={(e) => handleDeleteSession(session.id, e)}
+                            className="app-button btn-danger text-xs font-bold py-1 px-2 rounded-md opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                            title="Eliminar permanentemente"
+                            >
+                            Eliminar
+                            </button>
+                        </li>
+                        ))}
+                    </ul>
+                </div>
             )}
           </div>
         </section>
