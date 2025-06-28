@@ -19,7 +19,7 @@ interface AcademiaContextType {
   rolActual: UserRole | null; // Nuevo: rol del usuario en la academia actual
   misAcademias: UserAcademia[];
   loading: boolean;
-  setAcademiaActual: (academia: Academia | null) => void;
+  setAcademiaActual: (academia: Academia | null) => Promise<void>;
   cargarMisAcademias: () => Promise<void>;
   registrarAccesoAcademia: (academiaId: string, nombre: string) => Promise<void>;
   limpiarAcademiaActual: () => void;
@@ -42,6 +42,7 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       // Cargar el rol del usuario en esta academia
       const role = await getUserRoleInAcademia(academia.id, currentUser.uid);
       setRolActual(role);
+      console.log('Rol cargado para la academia:', role);
     } else {
       setRolActual(null);
     }
@@ -99,16 +100,7 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       // Obtener el ID público de la academia
       const academiaDoc = await getDoc(doc(db, 'academias', academiaId));
       const academiaData = academiaDoc.exists() ? academiaDoc.data() : null;
-      await cargarMisAcademias();
-
-        // Forzar recarga del rol después de registrar acceso
-        const role = await getUserRoleInAcademia(academiaId, currentUser.uid);setRolActual(role);} catch (error) {
-        console.error('Error registrando acceso:', error);
-        }
-        };
-
-
-
+      
       // Verificar si el usuario tiene un rol en esta academia
       let userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
       
@@ -148,6 +140,10 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
       
       await cargarMisAcademias();
+      
+      // Forzar recarga del rol después de registrar acceso
+      const role = await getUserRoleInAcademia(academiaId, currentUser.uid);
+      setRolActual(role);
     } catch (error) {
       console.error('Error registrando acceso:', error);
     }

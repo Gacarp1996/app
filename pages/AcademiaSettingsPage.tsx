@@ -17,7 +17,7 @@ import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 
 const AcademiaSettingsPage: React.FC = () => {
   const { currentUser } = useAuth();
-  const { academiaActual, rolActual, limpiarAcademiaActual } = useAcademia();
+  const { academiaActual, rolActual, limpiarAcademiaActual, setAcademiaActual } = useAcademia();
   const navigate = useNavigate();
   
   const [users, setUsers] = useState<AcademiaUser[]>([]);
@@ -35,18 +35,16 @@ const AcademiaSettingsPage: React.FC = () => {
     const loadData = async () => {
       if (academiaActual && currentUser) {
         try {
-          // Si no hay rol, solo intentar cargarlo
+          // Si no hay rol, intentar cargarlo de nuevo
           if (!rolActual) {
             const role = await getUserRoleInAcademia(academiaActual.id, currentUser.uid);
-            
-            // Si no se encuentra rol, no asignar nada automáticamente
-            // El rol debería haberse asignado al crear o unirse a la academia
-            if (!role) {
-              console.log('Usuario sin rol en la academia. Rol debe asignarse al crear o unirse.');
+            if (role) {
+              // Forzar actualización del contexto
+              await setAcademiaActual(academiaActual);
             }
           }
           
-          // Cargar usuarios independientemente del rol
+          // Cargar usuarios
           await loadUsers();
         } catch (error: any) {
           console.error('Error cargando datos:', error);
@@ -62,7 +60,7 @@ const AcademiaSettingsPage: React.FC = () => {
     };
 
     loadData();
-  }, [academiaActual, currentUser, rolActual]);
+  }, [academiaActual, currentUser, rolActual, setAcademiaActual]);
 
   const loadUsers = async () => {
     if (!academiaActual) return;
@@ -245,7 +243,7 @@ const AcademiaSettingsPage: React.FC = () => {
     );
   }
 
-  // Usar el rol actual sin valor por defecto
+  // Usar el rol actual
   const currentRole = rolActual;
 
   return (
@@ -266,7 +264,7 @@ const AcademiaSettingsPage: React.FC = () => {
                 {getRoleDisplayName(currentRole)}
               </span>
             ) : (
-              <span className="text-app-secondary italic">Cargando rol...</span>
+              <span className="text-app-secondary italic">Sin rol asignado</span>
             )}
           </p>
         </div>
@@ -316,6 +314,9 @@ const AcademiaSettingsPage: React.FC = () => {
                       <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(user.role)}`}>
                         {getRoleDisplayName(user.role)}
                       </span>
+                      {user.userId === currentUser?.uid && (
+                        <span className="ml-2 text-xs text-app-secondary">(Tú)</span>
+                      )}
                     </div>
                   </div>
                   
