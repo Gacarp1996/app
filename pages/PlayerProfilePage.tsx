@@ -12,6 +12,7 @@ import { addTournament, updateTournament, deleteTournament } from '../Database/F
 import { updatePlayer } from '../Database/FirebasePlayers';
 import { deleteSession } from '../Database/FirebaseSessions';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
+import SurveyDebug from '../components/SurveyDebug';
 
 interface PlayerProfilePageProps {
   players: Player[];
@@ -497,6 +498,11 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
                 <p className="mt-4 text-app-secondary">Cargando encuestas...</p>
               </div>
             ) : (
+              
+              
+
+
+
               <SurveyVisualization 
                 surveys={playerSurveys}
                 startDate={startDate}
