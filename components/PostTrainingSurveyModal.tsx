@@ -131,7 +131,7 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
           </div>
         )}
         <p className="text-app-secondary">
-          Por favor evalúa cómo se siente {player.name} después del entrenamiento:
+          ¿Cómo se sintió {player.name} durante el entrenamiento?
         </p>
 
         {SURVEY_QUESTIONS.map((question) => (

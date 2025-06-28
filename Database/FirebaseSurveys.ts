@@ -10,8 +10,13 @@ export const addPostTrainingSurvey = async (
   try {
     const surveysCollection = collection(db, "academias", academiaId, "surveys");
     await addDoc(surveysCollection, {
-      ...surveyData,
-      fecha: Timestamp.fromDate(new Date(surveyData.fecha))
+      jugadorId: surveyData.jugadorId,
+      sessionId: surveyData.sessionId,
+      cansancioFisico: surveyData.cansancioFisico,
+      concentracion: surveyData.concentracion,
+      actitudMental: surveyData.actitudMental,
+      sensacionesTenisticas: surveyData.sensacionesTenisticas,
+      fecha: Timestamp.now() // Usar Timestamp.now() en lugar de convertir desde string
     });
     console.log("Encuesta post-entrenamiento agregada exitosamente");
   } catch (error) {
