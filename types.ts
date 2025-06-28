@@ -77,3 +77,23 @@ export interface Tournament {
   fechaInicio: string; // ISO date string
   fechaFin: string; // ISO date string
 }
+
+// Tipos para la encuesta post-entrenamiento
+export interface PostTrainingSurvey {
+  id: string;
+  jugadorId: string;
+  sessionId: string;
+  fecha: string; // ISO date string
+  cansancioFisico: number; // 1-5
+  concentracion: number; // 1-5
+  actitudMental: number; // 1-5
+  sensacionesTenisticas: number; // 1-5
+}
+
+export interface SurveyDataPoint {
+  fecha: string;
+  cansancioFisico: number;
+  concentracion: number;
+  actitudMental: number;
+  sensacionesTenisticas: number;
+}

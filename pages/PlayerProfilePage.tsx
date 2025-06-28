@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Player, Objective, TrainingSession, Tournament, ObjectiveEstado, TrainingType, TrainingArea, ChartDataPoint, LoggedExercise, IntensityDataPoint } from '../types';
+import { Player, Objective, TrainingSession, Tournament, ObjectiveEstado, TrainingType, TrainingArea, ChartDataPoint, LoggedExercise, IntensityDataPoint, PostTrainingSurvey } from '../types';
 import { OBJECTIVE_ESTADOS, MAX_ACTIVE_OBJECTIVES, EXERCISE_HIERARCHY } from '../constants';
 import AreaPieChart from '../components/AreaPieChart';
 import IntensityLineChart from '../components/IntensityLineChart';
 import TournamentFormModal from '../components/TournamentFormModal';
 import Modal from '../components/Modal';
+import SurveyVisualization from '../components/SurveyVisualization';
 import { addTournament, updateTournament, deleteTournament } from '../Database/FirebaseTournaments';
 import { updatePlayer } from '../Database/FirebasePlayers';
 import { deleteSession } from '../Database/FirebaseSessions';
+import { getPlayerSurveys } from '../Database/FirebaseSurveys';
+
 
 interface PlayerProfilePageProps {
   players: Player[];
