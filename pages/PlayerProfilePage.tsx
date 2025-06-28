@@ -12,7 +12,7 @@ import { addTournament, updateTournament, deleteTournament } from '../Database/F
 import { updatePlayer } from '../Database/FirebasePlayers';
 import { deleteSession } from '../Database/FirebaseSessions';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
-import SurveyDebug from '../components/SurveyDebug';
+
 
 interface PlayerProfilePageProps {
   players: Player[];
@@ -505,12 +505,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
 
               <SurveyVisualization 
                 surveys={playerSurveys}
-                startDate={startDate}
-                endDate={endDate}
-                onDateChange={(start, end) => {
-                  setStartDate(start);
-                  setEndDate(end);
-                }}
+                
               />
             )}
           </div>
