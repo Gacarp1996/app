@@ -19,10 +19,12 @@ interface TrainingContextType {
   participants: Player[];
   exercises: SessionExercise[];
   setParticipants: React.Dispatch<React.SetStateAction<Player[]>>;
+  setExercises: React.Dispatch<React.SetStateAction<SessionExercise[]>>;
   startSession: (players: Player[]) => void;
   addExercise: (exercise: SessionExercise) => void;
   endSession: () => void;
   loadSession: () => boolean;
+  loadSessionForEdit: (players: Player[], exercises: SessionExercise[]) => void;
 }
 
 const TrainingContext = createContext<TrainingContextType | undefined>(undefined);
@@ -35,48 +37,42 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const navigate = useNavigate();
   const { academiaActual } = useAcademia();
 
-  // Generar clave dinámica basada en la academia
   const getStorageKey = useCallback(() => {
     if (!academiaActual?.id) return null;
     return `inProgressTrainingSession_${academiaActual.id}`;
   }, [academiaActual]);
 
-  // Verificar si hay una sesión guardada al inicializar
   useEffect(() => {
-  if (!isInitialized && academiaActual) {
-    const storageKey = getStorageKey();
-    if (storageKey) {
-      const savedSession = localStorage.getItem(storageKey);
-      if (savedSession) {
-        try {
-          const parsedSession = JSON.parse(savedSession);
-          // Solo verificamos si hay participantes para marcar que hay una sesión activa
-          if (parsedSession.participants && Array.isArray(parsedSession.participants) && parsedSession.participants.length > 0) {
-            setIsSessionActive(true);
-            // No cargamos los datos aquí, solo marcamos que hay una sesión activa
+    if (!isInitialized && academiaActual) {
+      const storageKey = getStorageKey();
+      if (storageKey) {
+        const savedSession = localStorage.getItem(storageKey);
+        if (savedSession) {
+          try {
+            const parsedSession = JSON.parse(savedSession);
+            if (parsedSession.participants && Array.isArray(parsedSession.participants) && parsedSession.participants.length > 0) {
+              setIsSessionActive(true);
+            }
+          } catch (error) {
+            console.error('Error al verificar sesión guardada:', error);
+            localStorage.removeItem(storageKey);
           }
-        } catch (error) {
-          console.error('Error al verificar sesión guardada:', error);
-          localStorage.removeItem(storageKey);
         }
       }
+      setIsInitialized(true);
     }
-    setIsInitialized(true);
-  }
-}, [academiaActual, getStorageKey, isInitialized]);
+  }, [academiaActual, getStorageKey, isInitialized]);
 
-  // Guardar el estado cuando cambian los participantes o ejercicios
   useEffect(() => {
     if (!isInitialized) return;
-    
+
     const storageKey = getStorageKey();
     if (!storageKey) return;
-    
+
     if (participants.length > 0 || exercises.length > 0) {
       const sessionData = JSON.stringify({ participants, exercises });
       localStorage.setItem(storageKey, sessionData);
     } else if (participants.length === 0 && exercises.length === 0 && !isSessionActive) {
-      // Si no hay datos y la sesión no está activa, limpiar localStorage
       localStorage.removeItem(storageKey);
     }
   }, [participants, exercises, getStorageKey, isInitialized, isSessionActive]);
@@ -84,7 +80,7 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const loadSession = useCallback(() => {
     const storageKey = getStorageKey();
     if (!storageKey) return false;
-    
+
     try {
       const savedSession = localStorage.getItem(storageKey);
       if (savedSession) {
@@ -106,14 +102,19 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return false;
   }, [getStorageKey]);
 
+  const loadSessionForEdit = (players: Player[], exercises: SessionExercise[]) => {
+    setParticipants(players);
+    setExercises(exercises);
+    setIsSessionActive(true);
+  };
+
   const startSession = useCallback((players: Player[]) => {
     if (players.length === 0) return;
-    
+
     setParticipants(players);
     setExercises([]);
     setIsSessionActive(true);
-    
-    // Navegar inmediatamente a la página de entrenamiento
+
     const playerIds = players.map(p => p.id).join(',');
     navigate(`/training/${playerIds}`);
   }, [navigate]);
@@ -138,10 +139,12 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       participants, 
       exercises, 
       setParticipants, 
+      setExercises,
       startSession, 
       addExercise, 
       endSession, 
-      loadSession 
+      loadSession, 
+      loadSessionForEdit
     }}>
       {children}
     </TrainingContext.Provider>

@@ -1,5 +1,5 @@
 import { db } from "../firebase/firebase-config";
-import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
 import { TrainingSession } from "../types";
 
 export const addSession = async (academiaId: string, sessionData: Omit<TrainingSession, "id">) => {
@@ -38,12 +38,12 @@ export const deleteSession = async (academiaId: string, sessionId: string): Prom
     if (!sessionId) {
       throw new Error('ID de sesión no proporcionado');
     }
-    
+
     console.log('Intentando eliminar sesión con ID:', sessionId);
-    
+
     const sessionDoc = doc(db, "academias", academiaId, "sessions", sessionId);
     await deleteDoc(sessionDoc);
-    
+
     console.log("Sesión eliminada exitosamente:", sessionId);
   } catch (error) {
     console.error("Error al eliminar la sesión:", error);
@@ -56,13 +56,31 @@ export const updateSession = async (academiaId: string, sessionId: string, updat
     if (!sessionId) {
       throw new Error('ID de sesión no proporcionado');
     }
-    
+
     const sessionDoc = doc(db, "academias", academiaId, "sessions", sessionId);
     await updateDoc(sessionDoc, updates);
-    
+
     console.log("Sesión actualizada exitosamente:", sessionId);
   } catch (error) {
     console.error("Error al actualizar la sesión:", error);
     throw error;
+  }
+};
+
+export const getSessionById = async (academiaId: string, sessionId: string): Promise<TrainingSession | null> => {
+  try {
+    const sessionDoc = doc(db, "academias", academiaId, "sessions", sessionId);
+    const docSnap = await getDoc(sessionDoc);
+
+    if (docSnap.exists()) {
+      return {
+        id: docSnap.id,
+        ...docSnap.data()
+      } as TrainingSession;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error al obtener sesión por ID:", error);
+    return null;
   }
 };

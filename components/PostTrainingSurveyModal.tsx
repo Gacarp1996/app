@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { Player } from '../types';
 
@@ -58,6 +58,12 @@ interface PostTrainingSurveyModalProps {
   }) => void;
   currentIndex?: number;
   totalPlayers?: number;
+  initialValues?: {
+    cansancioFisico: number;
+    concentracion: number;
+    actitudMental: number;
+    sensacionesTenisticas: number;
+  };
 }
 
 const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
@@ -66,7 +72,8 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
   player,
   onSubmit,
   currentIndex = 0,
-  totalPlayers = 1
+  totalPlayers = 1,
+  initialValues
 }) => {
   const [responses, setResponses] = useState<{
     cansancioFisico: number | null;
@@ -80,6 +87,12 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
     sensacionesTenisticas: null
   });
 
+  useEffect(() => {
+    if (initialValues) {
+      setResponses(initialValues);
+    }
+  }, [initialValues]);
+
   const handleValueChange = (key: keyof typeof responses, value: number) => {
     setResponses(prev => ({ ...prev, [key]: value }));
   };
@@ -89,9 +102,8 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
       alert('Por favor responde todas las preguntas');
       return;
     }
-    
+
     onSubmit(player.id, responses as any);
-    // Reset for next player
     setResponses({
       cansancioFisico: null,
       concentracion: null,
