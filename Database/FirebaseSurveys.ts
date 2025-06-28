@@ -54,6 +54,7 @@ export const getPlayerSurveys = async (
   endDate?: Date
 ): Promise<PostTrainingSurvey[]> => {
   console.log('getPlayerSurveys llamada con:', { academiaId, jugadorId, startDate, endDate });
+
   try {
     const surveysCollection = collection(db, "academias", academiaId, "surveys");
     let q = query(
@@ -66,26 +67,44 @@ export const getPlayerSurveys = async (
     console.log('Query ejecutada, documentos encontrados:', querySnapshot.size);
     const surveys: PostTrainingSurvey[] = [];
 
+    // Obtener el offset de zona horaria del usuario (en minutos)
+    const userTimezoneOffset = new Date().getTimezoneOffset();
+
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      const surveyDate = data.fecha.toDate();
+      const surveyDateUTC = data.fecha.toDate();
 
-      // NUEVO: Ver la fecha de cada encuesta
-      console.log('Fecha encuesta Firebase:', surveyDate.toISOString());
+      // Convertir la fecha UTC de la encuesta a la zona horaria del usuario
+      const surveyDateLocal = new Date(surveyDateUTC.getTime() - (userTimezoneOffset * 60 * 1000));
 
-      // Filtrar por fechas si se proporcionan
-      if (startDate && surveyDate < startDate) return;
-      if (endDate && surveyDate > endDate) return;
+      console.log('Fecha UTC:', surveyDateUTC.toISOString());
+      console.log('Fecha Local:', surveyDateLocal.toISOString());
 
-      surveys.push({
-        id: doc.id,
-        ...data,
-        fecha: surveyDate.toISOString()
-      } as PostTrainingSurvey);
+      let includeInResults = true;
+
+      if (startDate) {
+        const startOfDay = new Date(startDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        if (surveyDateLocal < startOfDay) includeInResults = false;
+      }
+
+      if (endDate && includeInResults) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (surveyDateLocal > endOfDay) includeInResults = false;
+      }
+
+      if (includeInResults) {
+        surveys.push({
+          id: doc.id,
+          ...data,
+          fecha: surveyDateUTC.toISOString()
+        } as PostTrainingSurvey);
+      }
     });
 
     console.log('Encuestas procesadas:', surveys.length);
-    return surveys.sort((a, b) => 
+    return surveys.sort((a, b) =>
       new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
     );
   } catch (error) {
@@ -93,6 +112,7 @@ export const getPlayerSurveys = async (
     return [];
   }
 };
+
 
 
 

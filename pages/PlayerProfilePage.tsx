@@ -104,6 +104,18 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
   // NUEVO: Ref para controlar si ya se cargaron las encuestas iniciales
   const surveysLoadedRef = useRef(false);
 
+  const userTimeZone = useMemo(() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch (error) {
+    console.warn('No se pudo detectar la zona horaria, usando default');
+    return 'America/Argentina/Buenos_Aires';
+  }
+}, []);
+
+
+
+
   // Cargar datos del jugador
   useEffect(() => {
     const foundPlayer = players.find(p => p.id === playerId);
@@ -505,7 +517,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
 
               <SurveyVisualization 
                 surveys={playerSurveys}
-                
+                timeZone={userTimeZone}
               />
             )}
           </div>
