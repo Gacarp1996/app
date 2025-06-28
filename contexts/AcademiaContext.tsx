@@ -23,6 +23,7 @@ interface AcademiaContextType {
   cargarMisAcademias: () => Promise<void>;
   registrarAccesoAcademia: (academiaId: string, nombre: string) => Promise<void>;
   limpiarAcademiaActual: () => void;
+  eliminarAcademiaDeMisAcademias: (academiaId: string) => Promise<void>; // Nuevo método
 }
 
 const AcademiaContext = createContext<AcademiaContextType | undefined>(undefined);
@@ -104,16 +105,26 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       // Verificar si el usuario tiene un rol en esta academia
       let userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
       
-      // Si no tiene rol, asignarlo como entrenador
+      // Si no tiene rol, asignarlo como entrenador (solo si no es el creador)
       if (!userRole) {
-        await addUserToAcademia(
-          academiaId,
-          currentUser.uid,
-          currentUser.email || '',
-          'entrenador',
-          currentUser.displayName || currentUser.email?.split('@')[0]
-        );
-        userRole = 'entrenador';
+        // Verificar si el usuario es el creador de la academia
+        const academiaDoc = await getDoc(doc(db, 'academias', academiaId));
+        const academiaData = academiaDoc.exists() ? academiaDoc.data() : null;
+        
+        // Solo asignar rol de entrenador si NO es el creador
+        if (academiaData && academiaData.creadorId !== currentUser.uid) {
+          await addUserToAcademia(
+            academiaId,
+            currentUser.uid,
+            currentUser.email || '',
+            'entrenador',
+            currentUser.displayName || currentUser.email?.split('@')[0]
+          );
+          userRole = 'entrenador';
+        } else {
+          // Si es el creador, obtener el rol que ya debería tener (director)
+          userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
+        }
       }
       
       const nuevoAcceso = {
@@ -154,6 +165,33 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
     setRolActual(null);
   };
 
+  const eliminarAcademiaDeMisAcademias = async (academiaId: string) => {
+    if (!currentUser) return;
+
+    try {
+      const userRef = doc(db, 'userAcademias', currentUser.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const academias = userDoc.data().academias || [];
+        // Filtrar la academia eliminada
+        const academiasActualizadas = academias.filter((a: UserAcademia) => a.academiaId !== academiaId);
+        
+        await updateDoc(userRef, { academias: academiasActualizadas });
+        
+        // Actualizar el estado local
+        setMisAcademias(academiasActualizadas);
+        
+        // Si la academia eliminada es la actual, limpiarla
+        if (academiaActual?.id === academiaId) {
+          limpiarAcademiaActual();
+        }
+      }
+    } catch (error) {
+      console.error('Error eliminando academia de mis academias:', error);
+    }
+  };
+
   return (
     <AcademiaContext.Provider value={{
       academiaActual,
@@ -163,7 +201,8 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       setAcademiaActual,
       cargarMisAcademias,
       registrarAccesoAcademia,
-      limpiarAcademiaActual
+      limpiarAcademiaActual,
+      eliminarAcademiaDeMisAcademias
     }}>
       {children}
     </AcademiaContext.Provider>

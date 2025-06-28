@@ -17,7 +17,7 @@ import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 
 const AcademiaSettingsPage: React.FC = () => {
   const { currentUser } = useAuth();
-  const { academiaActual, rolActual, limpiarAcademiaActual, setAcademiaActual } = useAcademia();
+  const { academiaActual, rolActual, limpiarAcademiaActual, setAcademiaActual, eliminarAcademiaDeMisAcademias } = useAcademia();
   const navigate = useNavigate();
   
   const [users, setUsers] = useState<AcademiaUser[]>([]);
@@ -147,8 +147,10 @@ const AcademiaSettingsPage: React.FC = () => {
       // Eliminar la academia
       await deleteAcademia(academiaActual.id);
       
+      // Eliminar la academia del listado local del usuario
+      await eliminarAcademiaDeMisAcademias(academiaActual.id);
+      
       alert('Academia eliminada exitosamente');
-      limpiarAcademiaActual();
       navigate('/select-academia');
     } catch (error: any) {
       console.error('Error eliminando academia:', error);

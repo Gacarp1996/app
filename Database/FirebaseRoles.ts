@@ -1,6 +1,6 @@
 // Database/FirebaseRoles.ts
 import { db } from "../firebase/firebase-config";
-import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp } from "firebase/firestore";
+import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp, writeBatch } from "firebase/firestore";
 
 export type UserRole = 'director' | 'subdirector' | 'entrenador';
 
@@ -162,7 +162,35 @@ export const countDirectors = async (academiaId: string): Promise<number> => {
 // Eliminar una academia completamente
 export const deleteAcademia = async (academiaId: string): Promise<void> => {
   try {
-    // Primero eliminar todas las subcolecciones
+    // Primero obtener todos los usuarios de la academia
+    const usersRef = collection(db, "academias", academiaId, "usuarios");
+    const usersSnapshot = await getDocs(usersRef);
+    const userIds = usersSnapshot.docs.map(doc => doc.data().userId);
+    
+    // Eliminar la academia del documento userAcademias de cada usuario
+    const batch = writeBatch(db);
+    
+    for (const userId of userIds) {
+      const userAcademiasRef = doc(db, "userAcademias", userId);
+      const userAcademiasDoc = await getDoc(userAcademiasRef);
+      
+      if (userAcademiasDoc.exists()) {
+        const academias = userAcademiasDoc.data().academias || [];
+        const academiasActualizadas = academias.filter((a: any) => a.academiaId !== academiaId);
+        
+        if (academiasActualizadas.length > 0) {
+          batch.update(userAcademiasRef, { academias: academiasActualizadas });
+        } else {
+          // Si no quedan más academias, eliminar el documento completo
+          batch.delete(userAcademiasRef);
+        }
+      }
+    }
+    
+    // Ejecutar todas las actualizaciones de userAcademias
+    await batch.commit();
+    
+    // Eliminar todas las subcolecciones
     const subCollections = ['usuarios', 'players', 'objectives', 'sessions', 'tournaments'];
     
     for (const subCollection of subCollections) {

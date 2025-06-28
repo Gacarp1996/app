@@ -67,6 +67,9 @@ export const crearAcademia = async (nombre: string, creadorId: string): Promise<
     
     console.log("Rol de director asignado al creador");
     
+    // Pequeña espera para asegurar que la escritura se complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     return docRef.id;
   } catch (error) {
     console.error("Error al crear academia:", error);
