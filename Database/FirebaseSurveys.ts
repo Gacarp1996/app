@@ -53,6 +53,7 @@ export const getPlayerSurveys = async (
   startDate?: Date,
   endDate?: Date
 ): Promise<PostTrainingSurvey[]> => {
+  console.log('getPlayerSurveys llamada con:', { academiaId, jugadorId, startDate, endDate });
   try {
     const surveysCollection = collection(db, "academias", academiaId, "surveys");
     let q = query(
@@ -62,16 +63,20 @@ export const getPlayerSurveys = async (
     );
 
     const querySnapshot = await getDocs(q);
+    console.log('Query ejecutada, documentos encontrados:', querySnapshot.size);
     const surveys: PostTrainingSurvey[] = [];
-    
+
     querySnapshot.forEach((doc) => {
       const data = doc.data();
       const surveyDate = data.fecha.toDate();
-      
+
+      // NUEVO: Ver la fecha de cada encuesta
+      console.log('Fecha encuesta Firebase:', surveyDate.toISOString());
+
       // Filtrar por fechas si se proporcionan
       if (startDate && surveyDate < startDate) return;
       if (endDate && surveyDate > endDate) return;
-      
+
       surveys.push({
         id: doc.id,
         ...data,
@@ -79,14 +84,17 @@ export const getPlayerSurveys = async (
       } as PostTrainingSurvey);
     });
 
+    console.log('Encuestas procesadas:', surveys.length);
     return surveys.sort((a, b) => 
       new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
     );
   } catch (error) {
-    console.error("Error obteniendo encuestas del jugador:", error);
+    console.error('Error obteniendo encuestas del jugador:', error);
     return [];
   }
 };
+
+
 
 // Obtener encuestas múltiples para varios jugadores y sesiones
 export const getBatchSurveys = async (
