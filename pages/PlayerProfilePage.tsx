@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Player, Objective, TrainingSession, Tournament, ObjectiveEstado, TrainingType, TrainingArea, ChartDataPoint, LoggedExercise, IntensityDataPoint, PostTrainingSurvey } from '../types';
 import { OBJECTIVE_ESTADOS, MAX_ACTIVE_OBJECTIVES, EXERCISE_HIERARCHY } from '../constants';
@@ -12,42 +12,37 @@ import { updatePlayer } from '../Database/FirebasePlayers';
 import { deleteSession } from '../Database/FirebaseSessions';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
 
-
 interface PlayerProfilePageProps {
   players: Player[];
   objectives: Objective[];
   sessions: TrainingSession[];
   tournaments: Tournament[];
   onDataChange: () => void;
-  academiaId: string; // NUEVO
+  academiaId: string;
 }
 
-type Tab = "perfil" | "trainings" | "objectives" | "tournaments";
+// Actualizar el tipo Tab para incluir encuestas
+type Tab = "perfil" | "trainings" | "objectives" | "tournaments" | "surveys";
 
 // Función helper para parsear el tiempo y convertirlo a minutos
 const parseTimeToMinutes = (tiempoCantidad: string): number => {
-  // Eliminar espacios y convertir a minúsculas
   const cleanTime = tiempoCantidad.trim().toLowerCase();
   
-  // Si es solo un número, asumimos que son minutos
   const pureNumber = parseFloat(cleanTime);
   if (!isNaN(pureNumber) && cleanTime === pureNumber.toString()) {
     return pureNumber;
   }
   
-  // Buscar patrones como "20m", "20min", "20 minutos", etc.
   const minuteMatch = cleanTime.match(/(\d+\.?\d*)\s*(m|min|mins|minuto|minutos)/);
   if (minuteMatch) {
     return parseFloat(minuteMatch[1]);
   }
   
-  // Buscar patrones de horas como "1h", "1.5h", "1 hora", etc.
   const hourMatch = cleanTime.match(/(\d+\.?\d*)\s*(h|hr|hrs|hora|horas)/);
   if (hourMatch) {
     return parseFloat(hourMatch[1]) * 60;
   }
   
-  // Buscar patrones como "1h 30m" o "1:30"
   const mixedMatch = cleanTime.match(/(\d+)\s*(h|hr|hrs|hora|horas)?\s*:?\s*(\d+)\s*(m|min|mins|minuto|minutos)?/);
   if (mixedMatch) {
     const hours = parseFloat(mixedMatch[1]) || 0;
@@ -55,7 +50,6 @@ const parseTimeToMinutes = (tiempoCantidad: string): number => {
     return hours * 60 + minutes;
   }
   
-  // Si no podemos parsear, devolver 0 (o podrías devolver 1 para contar al menos como 1 minuto)
   return 0;
 };
 
@@ -84,7 +78,14 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
   const [isTournamentModalOpen, setIsTournamentModalOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  
+  // Estados para las encuestas
+  const [playerSurveys, setPlayerSurveys] = useState<PostTrainingSurvey[]>([]);
+  const [surveysLoading, setSurveysLoading] = useState(false);
+  const [surveyStartDate, setSurveyStartDate] = useState<string>('');
+  const [surveyEndDate, setSurveyEndDate] = useState<string>('');
 
+  // Cargar datos del jugador
   useEffect(() => {
     const foundPlayer = players.find(p => p.id === playerId);
     if (foundPlayer) {
@@ -105,6 +106,39 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
     }
   }, [playerId, players, navigate]);
 
+  // Cargar encuestas cuando se selecciona la pestaña
+  useEffect(() => {
+    if (activeTab === 'surveys' && playerId && !surveysLoading) {
+      loadPlayerSurveys();
+    }
+  }, [activeTab, playerId]);
+
+  const loadPlayerSurveys = async () => {
+    if (!playerId) return;
+    
+    setSurveysLoading(true);
+    try {
+      const startDateObj = surveyStartDate ? new Date(surveyStartDate) : undefined;
+      const endDateObj = surveyEndDate ? new Date(surveyEndDate) : undefined;
+      const surveys = await getPlayerSurveys(academiaId, playerId, startDateObj, endDateObj);
+      setPlayerSurveys(surveys);
+    } catch (error) {
+      console.error('Error cargando encuestas:', error);
+    } finally {
+      setSurveysLoading(false);
+    }
+  };
+
+  const handleSurveyDateChange = (start: string, end: string) => {
+    setSurveyStartDate(start);
+    setSurveyEndDate(end);
+    // Recargar encuestas cuando cambian las fechas
+    if (playerId) {
+      loadPlayerSurveys();
+    }
+  };
+
+  // Cálculos memoizados existentes
   const playerAllObjectives = useMemo(() => objectives.filter(obj => obj.jugadorId === playerId), [objectives, playerId]);
   const playerActualObjectivesCount = useMemo(() => playerAllObjectives.filter(obj => obj.estado === 'actual-progreso').length, [playerAllObjectives]);
   const playerTournaments = useMemo(() => tournaments.filter(t => t.jugadorId === playerId).sort((a,b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime()), [tournaments, playerId]);
@@ -116,7 +150,6 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
     return s.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
   }, [sessions, playerId, startDate, endDate]);
 
-  // MODIFICADO: Ahora suma los tiempos en lugar de contar ejercicios
   const drillDownData = useMemo((): ChartDataPoint[] => {
     const timeSums: Record<string, number> = {};
     
@@ -165,6 +198,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
     return data.reverse();
   }, [dateFilteredSessions, drillDownPath]);
 
+  // Handlers existentes
   const handlePieSliceClick = (dataPoint: ChartDataPoint) => {
     if (!dataPoint.name || (drillDownPath.length > 1 && dataPoint.type === 'Exercise')) return;
     if (drillDownPath.length < 2) {
@@ -275,6 +309,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
           <button onClick={() => setActiveTab("trainings")} className={`py-3 px-3 sm:px-4 font-medium text-sm sm:text-base ${activeTab === "trainings" ? "border-b-2 border-app-accent text-app-accent" : "text-app-secondary"}`}>Entrenamientos</button>
           <button onClick={() => setActiveTab("objectives")} className={`py-3 px-3 sm:px-4 font-medium text-sm sm:text-base ${activeTab === "objectives" ? "border-b-2 border-app-accent text-app-accent" : "text-app-secondary"}`}>Objetivos ({playerActualObjectivesCount}/{MAX_ACTIVE_OBJECTIVES})</button>
           <button onClick={() => setActiveTab("tournaments")} className={`py-3 px-3 sm:px-4 font-medium text-sm sm:text-base ${activeTab === "tournaments" ? "border-b-2 border-app-accent text-app-accent" : "text-app-secondary"}`}>Torneos</button>
+          <button onClick={() => setActiveTab("surveys")} className={`py-3 px-3 sm:px-4 font-medium text-sm sm:text-base ${activeTab === "surveys" ? "border-b-2 border-app-accent text-app-accent" : "text-app-secondary"}`}>Encuestas</button>
         </nav>
       </div>
       
@@ -436,6 +471,24 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
             <ul className="space-y-4">
               {playerTournaments.map(t => (<li key={t.id} className="bg-app-surface-alt p-4 rounded flex justify-between"><div><h3>{t.nombreTorneo}</h3><p>{t.gradoImportancia}</p><p>{formatDate(t.fechaInicio)} - {formatDate(t.fechaFin)}</p></div><div className="space-x-2"><button onClick={() => handleEditTournamentClick(t)} className="app-button btn-primary text-sm">Editar</button><button onClick={() => handleDeleteTournament(t.id)} className="app-button btn-danger text-sm">Eliminar</button></div></li>))}
             </ul>
+          )}
+        </section>
+      )}
+
+      {activeTab === "surveys" && (
+        <section>
+          {surveysLoading ? (
+            <div className="text-center py-10">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-accent mx-auto"></div>
+              <p className="mt-4 text-app-secondary">Cargando encuestas...</p>
+            </div>
+          ) : (
+            <SurveyVisualization 
+              surveys={playerSurveys}
+              startDate={surveyStartDate}
+              endDate={surveyEndDate}
+              onDateChange={handleSurveyDateChange}
+            />
           )}
         </section>
       )}

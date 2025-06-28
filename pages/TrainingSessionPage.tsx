@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Player, Objective, TrainingSession, Tournament, LoggedExercise } from '../types';
 import { useTraining, SessionExercise } from '../contexts/TrainingContext';
 import { addSession } from '../Database/FirebaseSessions';
+import { addPostTrainingSurvey, checkSurveyExists } from '../Database/FirebaseSurveys';
 import { NEW_EXERCISE_HIERARCHY_CONST, NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
 import ObjectiveModal from '../components/ObjectiveModal';
 import Modal from '../components/Modal';
+import PostTrainingSurveyModal from '../components/PostTrainingSurveyModal';
 
 interface TrainingSessionPageProps {
   allPlayers: Player[];
@@ -78,6 +80,13 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
   const [tiempoCantidad, setTiempoCantidad] = useState<string>('');
   const [intensidad, setIntensidad] = useState<number>(5);
   const [observaciones, setObservaciones] = useState('');
+  
+  // Estados para las encuestas post-entrenamiento
+  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
+  const [currentSurveyPlayerIndex, setCurrentSurveyPlayerIndex] = useState(0);
+  const [pendingSurveyPlayers, setPendingSurveyPlayers] = useState<Player[]>([]);
+  const [sessionIds, setSessionIds] = useState<Map<string, string>>(new Map());
+  const [askForSurveys, setAskForSurveys] = useState(true); // Opción para hacer las encuestas opcionales
 
   // TODOS los useMemo también deben estar antes de cualquier return
   const playerNamesDisplay = useMemo(() => participants.map(p => p.name).join(', '), [participants]);
@@ -150,6 +159,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
   const handleFinishTraining = async () => {
     if (exercises.length === 0 && !window.confirm("No has registrado ningún ejercicio. ¿Deseas finalizar de todas formas?")) return;
     
+    const sessionIdsMap = new Map<string, string>();
     const sessionsToSave: Omit<TrainingSession, 'id'>[] = participants.map(player => {
         const playerExercises = exercises.filter(ex => ex.loggedForPlayerId === player.id)
             .map(({ loggedForPlayerId, loggedForPlayerName, ...rest }) => rest as LoggedExercise);
@@ -163,7 +173,38 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
     }).filter(session => session.ejercicios.length > 0 || (session.observaciones && session.observaciones.length > 0));
 
     if (sessionsToSave.length > 0) {
-      await Promise.all(sessionsToSave.map(session => addSession(academiaId, session)));
+      // Guardar las sesiones y almacenar los IDs generados
+      for (const session of sessionsToSave) {
+        try {
+          const sessionId = await addSession(academiaId, session);
+          if (sessionId) {
+            sessionIdsMap.set(session.jugadorId, sessionId);
+          }
+        } catch (error) {
+          console.error('Error guardando sesión:', error);
+        }
+      }
+      
+      setSessionIds(sessionIdsMap);
+      
+      // Preguntar si quieren hacer las encuestas
+      if (askForSurveys && sessionsToSave.length > 0) {
+        const wantsSurveys = window.confirm(
+          `Entrenamiento guardado para ${sessionsToSave.length} jugador(es).\n\n` +
+          `¿Deseas completar las encuestas post-entrenamiento?\n\n` +
+          `(Esto ayuda a monitorear el estado físico y mental de los jugadores)`
+        );
+        
+        if (wantsSurveys) {
+          // Preparar jugadores para encuestas
+          const playersWithSessions = participants.filter(p => sessionIdsMap.has(p.id));
+          setPendingSurveyPlayers(playersWithSessions);
+          setCurrentSurveyPlayerIndex(0);
+          setIsSurveyModalOpen(true);
+          return; // No navegar todavía, esperar a que terminen las encuestas
+        }
+      }
+      
       alert(`Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es).`);
       onDataChange();
     } else {
@@ -172,6 +213,58 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
 
     endSession();
     navigate('/players');
+  };
+
+  const handleSurveySubmit = async (playerId: string, responses: {
+    cansancioFisico: number;
+    concentracion: number;
+    actitudMental: number;
+    sensacionesTenisticas: number;
+  }) => {
+    try {
+      const sessionId = sessionIds.get(playerId);
+      if (!sessionId) {
+        console.error('No se encontró sessionId para el jugador:', playerId);
+        return;
+      }
+
+      // Verificar si ya existe una encuesta para este jugador/sesión
+      const surveyExists = await checkSurveyExists(academiaId, playerId, sessionId);
+      if (surveyExists) {
+        console.log('Ya existe una encuesta para este jugador/sesión');
+      } else {
+        await addPostTrainingSurvey(academiaId, {
+          jugadorId: playerId,
+          sessionId: sessionId,
+          fecha: new Date().toISOString(),
+          ...responses
+        });
+      }
+      
+      // Avanzar al siguiente jugador
+      if (currentSurveyPlayerIndex < pendingSurveyPlayers.length - 1) {
+        setCurrentSurveyPlayerIndex(prev => prev + 1);
+      } else {
+        // Todas las encuestas completadas
+        setIsSurveyModalOpen(false);
+        alert(`¡Excelente! Encuestas guardadas para ${pendingSurveyPlayers.length} jugador(es).`);
+        onDataChange();
+        endSession();
+        navigate('/players');
+      }
+    } catch (error) {
+      console.error('Error guardando encuesta:', error);
+      alert('Error al guardar la encuesta. Intenta de nuevo.');
+    }
+  };
+
+  const handleCloseSurveyModal = () => {
+    if (window.confirm('¿Estás seguro de salir sin completar las encuestas?')) {
+      setIsSurveyModalOpen(false);
+      onDataChange();
+      endSession();
+      navigate('/players');
+    }
   };
 
   const handleAddParticipant = (player: Player) => setParticipants(prev => [...prev, player]);
@@ -206,6 +299,18 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
     <div className="max-w-4xl mx-auto pb-8">
       <ObjectiveModal isOpen={isObjectiveModalOpen} onClose={() => setIsObjectiveModalOpen(false)} selectedPlayers={participants} allObjectives={allObjectives} allTournaments={allTournaments} />
       <ManageParticipantsModal isOpen={isParticipantModalOpen} onClose={() => setIsParticipantModalOpen(false)} currentParticipants={participants} allPlayersFromStorage={allPlayers} onRemoveParticipant={handleRemoveParticipant} onAddParticipant={handleAddParticipant} />
+      
+      {/* Modal de encuestas post-entrenamiento */}
+      {isSurveyModalOpen && pendingSurveyPlayers[currentSurveyPlayerIndex] && (
+        <PostTrainingSurveyModal
+          isOpen={isSurveyModalOpen}
+          onClose={handleCloseSurveyModal}
+          player={pendingSurveyPlayers[currentSurveyPlayerIndex]}
+          onSubmit={handleSurveySubmit}
+          currentIndex={currentSurveyPlayerIndex}
+          totalPlayers={pendingSurveyPlayers.length}
+        />
+      )}
 
       <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-3 gap-2">
         <h1 className="text-3xl font-bold text-app-accent truncate" title={playerNamesDisplay}>Entrenamiento: {playerNamesDisplay}</h1>
@@ -289,6 +394,24 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
             className="w-full p-2 app-input rounded-md"
             placeholder="Añade aquí notas sobre la actitud del jugador, condiciones climáticas, sensaciones, etc."
           />
+      </div>
+
+      <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-app-accent">Encuestas Post-Entrenamiento</h3>
+            <p className="text-sm text-app-secondary">Las encuestas ayudan a monitorear el estado de los jugadores</p>
+          </div>
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={askForSurveys}
+              onChange={(e) => setAskForSurveys(e.target.checked)}
+              className="form-checkbox h-5 w-5 text-app-accent rounded"
+            />
+            <span className="text-sm text-app-primary">Preguntar al finalizar</span>
+          </label>
+        </div>
       </div>
 
       <button onClick={handleFinishTraining} className="w-full app-button btn-danger font-bold py-3 text-lg">Finalizar y Guardar</button>
