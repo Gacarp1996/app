@@ -56,15 +56,14 @@ const AppWithAcademia: React.FC = () => {
       <main className="container mx-auto p-4 flex-grow">
         <TrainingProvider>
           <Routes>
-            <Route path="/" element={<HomePage />} />
             <Route path="/players" element={
-              <PlayersListPage 
-                players={players} 
-                onDataChange={fetchData} 
-                academiaId={academiaActual.id} 
-              />
-              
-            } />
+             <PlayersListPage 
+             players={players} 
+             onDataChange={fetchData} 
+             academiaId={academiaActual.id}
+             academiaActual={academiaActual} // NUEVO: pasar academiaActual
+            />
+          } />
             <Route path="/academia-settings" element={
               <AcademiaSettingsPage />
                 } />
@@ -78,9 +77,6 @@ const AppWithAcademia: React.FC = () => {
                 onDataChange={fetchData}
                 academiaId={academiaActual.id}
               />
-
-                
-
             } />
             <Route path="/start-training" element={
               <StartTrainingPage 
@@ -124,6 +120,7 @@ const AppWithAcademia: React.FC = () => {
       </main>
       <footer className="bg-app-footer text-center text-sm p-3 text-app-footer">
         © 2024 TenisCoaching App - {academiaActual.nombre}
+        {academiaActual.tipo === 'grupo-entrenamiento' && ' | Grupo de Entrenamiento Personal'}
       </footer>
     </div>
   );

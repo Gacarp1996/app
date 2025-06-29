@@ -3,6 +3,10 @@ import { db } from "../firebase/firebase-config";
 import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
 import { addUserToAcademia } from "./FirebaseRoles";
 import { getAuth } from "firebase/auth";
+import { Academia, TipoEntidad } from "../types";
+
+// NUEVO: Tipo de entidad
+export type TipoEntidad = 'academia' | 'grupo-entrenamiento';
 
 export interface Academia {
   nombre: string;
@@ -10,6 +14,8 @@ export interface Academia {
   creadorId: string;
   fechaCreacion: Date;
   activa: boolean;
+  tipo: TipoEntidad; // NUEVO
+  limiteJugadores?: number; // NUEVO: límite de jugadores (3 para grupos, null para academias)
 }
 
 // Generar ID único de 6 caracteres
@@ -22,12 +28,17 @@ const generarIdUnico = (): string => {
   return resultado;
 };
 
-// ACTUALIZADO: Ahora también asigna el rol de director al creador
-export const crearAcademia = async (nombre: string, creadorId: string): Promise<string> => {
+// ACTUALIZADO: Ahora acepta tipo y límite de jugadores
+export const crearAcademia = async (
+  nombre: string, 
+  creadorId: string, 
+  tipo: TipoEntidad = 'academia',
+  limiteJugadores?: number
+): Promise<string> => {
   try {
     let idUnico = generarIdUnico();
     let idExiste = true;
-    
+
     // Verificar que el ID sea único
     while (idExiste) {
       const q = query(collection(db, "academias"), where("id", "==", idUnico));
@@ -44,18 +55,20 @@ export const crearAcademia = async (nombre: string, creadorId: string): Promise<
       id: idUnico,
       creadorId,
       fechaCreacion: new Date(),
-      activa: true
+      activa: true,
+      tipo, // NUEVO
+      limiteJugadores // NUEVO
     };
 
-    // Crear la academia
+    // Crear la academia/grupo
     const docRef = await addDoc(collection(db, "academias"), nuevaAcademia);
-    console.log("Academia creada con ID:", docRef.id);
-    
+    console.log(`${tipo === 'academia' ? 'Academia' : 'Grupo de entrenamiento'} creado con ID:`, docRef.id);
+
     // Obtener el email del usuario actual
     const auth = getAuth();
     const userEmail = auth.currentUser?.email || '';
     const userName = auth.currentUser?.displayName || userEmail.split('@')[0];
-    
+
     // Asignar rol de director al creador
     await addUserToAcademia(
       docRef.id,
@@ -64,60 +77,36 @@ export const crearAcademia = async (nombre: string, creadorId: string): Promise<
       'director',
       userName
     );
-    
+
     console.log("Rol de director asignado al creador");
-    
+
     // Pequeña espera para asegurar que la escritura se complete
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     return docRef.id;
   } catch (error) {
-    console.error("Error al crear academia:", error);
+    console.error(`Error al crear ${tipo === 'academia' ? 'academia' : 'grupo'}:`, error);
     throw error;
   }
 };
 
-// Sin cambios en el resto de las funciones
-export const buscarAcademiaPorIdYNombre = async (id: string, nombre: string): Promise<Academia | null> => {
-  try {
-    const q = query(
-      collection(db, "academias"), 
-      where("id", "==", id.toUpperCase()),
-      where("nombre", "==", nombre),
-      where("activa", "==", true)
-    );
-    
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-      const doc = querySnapshot.docs[0];
-      return {
-        id: doc.id,
-        ...doc.data()
-      } as Academia;
-    }
-    
+export const obtenerAcademiaPorId = async (id: string): Promise<Academia | null> => {
+  const q = query(collection(db, "academias"), where("id", "==", id));
+  const querySnapshot = await getDocs(q);
+  if (!querySnapshot.empty) {
+    const doc = querySnapshot.docs[0];
+    return doc.data() as Academia;
+  } else {
     return null;
-  } catch (error) {
-    console.error("Error buscando academia:", error);
-    throw error;
   }
 };
 
-export const obtenerAcademiaPorId = async (academiaId: string): Promise<Academia | null> => {
-  try {
-    const docRef = doc(db, "academias", academiaId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return {
-        id: docSnap.id,
-        ...docSnap.data()
-      } as Academia;
-    }
+export const obtenerAcademiaPorDocId = async (docId: string): Promise<Academia | null> => {
+  const docRef = doc(db, "academias", docId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data() as Academia;
+  } else {
     return null;
-  } catch (error) {
-    console.error("Error obteniendo academia:", error);
-    throw error;
   }
 };

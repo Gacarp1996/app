@@ -55,7 +55,7 @@ const parseTimeToMinutes = (tiempoCantidad: string): number => {
 const getDefaultDateRange = () => {
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 6);
+  startDate.setDate(startDate.getDate() - 7);
   
   return {
     start: startDate.toISOString().split('T')[0],

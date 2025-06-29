@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import Modal from '../components/Modal';
-import { crearAcademia, buscarAcademiaPorIdYNombre, obtenerAcademiaPorId } from '../Database/FirebaseAcademias';
+import { crearAcademia, obtenerAcademiaPorId } from '../Database/FirebaseAcademias';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase/firebase-config';
 
 const AcademiaSelectPage: React.FC = () => {
   const navigate = useNavigate();
@@ -11,13 +13,14 @@ const AcademiaSelectPage: React.FC = () => {
   const { setAcademiaActual, misAcademias, registrarAccesoAcademia } = useAcademia();
 
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
+  const [isCrearGrupoModalOpen, setIsCrearGrupoModalOpen] = useState(false);
   const [isIngresarModalOpen, setIsIngresarModalOpen] = useState(false);
   const [nombreNuevaAcademia, setNombreNuevaAcademia] = useState('');
+  const [nombreNuevoGrupo, setNombreNuevoGrupo] = useState('');
   const [nombreIngreso, setNombreIngreso] = useState('');
   const [idIngreso, setIdIngreso] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [solicitudEnviada, setSolicitudEnviada] = useState(false);
 
   const handleCrearAcademia = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +30,7 @@ const AcademiaSelectPage: React.FC = () => {
 
     try {
       // Crear la academia en Firebase
-      const academiaId = await crearAcademia(nombreNuevaAcademia.trim(), currentUser.uid);
+      const academiaId = await crearAcademia(nombreNuevaAcademia.trim(), currentUser.uid, 'academia');
       
       // Obtener la academia completa
       const nuevaAcademia = await obtenerAcademiaPorId(academiaId);
@@ -43,6 +46,35 @@ const AcademiaSelectPage: React.FC = () => {
     } finally {
       setLoading(false);
       setIsCrearModalOpen(false);
+      setNombreNuevaAcademia('');
+    }
+  };
+
+  const handleCrearGrupo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nombreNuevoGrupo.trim() || !currentUser) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      // Crear el grupo en Firebase con límite de 3 jugadores
+      const grupoId = await crearAcademia(nombreNuevoGrupo.trim(), currentUser.uid, 'grupo-entrenamiento', 3);
+      
+      // Obtener el grupo completo
+      const nuevoGrupo = await obtenerAcademiaPorId(grupoId);
+      
+      if (nuevoGrupo) {
+        await setAcademiaActual(nuevoGrupo);
+        await registrarAccesoAcademia(grupoId, nuevoGrupo.nombre);
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Error creando grupo:', error);
+      setError('Error al crear el grupo de entrenamiento. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+      setIsCrearGrupoModalOpen(false);
+      setNombreNuevoGrupo('');
     }
   };
 
@@ -53,21 +85,32 @@ const AcademiaSelectPage: React.FC = () => {
     setError('');
 
     try {
-      // Buscar la academia con el ID y nombre proporcionados
-      const academiaEncontrada = await buscarAcademiaPorIdYNombre(idIngreso.trim(), nombreIngreso.trim());
+      // Buscar la academia/grupo con el ID y nombre proporcionados
+      const q = query(
+        collection(db, "academias"), 
+        where("id", "==", idIngreso.toUpperCase()),
+        where("nombre", "==", nombreIngreso),
+        where("activa", "==", true)
+      );
       
-      if (academiaEncontrada) {
-        // Por ahora, simplemente registrar el acceso
-        // En el futuro, aquí se crearía una solicitud real
-        await setAcademiaActual(academiaEncontrada);
-        await registrarAccesoAcademia(academiaEncontrada.id, academiaEncontrada.nombre);
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        const entidadEncontrada = {
+          id: doc.id,
+          ...doc.data()
+        };
+        
+        await setAcademiaActual(entidadEncontrada as any);
+        await registrarAccesoAcademia(doc.id, academiaData.nombre);
         navigate('/');
       } else {
-        setError('No se encontró una academia con esos datos.');
+        setError('No se encontró una academia o grupo con esos datos.');
       }
     } catch (error) {
-      console.error('Error buscando academia:', error);
-      setError('Error al buscar la academia. Intenta de nuevo.');
+      console.error('Error buscando:', error);
+      setError('Error al buscar. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -76,19 +119,19 @@ const AcademiaSelectPage: React.FC = () => {
   const handleSeleccionarAcademia = async (academia: any) => {
     setLoading(true);
     try {
-      // Obtener la academia completa desde Firebase
-      const academiaCompleta = await obtenerAcademiaPorId(academia.academiaId);
+      // Obtener la academia/grupo completa desde Firebase
+      const entidadCompleta = await obtenerAcademiaPorId(academia.academiaId);
       
-      if (academiaCompleta) {
-        await setAcademiaActual(academiaCompleta);
+      if (entidadCompleta) {
+        await setAcademiaActual(entidadCompleta);
         await registrarAccesoAcademia(academia.academiaId, academia.nombre);
         navigate('/');
       } else {
-        alert('No se pudo cargar la academia. Intenta de nuevo.');
+        alert('No se pudo cargar. Intenta de nuevo.');
       }
     } catch (error) {
-      console.error('Error seleccionando academia:', error);
-      alert('Error al seleccionar la academia.');
+      console.error('Error seleccionando:', error);
+      alert('Error al seleccionar.');
     } finally {
       setLoading(false);
     }
@@ -96,12 +139,12 @@ const AcademiaSelectPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-app-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-4xl">
         <h1 className="text-4xl font-bold text-app-accent text-center mb-8">
-          Selecciona o únete a una Academia
+          Selecciona tu espacio de entrenamiento
         </h1>
 
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           {/* Botón Crear Academia */}
           <button 
             onClick={() => setIsCrearModalOpen(true)} 
@@ -109,50 +152,66 @@ const AcademiaSelectPage: React.FC = () => {
             className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group disabled:opacity-50"
           >
             <div className="text-center">
+              <div className="mb-4 text-4xl">🎾</div>
               <h2 className="text-2xl font-semibold text-app-primary mb-2">Crear Academia</h2>
-              <p className="text-app-secondary">Crea una nueva academia y conviértete en director.</p>
+              <p className="text-app-secondary text-sm">Para clubes y academias de tenis con múltiples jugadores.</p>
+            </div>
+          </button>
+
+          {/* Botón Crear Grupo de Entrenamiento */}
+          <button 
+            onClick={() => setIsCrearGrupoModalOpen(true)} 
+            disabled={loading} 
+            className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group disabled:opacity-50 border-2 border-app-accent/20"
+          >
+            <div className="text-center">
+              <div className="mb-4 text-4xl">👥</div>
+              <h2 className="text-2xl font-semibold text-app-primary mb-2">Crear Grupo Personal</h2>
+              <p className="text-app-secondary text-sm">Para entrenadores personales (máx. 3 jugadores).</p>
+              <span className="inline-block mt-2 text-xs bg-app-accent/10 text-app-accent px-2 py-1 rounded">
+                Ideal para entrenamiento personalizado
+              </span>
             </div>
           </button>
           
-          {/* Botón Ingresar/Unirse a Academia */}
+          {/* Botón Ingresar/Unirse */}
           <button 
             onClick={() => setIsIngresarModalOpen(true)} 
             disabled={loading} 
             className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group disabled:opacity-50"
           >
             <div className="text-center">
-              <h2 className="text-2xl font-semibold text-app-primary mb-2">Unirse a Academia</h2>
-              <p className="text-app-secondary">Ingresa con el nombre y ID de una academia existente.</p>
+              <div className="mb-4 text-4xl">🔗</div>
+              <h2 className="text-2xl font-semibold text-app-primary mb-2">Unirse</h2>
+              <p className="text-app-secondary text-sm">Ingresa con el nombre y ID de una academia o grupo existente.</p>
             </div>
           </button>
         </div>
 
-        {/* Sección para mostrar las academias del usuario */}
+        {/* Sección para mostrar las academias y grupos del usuario */}
         {misAcademias && misAcademias.length > 0 && (
           <div className="bg-app-surface p-6 rounded-xl shadow-lg">
-            <h2 className="text-2xl font-semibold text-app-accent mb-4">Mis Academias</h2>
+            <h2 className="text-2xl font-semibold text-app-accent mb-4">Mis Espacios de Entrenamiento</h2>
             <div className="space-y-3">
               {misAcademias.map((academia) => (
                 <button 
                   key={academia.academiaId} 
                   onClick={() => handleSeleccionarAcademia(academia)} 
                   disabled={loading} 
-                  className="w-full text-left p-4 bg-app-surface-alt rounded-lg hover:bg-app-accent hover:text-white transition-colors group disabled:opacity-50"
+                  className="w-full text-left p-4 bg-app-surface-alt rounded-lg hover:bg-app-accent hover:text-white transition-colors group disabled:opacity-50 flex items-center justify-between"
                 >
-                  <h3 className="text-lg font-medium">{academia.nombre}</h3>
+                  <div>
+                    <h3 className="text-lg font-medium">{academia.nombre}</h3>
+                    {academia.tipo === 'grupo-entrenamiento' && (
+                      <span className="text-xs opacity-75">Grupo personal</span>
+                    )}
+                  </div>
+                  {academia.tipo === 'grupo-entrenamiento' && (
+                    <span className="text-2xl opacity-50">👥</span>
+                  )}
                 </button>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Mensaje temporal sobre solicitudes */}
-        {solicitudEnviada && (
-          <div className="bg-blue-500/10 p-6 rounded-lg text-center mt-6">
-            <p className="text-app-secondary">
-              Nota: El sistema de solicitudes aún no está implementado. 
-              Por ahora, puedes acceder directamente con el nombre y ID correctos.
-            </p>
           </div>
         )}
       </div>
@@ -163,6 +222,7 @@ const AcademiaSelectPage: React.FC = () => {
         onClose={() => {
           setIsCrearModalOpen(false);
           setError('');
+          setNombreNuevaAcademia('');
         }} 
         title="Crear Nueva Academia"
       >
@@ -186,18 +246,57 @@ const AcademiaSelectPage: React.FC = () => {
         </form>
       </Modal>
 
+      {/* Modal para Crear Grupo */}
+      <Modal 
+        isOpen={isCrearGrupoModalOpen} 
+        onClose={() => {
+          setIsCrearGrupoModalOpen(false);
+          setError('');
+          setNombreNuevoGrupo('');
+        }} 
+        title="Crear Grupo de Entrenamiento Personal"
+      >
+        <form onSubmit={handleCrearGrupo} className="space-y-4">
+          <div className="bg-app-accent/10 p-4 rounded-lg mb-4">
+            <p className="text-sm text-app-accent font-medium">👥 Grupo Personal</p>
+            <p className="text-xs text-app-secondary mt-1">
+              Perfecto para entrenadores personales. Límite de 3 jugadores para mantener 
+              un enfoque personalizado en el desarrollo de cada alumno.
+            </p>
+          </div>
+          <input 
+            type="text" 
+            value={nombreNuevoGrupo} 
+            onChange={(e) => setNombreNuevoGrupo(e.target.value)} 
+            className="w-full p-3 app-input rounded-md" 
+            placeholder="Nombre de tu Grupo (ej: Entrenamiento Elite)" 
+            required 
+          />
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+          <button 
+            type="submit" 
+            disabled={loading || !nombreNuevoGrupo.trim()} 
+            className="w-full app-button btn-success py-3 disabled:opacity-50"
+          >
+            {loading ? 'Creando...' : 'Crear Grupo Personal'}
+          </button>
+        </form>
+      </Modal>
+
       <Modal 
         isOpen={isIngresarModalOpen} 
         onClose={() => {
           setIsIngresarModalOpen(false); 
           setError('');
+          setNombreIngreso('');
+          setIdIngreso('');
         }} 
-        title="Ingresar a Academia"
+        title="Ingresar a Academia o Grupo"
       >
         <form onSubmit={handleEnviarSolicitud} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-app-secondary mb-1">
-              ID de la Academia
+              ID de la Academia/Grupo
             </label>
             <input 
               type="text" 
@@ -211,14 +310,14 @@ const AcademiaSelectPage: React.FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-app-secondary mb-1">
-              Nombre exacto de la Academia
+              Nombre exacto
             </label>
             <input 
               type="text" 
               value={nombreIngreso} 
               onChange={(e) => setNombreIngreso(e.target.value)} 
               className="w-full p-3 app-input rounded-md" 
-              placeholder="Nombre completo de la academia" 
+              placeholder="Nombre completo de la academia o grupo" 
               required 
             />
           </div>

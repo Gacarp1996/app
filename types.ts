@@ -97,3 +97,18 @@ export interface SurveyDataPoint {
   actitudMental: number;
   sensacionesTenisticas: number;
 }
+
+// Agregar al final del archivo types.ts
+
+// Tipos para Academia
+export type TipoEntidad = 'academia' | 'grupo-entrenamiento';
+
+export interface Academia {
+  nombre: string;
+  id: string;
+  creadorId: string;
+  fechaCreacion: Date;
+  activa: boolean;
+  tipo: TipoEntidad;
+  limiteJugadores?: number;
+}

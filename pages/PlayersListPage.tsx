@@ -1,15 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Player } from '../types';
+import { Player, Academia } from '../types'; // Ahora Academia viene de types
 import { addPlayer, updatePlayer } from '../Database/FirebasePlayers';
+
+
 
 interface PlayersListPageProps {
   players: Player[];
   onDataChange: () => void;
   academiaId: string;
+  academiaActual?: Academia; // NUEVO: agregar esta prop
 }
 
-const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange, academiaId }) => {
+const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange, academiaId, academiaActual }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
@@ -21,6 +24,15 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange
       alert('El nombre del jugador no puede estar vacío.');
       return;
     }
+
+    if (academiaActual?.tipo === 'grupo-entrenamiento' && academiaActual.limiteJugadores) {
+      const jugadoresActivos = players.filter(p => p.estado === 'activo').length;
+      if (jugadoresActivos >= academiaActual.limiteJugadores) {
+        alert(`Este grupo de entrenamiento personal tiene un límite de ${academiaActual.limiteJugadores} jugadores activos. Para agregar un nuevo jugador, primero archiva uno existente.`);
+        return;
+      }
+    }
+
     const newPlayer: Omit<Player, "id"> = {
       name: newPlayerName.trim(),
       estado: 'activo',
@@ -103,7 +115,6 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange
           {filteredPlayers.map((player) => (
             <li key={player.id} className="bg-app-surface p-4 sm:p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow">
               {editingPlayerId === player.id ? (
-                // Modo edición
                 <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                   <input
                     type="text"
@@ -132,7 +143,6 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange
                   </div>
                 </div>
               ) : (
-                // Modo normal
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
                   <Link 
                     to={`/player/${player.id}`} 
