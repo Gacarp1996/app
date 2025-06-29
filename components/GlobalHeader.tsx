@@ -48,7 +48,7 @@ const GlobalHeader: React.FC = () => {
               <span className="sm:hidden">TC</span>
               {academiaActual && (
                 <span className="ml-2 text-sm font-normal text-app-secondary hidden lg:inline">
-                  - {academiaActual.nombre} <span className="text-xs">(ID: {academiaActual.id})</span>
+                  - {academiaActual.nombre}
                 </span>
               )}
             </Link>

@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
-import { crearAcademia, buscarAcademiaPorIdYNombre, obtenerAcademiaPorId } from '../Database/FirebaseAcademias';
 import Modal from '../components/Modal';
+import { crearAcademia, buscarAcademiaPorIdYNombre, obtenerAcademiaPorId } from '../Database/FirebaseAcademias';
 
 const AcademiaSelectPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
-  const { misAcademias, setAcademiaActual, registrarAccesoAcademia } = useAcademia();
-  
+  const { currentUser } = useAuth(); 
+  const { setAcademiaActual, misAcademias, registrarAccesoAcademia } = useAcademia();
+
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [isIngresarModalOpen, setIsIngresarModalOpen] = useState(false);
   const [nombreNuevaAcademia, setNombreNuevaAcademia] = useState('');
@@ -17,85 +17,78 @@ const AcademiaSelectPage: React.FC = () => {
   const [idIngreso, setIdIngreso] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [solicitudEnviada, setSolicitudEnviada] = useState(false);
 
   const handleCrearAcademia = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombreNuevaAcademia.trim() || !currentUser) return;
-
     setLoading(true);
     setError('');
 
     try {
+      // Crear la academia en Firebase
       const academiaId = await crearAcademia(nombreNuevaAcademia.trim(), currentUser.uid);
-      const academiaData = await obtenerAcademiaPorId(academiaId);
       
-      if (academiaData) {
-        // Primero establecer la academia actual
-        await setAcademiaActual(academiaData);
-        
-        // Luego registrar el acceso
-        await registrarAccesoAcademia(academiaId, academiaData.nombre);
-        
-        // Mostrar el ID antes de redirigir
-        alert(`¡Academia creada exitosamente!\n\nNombre: ${academiaData.nombre}\nID: ${academiaData.id}\n\nGuarda este ID para que otros puedan unirse.`);
-        
+      // Obtener la academia completa
+      const nuevaAcademia = await obtenerAcademiaPorId(academiaId);
+      
+      if (nuevaAcademia) {
+        await setAcademiaActual(nuevaAcademia);
+        await registrarAccesoAcademia(academiaId, nuevaAcademia.nombre);
         navigate('/');
       }
     } catch (error) {
-      setError('Error al crear la academia');
-      console.error(error);
+      console.error('Error creando academia:', error);
+      setError('Error al crear la academia. Intenta de nuevo.');
     } finally {
       setLoading(false);
       setIsCrearModalOpen(false);
     }
   };
 
-  const handleIngresarAcademia = async (e: React.FormEvent) => {
+  const handleEnviarSolicitud = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombreIngreso.trim() || !idIngreso.trim()) return;
-
+    if (!nombreIngreso.trim() || !idIngreso.trim() || !currentUser) return;
     setLoading(true);
     setError('');
 
     try {
-      const academia = await buscarAcademiaPorIdYNombre(idIngreso.trim(), nombreIngreso.trim());
+      // Buscar la academia con el ID y nombre proporcionados
+      const academiaEncontrada = await buscarAcademiaPorIdYNombre(idIngreso.trim(), nombreIngreso.trim());
       
-      if (academia) {
-        await registrarAccesoAcademia(academia.id, academia.nombre);
-        setAcademiaActual(academia);
+      if (academiaEncontrada) {
+        // Por ahora, simplemente registrar el acceso
+        // En el futuro, aquí se crearía una solicitud real
+        await setAcademiaActual(academiaEncontrada);
+        await registrarAccesoAcademia(academiaEncontrada.id, academiaEncontrada.nombre);
         navigate('/');
       } else {
-        setError('No se encontró una academia con esos datos');
+        setError('No se encontró una academia con esos datos.');
       }
     } catch (error) {
-      setError('Error al buscar la academia');
-      console.error(error);
+      console.error('Error buscando academia:', error);
+      setError('Error al buscar la academia. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSeleccionarAcademia = async (academiaId: string) => {
-    console.log('Seleccionando academia:', academiaId); // Para debug
-    if (!academiaId) {
-      console.error('No se proporcionó academiaId');
-      return;
-    }
-    
+  const handleSeleccionarAcademia = async (academia: any) => {
     setLoading(true);
     try {
-      const academia = await obtenerAcademiaPorId(academiaId);
-      if (academia) {
-        setAcademiaActual(academia);
-        await registrarAccesoAcademia(academiaId, academia.nombre);
+      // Obtener la academia completa desde Firebase
+      const academiaCompleta = await obtenerAcademiaPorId(academia.academiaId);
+      
+      if (academiaCompleta) {
+        await setAcademiaActual(academiaCompleta);
+        await registrarAccesoAcademia(academia.academiaId, academia.nombre);
         navigate('/');
       } else {
-        console.error('No se encontró la academia');
-        alert('No se pudo cargar la academia. Por favor, intenta de nuevo.');
+        alert('No se pudo cargar la academia. Intenta de nuevo.');
       }
     } catch (error) {
-      console.error('Error al cargar academia:', error);
-      alert('Error al cargar la academia. Por favor, intenta de nuevo.');
+      console.error('Error seleccionando academia:', error);
+      alert('Error al seleccionar la academia.');
     } finally {
       setLoading(false);
     }
@@ -103,145 +96,136 @@ const AcademiaSelectPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-app-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-2xl">
         <h1 className="text-4xl font-bold text-app-accent text-center mb-8">
-          Selecciona una Academia
+          Selecciona o únete a una Academia
         </h1>
 
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <button
-            onClick={() => setIsCrearModalOpen(true)}
-            disabled={loading}
+          {/* Botón Crear Academia */}
+          <button 
+            onClick={() => setIsCrearModalOpen(true)} 
+            disabled={loading} 
             className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group disabled:opacity-50"
           >
             <div className="text-center">
-              <div className="mb-4 text-app-accent">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16 mx-auto">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-              </div>
               <h2 className="text-2xl font-semibold text-app-primary mb-2">Crear Academia</h2>
-              <p className="text-app-secondary">Crea una nueva academia y conviértete en director</p>
+              <p className="text-app-secondary">Crea una nueva academia y conviértete en director.</p>
             </div>
           </button>
-
-          <button
-            onClick={() => setIsIngresarModalOpen(true)}
-            disabled={loading}
+          
+          {/* Botón Ingresar/Unirse a Academia */}
+          <button 
+            onClick={() => setIsIngresarModalOpen(true)} 
+            disabled={loading} 
             className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group disabled:opacity-50"
           >
             <div className="text-center">
-              <div className="mb-4 text-app-accent">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16 mx-auto">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-semibold text-app-primary mb-2">Ingresar a Academia</h2>
-              <p className="text-app-secondary">Únete a una academia existente con su ID</p>
+              <h2 className="text-2xl font-semibold text-app-primary mb-2">Unirse a Academia</h2>
+              <p className="text-app-secondary">Ingresa con el nombre y ID de una academia existente.</p>
             </div>
           </button>
         </div>
 
-        {misAcademias.length > 0 && (
+        {/* Sección para mostrar las academias del usuario */}
+        {misAcademias && misAcademias.length > 0 && (
           <div className="bg-app-surface p-6 rounded-xl shadow-lg">
             <h2 className="text-2xl font-semibold text-app-accent mb-4">Mis Academias</h2>
             <div className="space-y-3">
               {misAcademias.map((academia) => (
-                <button
-                  key={academia.academiaId}
-                  onClick={() => handleSeleccionarAcademia(academia.academiaId)}
-                  disabled={loading}
-                  className="w-full text-left p-4 bg-app-surface-alt rounded-lg hover:bg-app-accent hover:text-white transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+                <button 
+                  key={academia.academiaId} 
+                  onClick={() => handleSeleccionarAcademia(academia)} 
+                  disabled={loading} 
+                  className="w-full text-left p-4 bg-app-surface-alt rounded-lg hover:bg-app-accent hover:text-white transition-colors group disabled:opacity-50"
                 >
-                  <div className="flex justify-between items-center">
-                    <div className="flex-grow">
-                      <h3 className="text-lg font-medium">{academia.nombre}</h3>
-                      <p className="text-sm opacity-70">
-                        ID: <span className="font-mono font-bold">{academia.id || 'Cargando...'}</span> • 
-                        Último acceso: {new Date(academia.ultimoAcceso).toLocaleDateString('es-ES')}
-                      </p>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                    </svg>
-                  </div>
+                  <h3 className="text-lg font-medium">{academia.nombre}</h3>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {loading && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-app-surface p-6 rounded-lg">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-accent mx-auto"></div>
-              <p className="mt-4 text-app-secondary">Cargando...</p>
-            </div>
+        {/* Mensaje temporal sobre solicitudes */}
+        {solicitudEnviada && (
+          <div className="bg-blue-500/10 p-6 rounded-lg text-center mt-6">
+            <p className="text-app-secondary">
+              Nota: El sistema de solicitudes aún no está implementado. 
+              Por ahora, puedes acceder directamente con el nombre y ID correctos.
+            </p>
           </div>
         )}
       </div>
 
-      {/* Modal Crear Academia */}
-      <Modal isOpen={isCrearModalOpen} onClose={() => {setIsCrearModalOpen(false); setError('');}} title="Crear Nueva Academia">
+      {/* --- Modales --- */}
+      <Modal 
+        isOpen={isCrearModalOpen} 
+        onClose={() => {
+          setIsCrearModalOpen(false);
+          setError('');
+        }} 
+        title="Crear Nueva Academia"
+      >
         <form onSubmit={handleCrearAcademia} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-app-secondary mb-2">
-              Nombre de la Academia
-            </label>
-            <input
-              type="text"
-              value={nombreNuevaAcademia}
-              onChange={(e) => setNombreNuevaAcademia(e.target.value)}
-              className="w-full p-3 app-input rounded-md"
-              placeholder="Ej: Academia Rafa Nadal"
-              required
-            />
-          </div>
+          <input 
+            type="text" 
+            value={nombreNuevaAcademia} 
+            onChange={(e) => setNombreNuevaAcademia(e.target.value)} 
+            className="w-full p-3 app-input rounded-md" 
+            placeholder="Nombre de tu Academia" 
+            required 
+          />
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading || !nombreNuevaAcademia.trim()}
+          <button 
+            type="submit" 
+            disabled={loading || !nombreNuevaAcademia.trim()} 
             className="w-full app-button btn-success py-3 disabled:opacity-50"
           >
-            {loading ? 'Creando...' : 'Crear Academia'}
+            {loading ? 'Creando...' : 'Confirmar Creación'}
           </button>
         </form>
       </Modal>
 
-      {/* Modal Ingresar Academia */}
-      <Modal isOpen={isIngresarModalOpen} onClose={() => {setIsIngresarModalOpen(false); setError('');}} title="Ingresar a Academia">
-        <form onSubmit={handleIngresarAcademia} className="space-y-4">
+      <Modal 
+        isOpen={isIngresarModalOpen} 
+        onClose={() => {
+          setIsIngresarModalOpen(false); 
+          setError('');
+        }} 
+        title="Ingresar a Academia"
+      >
+        <form onSubmit={handleEnviarSolicitud} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-app-secondary mb-2">
-              Nombre de la Academia
+            <label className="block text-sm font-medium text-app-secondary mb-1">
+              ID de la Academia
             </label>
-            <input
-              type="text"
-              value={nombreIngreso}
-              onChange={(e) => setNombreIngreso(e.target.value)}
-              className="w-full p-3 app-input rounded-md"
-              placeholder="Nombre exacto de la academia"
-              required
+            <input 
+              type="text" 
+              value={idIngreso} 
+              onChange={(e) => setIdIngreso(e.target.value.toUpperCase())} 
+              className="w-full p-3 app-input rounded-md font-mono text-lg tracking-wider" 
+              placeholder="Ej: ABC123" 
+              maxLength={6} 
+              required 
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-app-secondary mb-2">
-              ID de la Academia
+            <label className="block text-sm font-medium text-app-secondary mb-1">
+              Nombre exacto de la Academia
             </label>
-            <input
-              type="text"
-              value={idIngreso}
-              onChange={(e) => setIdIngreso(e.target.value.toUpperCase())}
-              className="w-full p-3 app-input rounded-md font-mono"
-              placeholder="Ej: ABC123"
-              maxLength={6}
-              required
+            <input 
+              type="text" 
+              value={nombreIngreso} 
+              onChange={(e) => setNombreIngreso(e.target.value)} 
+              className="w-full p-3 app-input rounded-md" 
+              placeholder="Nombre completo de la academia" 
+              required 
             />
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading || !nombreIngreso.trim() || !idIngreso.trim()}
+          <button 
+            type="submit" 
+            disabled={loading || !nombreIngreso.trim() || !idIngreso.trim()} 
             className="w-full app-button btn-primary py-3 disabled:opacity-50"
           >
             {loading ? 'Buscando...' : 'Ingresar'}
