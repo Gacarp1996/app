@@ -9,7 +9,7 @@ import { db } from '../firebase/firebase-config';
 
 const AcademiaSelectPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth(); 
+  const { currentUser } = useAuth();
   const { setAcademiaActual, misAcademias, registrarAccesoAcademia } = useAcademia();
 
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
@@ -29,10 +29,13 @@ const AcademiaSelectPage: React.FC = () => {
     setError('');
 
     try {
-      // Crear la academia en Firebase
-      const academiaId = await crearAcademia(nombreNuevaAcademia.trim(), currentUser.uid, 'academia');
+      // CORREGIDO: Se pasa un solo objeto como argumento
+      const academiaId = await crearAcademia({
+        nombre: nombreNuevaAcademia.trim(),
+        creadorId: currentUser.uid,
+        tipo: 'academia'
+      });
       
-      // Obtener la academia completa
       const nuevaAcademia = await obtenerAcademiaPorId(academiaId);
       
       if (nuevaAcademia) {
@@ -57,10 +60,14 @@ const AcademiaSelectPage: React.FC = () => {
     setError('');
 
     try {
-      // Crear el grupo en Firebase con límite de 3 jugadores
-      const grupoId = await crearAcademia(nombreNuevoGrupo.trim(), currentUser.uid, 'grupo-entrenamiento', 3);
+      // CORREGIDO: Se pasa un solo objeto como argumento
+      const grupoId = await crearAcademia({
+        nombre: nombreNuevoGrupo.trim(),
+        creadorId: currentUser.uid,
+        tipo: 'grupo-entrenamiento',
+        limiteJugadores: 3
+      });
       
-      // Obtener el grupo completo
       const nuevoGrupo = await obtenerAcademiaPorId(grupoId);
       
       if (nuevoGrupo) {
@@ -85,9 +92,8 @@ const AcademiaSelectPage: React.FC = () => {
     setError('');
 
     try {
-      // Buscar la academia/grupo con el ID y nombre proporcionados
       const q = query(
-        collection(db, "academias"), 
+        collection(db, "academias"),
         where("id", "==", idIngreso.toUpperCase()),
         where("nombre", "==", nombreIngreso),
         where("activa", "==", true)
@@ -103,7 +109,8 @@ const AcademiaSelectPage: React.FC = () => {
         };
         
         await setAcademiaActual(entidadEncontrada as any);
-        await registrarAccesoAcademia(doc.id, academiaData.nombre);
+        // CORREGIDO: Se usa la variable correcta
+        await registrarAccesoAcademia(doc.id, (entidadEncontrada as any).nombre);
         navigate('/');
       } else {
         setError('No se encontró una academia o grupo con esos datos.');
@@ -119,7 +126,6 @@ const AcademiaSelectPage: React.FC = () => {
   const handleSeleccionarAcademia = async (academia: any) => {
     setLoading(true);
     try {
-      // Obtener la academia/grupo completa desde Firebase
       const entidadCompleta = await obtenerAcademiaPorId(academia.academiaId);
       
       if (entidadCompleta) {

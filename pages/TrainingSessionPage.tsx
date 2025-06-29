@@ -228,15 +228,16 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
         return;
       }
 
-      // Verificar si ya existe una encuesta para este jugador/sesión
-      const surveyExists = await checkSurveyExists(academiaId, playerId, sessionId);
+      // CORREGIDO: Verificar si ya existe una encuesta para este jugador en el día de hoy
+      const surveyDate = new Date();
+      const surveyExists = await checkSurveyExists(academiaId, playerId, surveyDate);
       if (surveyExists) {
-        console.log('Ya existe una encuesta para este jugador/sesión');
+        console.log('Ya existe una encuesta para este jugador/sesión hoy');
       } else {
         await addPostTrainingSurvey(academiaId, {
           jugadorId: playerId,
           sessionId: sessionId,
-          fecha: new Date().toISOString(),
+          fecha: surveyDate.toISOString(),
           ...responses
         });
       }

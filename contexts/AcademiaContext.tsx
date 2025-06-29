@@ -3,29 +3,29 @@ import React, { createContext, useState, useContext, ReactNode, useEffect } from
 import { useAuth } from './AuthContext';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase-config';
-import { Academia } from '../Database/FirebaseAcademias';
+// CORRECCIÓN 1: Se importa 'Academia' y 'TipoEntidad' desde el archivo de tipos centralizado.
+import { Academia, TipoEntidad } from '../types'; 
 import { getUserRoleInAcademia, addUserToAcademia, UserRole } from '../Database/FirebaseRoles';
-import { TipoEntidad } from '../types';
 
 interface UserAcademia {
   academiaId: string;
   nombre: string;
   id?: string;
   ultimoAcceso: Date;
-  role?: UserRole; // Agregamos el rol aquí
-  tipo?: TipoEntidad; // NUEVO
+  role?: UserRole;
+  tipo?: TipoEntidad;
 }
 
 interface AcademiaContextType {
   academiaActual: Academia | null;
-  rolActual: UserRole | null; // Nuevo: rol del usuario en la academia actual
+  rolActual: UserRole | null;
   misAcademias: UserAcademia[];
   loading: boolean;
   setAcademiaActual: (academia: Academia | null) => Promise<void>;
   cargarMisAcademias: () => Promise<void>;
   registrarAccesoAcademia: (academiaId: string, nombre: string) => Promise<void>;
   limpiarAcademiaActual: () => void;
-  eliminarAcademiaDeMisAcademias: (academiaId: string) => Promise<void>; // Nuevo método
+  eliminarAcademiaDeMisAcademias: (academiaId: string) => Promise<void>;
 }
 
 const AcademiaContext = createContext<AcademiaContextType | undefined>(undefined);
@@ -79,7 +79,8 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
             }
 
             const role = await getUserRoleInAcademia(academia.academiaId, currentUser.uid);
-            if (role) {academia.role = role;
+            if (role) {
+              academia.role = role;
             }
 
             return academia;
@@ -97,35 +98,31 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!currentUser) return;
 
     try {
-      const academiaDoc = await getDoc(doc(db, 'academias', academiaId));
+      const academiaDocRef = doc(db, 'academias', academiaId);
+      const academiaDoc = await getDoc(academiaDocRef);
       const academiaData = academiaDoc.exists() ? academiaDoc.data() : null;
 
       let userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
 
-      if (!userRole) {
-        const academiaDoc = await getDoc(doc(db, 'academias', academiaId));
-        const academiaData = academiaDoc.exists() ? academiaDoc.data() : null;
-
-        if (academiaData && academiaData.creadorId !== currentUser.uid) {
-          await addUserToAcademia(
-            academiaId,
-            currentUser.uid,
-            currentUser.email || '',
-            'entrenador',
-            currentUser.displayName || currentUser.email?.split('@')[0]
-          );
-          userRole = 'entrenador';
-        } else {
-          userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
-        }
+      if (!userRole && academiaData && academiaData.creadorId !== currentUser.uid) {
+        // Si no tiene rol y no es el creador, se le asigna 'entrenador'
+        await addUserToAcademia(
+          academiaId,
+          currentUser.uid,
+          currentUser.email || '',
+          'entrenador',
+          currentUser.displayName || currentUser.email?.split('@')[0]
+        );
+        userRole = 'entrenador';
       }
 
+      // CORRECCIÓN 2: Se construye el objeto 'nuevoAcceso' con la sintaxis correcta.
       const nuevoAcceso: UserAcademia = {
-        academiaId,
-        nombre,
+        academiaId: academiaId,
+        nombre: nombre,
         id: academiaData?.id || '',
         ultimoAcceso: new Date(),
-        role: userRole,
+        role: userRole || undefined, // Asignamos el rol obtenido
         tipo: academiaData?.tipo || undefined
       };
 
@@ -143,9 +140,10 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
 
       await cargarMisAcademias();
-
+      
       const role = await getUserRoleInAcademia(academiaId, currentUser.uid);
       setRolActual(role);
+
     } catch (error) {
       console.error('Error registrando acceso:', error);
     }

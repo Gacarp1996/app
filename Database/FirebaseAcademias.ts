@@ -1,112 +1,105 @@
-// Database/FirebaseAcademias.ts
-import { db } from "../firebase/firebase-config";
-import { collection, addDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
-import { addUserToAcademia } from "./FirebaseRoles";
-import { getAuth } from "firebase/auth";
-import { Academia, TipoEntidad } from "../types";
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase/firebase-config';
+import { Academia } from '../types'; // IMPORTADO DESDE TYPES
 
-// NUEVO: Tipo de entidad
-export type TipoEntidad = 'academia' | 'grupo-entrenamiento';
+// Funciones CRUD para Academias
 
-export interface Academia {
-  nombre: string;
-  id: string;
-  creadorId: string;
-  fechaCreacion: Date;
-  activa: boolean;
-  tipo: TipoEntidad; // NUEVO
-  limiteJugadores?: number; // NUEVO: límite de jugadores (3 para grupos, null para academias)
-}
-
-// Generar ID único de 6 caracteres
-const generarIdUnico = (): string => {
-  const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let resultado = '';
-  for (let i = 0; i < 6; i++) {
-    resultado += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
-  }
-  return resultado;
-};
-
-// ACTUALIZADO: Ahora acepta tipo y límite de jugadores
-export const crearAcademia = async (
-  nombre: string, 
-  creadorId: string, 
-  tipo: TipoEntidad = 'academia',
-  limiteJugadores?: number
-): Promise<string> => {
+// Crear una nueva academia
+export const crearAcademia = async (academiaData: Omit<Academia, 'id' | 'fechaCreacion' | 'activa'>): Promise<string> => {
   try {
-    let idUnico = generarIdUnico();
-    let idExiste = true;
-
-    // Verificar que el ID sea único
-    while (idExiste) {
-      const q = query(collection(db, "academias"), where("id", "==", idUnico));
-      const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) {
-        idExiste = false;
-      } else {
-        idUnico = generarIdUnico();
-      }
-    }
-
-    const nuevaAcademia: Academia = {
-      nombre,
-      id: idUnico,
-      creadorId,
+    const docRef = await addDoc(collection(db, 'academias'), {
+      ...academiaData,
       fechaCreacion: new Date(),
       activa: true,
-      tipo, // NUEVO
-      limiteJugadores // NUEVO
-    };
-
-    // Crear la academia/grupo
-    const docRef = await addDoc(collection(db, "academias"), nuevaAcademia);
-    console.log(`${tipo === 'academia' ? 'Academia' : 'Grupo de entrenamiento'} creado con ID:`, docRef.id);
-
-    // Obtener el email del usuario actual
-    const auth = getAuth();
-    const userEmail = auth.currentUser?.email || '';
-    const userName = auth.currentUser?.displayName || userEmail.split('@')[0];
-
-    // Asignar rol de director al creador
-    await addUserToAcademia(
-      docRef.id,
-      creadorId,
-      userEmail,
-      'director',
-      userName
-    );
-
-    console.log("Rol de director asignado al creador");
-
-    // Pequeña espera para asegurar que la escritura se complete
-    await new Promise(resolve => setTimeout(resolve, 100));
-
+    });
+    // Actualizar el documento para añadir el ID
+    await updateDoc(doc(db, 'academias', docRef.id), {
+      id: docRef.id
+    });
     return docRef.id;
   } catch (error) {
-    console.error(`Error al crear ${tipo === 'academia' ? 'academia' : 'grupo'}:`, error);
-    throw error;
+    console.error("Error al crear la academia: ", error);
+    throw new Error('No se pudo crear la academia.');
   }
 };
 
+// Obtener todas las academias
+export const obtenerAcademias = async (): Promise<Academia[]> => {
+  try {
+    const q = query(collection(db, "academias"), where("activa", "==", true));
+    const querySnapshot = await getDocs(q);
+    const academias: Academia[] = [];
+    querySnapshot.forEach((doc) => {
+        academias.push({ id: doc.id, ...doc.data() } as Academia);
+    });
+    return academias;
+  } catch (error) {
+    console.error("Error al obtener las academias: ", error);
+    return [];
+  }
+};
+
+
+// Obtener una academia por su ID
 export const obtenerAcademiaPorId = async (id: string): Promise<Academia | null> => {
-  const q = query(collection(db, "academias"), where("id", "==", id));
-  const querySnapshot = await getDocs(q);
-  if (!querySnapshot.empty) {
-    const doc = querySnapshot.docs[0];
-    return doc.data() as Academia;
-  } else {
-    return null;
-  }
+    try {
+        const docRef = doc(db, 'academias', id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return { id: docSnap.id, ...docSnap.data() } as Academia;
+        } else {
+            console.log("No se encontró la academia");
+            return null;
+        }
+    } catch (error) {
+        console.error("Error al obtener la academia: ", error);
+        return null;
+    }
 };
 
-export const obtenerAcademiaPorDocId = async (docId: string): Promise<Academia | null> => {
-  const docRef = doc(db, "academias", docId);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return docSnap.data() as Academia;
-  } else {
-    return null;
+
+// Actualizar una academia
+export const actualizarAcademia = async (id: string, data: Partial<Academia>): Promise<void> => {
+    try {
+        const academiaRef = doc(db, 'academias', id);
+        await updateDoc(academiaRef, data);
+    } catch (error) {
+        console.error("Error al actualizar la academia: ", error);
+    }
+};
+
+
+// Eliminar una academia (marcar como inactiva)
+export const eliminarAcademia = async (id: string): Promise<void> => {
+    try {
+        const academiaRef = doc(db, 'academias', id);
+        await updateDoc(academiaRef, { activa: false });
+    } catch (error) {
+        console.error("Error al eliminar la academia: ", error);
+    }
+};
+
+// NUEVO: Buscar academia o grupo por nombre
+export const buscarEntidadPorNombre = async (nombre: string): Promise<(Academia & { id: string }) | null> => {
+  try {
+    const academiasRef = collection(db, 'academias');
+    // Normalizamos el nombre a minúsculas para la búsqueda
+    const nombreNormalizado = nombre.toLowerCase();
+    const q = query(academiasRef, where("nombre_normalizado", "==", nombreNormalizado));
+
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      console.log('No se encontró ninguna academia o grupo con ese nombre.');
+      return null;
+    }
+
+    // Suponemos que los nombres son únicos, así que tomamos el primer resultado
+    const doc = querySnapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as Academia & { id: string };
+
+  } catch (error) {
+    console.error("Error al buscar la entidad por nombre: ", error);
+    throw new Error('Error al buscar la entidad.');
   }
 };
