@@ -126,12 +126,13 @@ const SurveyVisualization: React.FC<SurveyVisualizationProps> = ({ surveys, time
         )}
       </div>
 
-      {/* Tabla detallada */}
+      {/* Tabla detallada para pantallas grandes y tarjetas para móviles */}
       <div className="bg-app-surface p-6 rounded-lg shadow">
         <h3 className="text-xl font-semibold text-app-accent mb-4">
           Detalle de Encuestas ({surveys.length})
         </h3>
-        <div className="overflow-x-auto">
+        {/* Tabla para pantallas medianas y grandes */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-app">
@@ -181,6 +182,31 @@ const SurveyVisualization: React.FC<SurveyVisualizationProps> = ({ surveys, time
               })}
             </tbody>
           </table>
+        </div>
+        {/* Tarjetas para pantallas pequeñas */}
+        <div className="md:hidden space-y-4">
+          {[...surveys].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map((survey) => {
+            const promedio = (
+              (survey.cansancioFisico +
+               survey.concentracion +
+               survey.actitudMental +
+               survey.sensacionesTenisticas) / 4
+            ).toFixed(1);
+            return (
+              <div key={survey.id} className="bg-app-surface-alt p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-3">
+                  <p className="font-semibold">{formatDateLocal(survey.fecha)}</p>
+                  <p className="font-bold text-lg text-app-accent">{promedio}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <p><strong>Energía:</strong> {survey.cansancioFisico}/5</p>
+                  <p><strong>Concentración:</strong> {survey.concentracion}/5</p>
+                  <p><strong>Actitud:</strong> {survey.actitudMental}/5</p>
+                  <p><strong>Sensaciones:</strong> {survey.sensacionesTenisticas}/5</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

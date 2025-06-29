@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+// El 'BrowserRouter' no es necesario aquí si ya está en un nivel superior de tu app.
+// Lo quito para evitar conflictos, pero mantengo 'Routes', 'Route', etc.
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { TrainingProvider } from '../contexts/TrainingContext';
 import { useAcademia } from '../contexts/AcademiaContext';
@@ -7,7 +9,7 @@ import { getObjectives } from '../Database/FirebaseObjectives';
 import { getSessions } from '../Database/FirebaseSessions';
 import { getTournaments } from '../Database/FirebaseTournaments';
 import GlobalHeader from './GlobalHeader';
-import HomePage from '../pages/HomePage';
+import HomePage from '../pages/HomePage'; // Esta importación ya la tenías, ¡perfecto!
 import PlayersListPage from '../pages/PlayersListPage';
 import StartTrainingPage from '../pages/StartTrainingPage';
 import TrainingSessionPage from '../pages/TrainingSessionPage';
@@ -56,12 +58,17 @@ const AppWithAcademia: React.FC = () => {
       <main className="container mx-auto p-4 flex-grow">
         <TrainingProvider>
           <Routes>
+            {/* AQUÍ ESTÁ LA LÍNEA AÑADIDA:
+              Esta es la ruta para tu página de inicio. Ahora sí se va a renderizar.
+            */}
+            <Route path="/" element={<HomePage />} />
+
             <Route path="/players" element={
              <PlayersListPage 
              players={players} 
              onDataChange={fetchData} 
              academiaId={academiaActual.id}
-             academiaActual={academiaActual} // NUEVO: pasar academiaActual
+             academiaActual={academiaActual}
             />
           } />
             <Route path="/academia-settings" element={
@@ -114,6 +121,7 @@ const AppWithAcademia: React.FC = () => {
                 academiaId={academiaActual.id}
               />
             } />
+            {/* Esta redirección ahora tiene más sentido, si no encuentra ninguna ruta, va a la de inicio */ }
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </TrainingProvider>

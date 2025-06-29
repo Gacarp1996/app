@@ -11,6 +11,7 @@ const HomePage: React.FC = () => {
         </p>
       </header>
 
+      {/* Acciones Principales */}
       <section className="mt-12 grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
         <Link
           to="/start-training"
@@ -30,6 +31,30 @@ const HomePage: React.FC = () => {
           </svg>
           <span className="text-2xl">Ver Jugadores</span>
         </Link>
+      </section>
+
+      {/* Guía Rápida */}
+      <section className="mt-16 bg-app-surface p-8 rounded-lg shadow-lg max-w-4xl mx-auto">
+        <h2 className="text-2xl font-bold text-app-accent mb-4">Guía Rápida</h2>
+        <div className="grid md:grid-cols-3 gap-8 text-left">
+          <div>
+            <h3 className="text-xl font-semibold mb-2">1. Crea Jugadores</h3>
+            <p className="text-app-secondary">Ve a la sección de "Ver Jugadores" y añade a tus atletas. </p>
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold mb-2">2. Define Objetivos</h3>
+            <p className="text-app-secondary">En el perfil de cada jugador, establece los objetivos a corto y largo plazo.</p>
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold mb-2">3. Registra Entrenamientos</h3>
+            <p className="text-app-secondary">Inicia un entrenamiento, selecciona a los participantes y registra los ejercicios realizados.</p>
+          </div>
+        </div>
+        <div className="mt-8 text-center">
+            <button onClick={() => alert('Próximamente: Manual de Usuario Detallado')} className="app-button btn-secondary">
+                Ver Manual de Usuario Completo
+            </button>
+        </div>
       </section>
     </div>
   );

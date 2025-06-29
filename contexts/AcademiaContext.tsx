@@ -1,9 +1,10 @@
 // contexts/AcademiaContext.tsx
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+// Asegúrate de importar serverTimestamp si no lo tienes ya.
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'; 
 import { db } from '../firebase/firebase-config';
-// CORRECCIÓN 1: Se importa 'Academia' y 'TipoEntidad' desde el archivo de tipos centralizado.
+// Bien
 import { Academia, TipoEntidad } from '../types'; 
 import { getUserRoleInAcademia, addUserToAcademia, UserRole } from '../Database/FirebaseRoles';
 
@@ -11,7 +12,8 @@ interface UserAcademia {
   academiaId: string;
   nombre: string;
   id?: string;
-  ultimoAcceso: Date;
+  // Cambiamos a un tipo que Firestore entiende, o lo manejamos en la conversión.
+  ultimoAcceso: any; 
   role?: UserRole;
   tipo?: TipoEntidad;
 }
@@ -50,47 +52,60 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   useEffect(() => {
-    if (currentUser) {
-      cargarMisAcademias();
-    } else {
-      setMisAcademias([]);
-      setAcademiaActualState(null);
-      setRolActual(null);
-    }
-    setLoading(false);
+    const init = async () => {
+        if (currentUser) {
+            await cargarMisAcademias();
+        } else {
+            // Limpiamos el estado si no hay usuario
+            setMisAcademias([]);
+            setAcademiaActualState(null);
+            setRolActual(null);
+        }
+        setLoading(false);
+    };
+    init();
   }, [currentUser]);
 
   const cargarMisAcademias = async () => {
     if (!currentUser) return;
     
+    setLoading(true); // Indicamos que estamos cargando
     try {
-      const userDoc = await getDoc(doc(db, 'userAcademias', currentUser.uid));
+      const userDocRef = doc(db, 'userAcademias', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
       if (userDoc.exists()) {
         const data = userDoc.data();
         const academias = data.academias || [];
 
-        const academiasConIdYRol = await Promise.all(
+        const academiasConDetalles = await Promise.all(
           academias.map(async (academia: UserAcademia) => {
-            if (!academia.id && academia.academiaId) {
-              const academiaDoc = await getDoc(doc(db, 'academias', academia.academiaId));
-              if (academiaDoc.exists()) {
-                academia.id = academiaDoc.data().id;
-              }
-            }
+            // Aseguramos que los datos básicos estén
+            if (!academia.academiaId) return null;
 
+            const academiaDoc = await getDoc(doc(db, 'academias', academia.academiaId));
             const role = await getUserRoleInAcademia(academia.academiaId, currentUser.uid);
-            if (role) {
-              academia.role = role;
+            
+            if (academiaDoc.exists()) {
+                const academiaData = academiaDoc.data() as Academia;
+                return {
+                    ...academia,
+                    id: academiaData.id || academia.academiaId,
+                    nombre: academiaData.nombre,
+                    tipo: academiaData.tipo,
+                    role: role,
+                };
             }
-
-            return academia;
+            return null;
           })
         );
-
-        setMisAcademias(academiasConIdYRol);
+        // Filtramos los resultados nulos por si alguna academia fue eliminada
+        setMisAcademias(academiasConDetalles.filter(Boolean) as UserAcademia[]);
       }
     } catch (error) {
       console.error('Error cargando mis academias:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,45 +115,53 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
       const academiaDocRef = doc(db, 'academias', academiaId);
       const academiaDoc = await getDoc(academiaDocRef);
-      const academiaData = academiaDoc.exists() ? academiaDoc.data() : null;
+      const academiaData = academiaDoc.exists() ? academiaDoc.data() as Academia : null;
 
+      // CORRECCIÓN CLAVE: Si la academia no existe en la BD, no continuamos.
+      if (!academiaData) {
+        console.error("No se puede registrar acceso a una academia que no existe:", academiaId);
+        return;
+      }
+      
       let userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
 
-      if (!userRole && academiaData && academiaData.creadorId !== currentUser.uid) {
-        // Si no tiene rol y no es el creador, se le asigna 'entrenador'
+      if (!userRole && academiaData.creadorId !== currentUser.uid) {
+        // Asignamos 'entrenador' por defecto si no tiene rol y no es creador
         await addUserToAcademia(
           academiaId,
           currentUser.uid,
-          currentUser.email || '',
+          currentUser.email || 'no-email-provided', // Evitamos undefined
           'entrenador',
-          currentUser.displayName || currentUser.email?.split('@')[0]
+          currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario Anónimo'
         );
         userRole = 'entrenador';
       }
 
-      // CORRECCIÓN 2: Se construye el objeto 'nuevoAcceso' con la sintaxis correcta.
-      const nuevoAcceso: UserAcademia = {
+      // Usamos serverTimestamp() para el manejo de fechas en Firestore
+      const nuevoAcceso = {
         academiaId: academiaId,
         nombre: nombre,
-        id: academiaData?.id || '',
-        ultimoAcceso: new Date(),
-        role: userRole || undefined, // Asignamos el rol obtenido
-        tipo: academiaData?.tipo || undefined
+        // No es necesario 'id' aquí, ya que se basa en la lista de academias
+        ultimoAcceso: serverTimestamp() 
       };
 
       const userRef = doc(db, 'userAcademias', currentUser.uid);
       const userDoc = await getDoc(userRef);
 
+      let academiasActualizadas = [];
       if (userDoc.exists()) {
-        const academias = userDoc.data().academias || [];
-        const academiasActualizadas = academias.filter((a: UserAcademia) => a.academiaId !== academiaId);
+        const academiasPrevias = userDoc.data().academias || [];
+        // Filtramos para evitar duplicados y luego añadimos el nuevo acceso al principio
+        academiasActualizadas = academiasPrevias.filter((a: UserAcademia) => a.academiaId !== academiaId);
         academiasActualizadas.unshift(nuevoAcceso);
 
         await updateDoc(userRef, { academias: academiasActualizadas });
       } else {
-        await setDoc(userRef, { academias: [nuevoAcceso] });
+        academiasActualizadas = [nuevoAcceso];
+        await setDoc(userRef, { academias: academiasActualizadas });
       }
-
+      
+      // Actualizamos el estado local para reflejar el cambio inmediatamente
       await cargarMisAcademias();
       
       const role = await getUserRoleInAcademia(academiaId, currentUser.uid);
