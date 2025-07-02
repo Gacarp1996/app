@@ -3,29 +3,70 @@ import { Link } from 'react-router-dom';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { db } from '../firebase/firebase-config';
 import { collection, getDocs, query } from 'firebase/firestore';
+import { SmartWidgetsContainer } from '../components/SmartWidgets';
+import { Player, TrainingSession, Objective } from '../types';
 
 const HomePage: React.FC = () => {
   const { academiaActual } = useAcademia();
   const [hasPlayers, setHasPlayers] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [sessions, setSessions] = useState<TrainingSession[]>([]);
+  const [objectives, setObjectives] = useState<Objective[]>([]);
 
   useEffect(() => {
-    const checkPlayers = async () => {
+    const loadData = async () => {
       // Si tenemos una academia seleccionada con su ID...
       if (academiaActual?.id) {
         try {
-          // --- ESTA ES LA LÍNEA CORREGIDA ---
-          // Ahora buscamos en la sub-colección 'players' dentro de la academia actual.
+          // Cargar jugadores
           const playersQuery = query(
             collection(db, "academias", academiaActual.id, "players")
           );
+          const playersSnapshot = await getDocs(playersQuery);
+          const playersData = playersSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as Player));
+          setPlayers(playersData);
+          setHasPlayers(!playersSnapshot.empty);
+
+          // Cargar sesiones
+          const sessionsPromises = playersData.map(player => 
+            getDocs(query(collection(db, "academias", academiaActual.id, "players", player.id, "sessions")))
+          );
+          const sessionsSnapshots = await Promise.all(sessionsPromises);
+          const sessionsData: TrainingSession[] = [];
+          sessionsSnapshots.forEach((snapshot, playerIndex) => {
+            snapshot.docs.forEach(doc => {
+              sessionsData.push({
+                id: doc.id,
+                jugadorId: playersData[playerIndex].id,
+                ...doc.data()
+              } as TrainingSession);
+            });
+          });
+          setSessions(sessionsData);
+
+          // Cargar objetivos
+          const objectivesPromises = playersData.map(player => 
+            getDocs(query(collection(db, "academias", academiaActual.id, "players", player.id, "objectives")))
+          );
+          const objectivesSnapshots = await Promise.all(objectivesPromises);
+          const objectivesData: Objective[] = [];
+          objectivesSnapshots.forEach((snapshot, playerIndex) => {
+            snapshot.docs.forEach(doc => {
+              objectivesData.push({
+                id: doc.id,
+                jugadorId: playersData[playerIndex].id,
+                ...doc.data()
+              } as Objective);
+            });
+          });
+          setObjectives(objectivesData);
           
-          const querySnapshot = await getDocs(playersQuery);
-          
-          // Si la consulta no está vacía, hay jugadores.
-          setHasPlayers(!querySnapshot.empty);
         } catch (error) {
-          console.error("Error al verificar jugadores:", error);
+          console.error("Error al cargar datos:", error);
           setHasPlayers(false);
         } finally {
           setLoading(false);
@@ -35,7 +76,7 @@ const HomePage: React.FC = () => {
       }
     };
 
-    checkPlayers();
+    loadData();
   }, [academiaActual]);
 
   if (loading) {
@@ -81,6 +122,20 @@ const HomePage: React.FC = () => {
             )}
           </div>
         </header>
+
+        {/* Smart Widgets */}
+        {!loading && academiaActual && (
+          <SmartWidgetsContainer
+            academiaId={academiaActual.id}
+            players={players}
+            sessions={sessions}
+            objectives={objectives}
+            onDataChange={() => {
+              // Recargar datos si es necesario
+              window.location.reload();
+            }}
+          />
+        )}
 
         {/* Acciones Principales con diseño mejorado */}
         <section className="mt-8 lg:mt-16 grid md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl lg:max-w-4xl mx-auto">
@@ -180,31 +235,7 @@ const HomePage: React.FC = () => {
           </div>
         </section>
 
-        {/* Información adicional para desktop */}
-        <section className="hidden lg:block mt-20 max-w-4xl mx-auto">
-          <div className="bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-xl">
-            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-8">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-white mb-2">
-                    {academiaActual?.nombre || 'Academia'}
-                  </h3>
-                  <p className="text-gray-400">
-                    {academiaActual?.tipo === 'grupo-entrenamiento' 
-                      ? 'Grupo de entrenamiento personal' 
-                      : 'Academia de tenis'}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 mb-1">ID de acceso</p>
-                  <p className="text-2xl font-mono font-bold text-green-400">
-                    {academiaActual?.id || '------'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        
       </div>
     </div>
   );

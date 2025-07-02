@@ -2,19 +2,67 @@ import { db } from "../firebase/firebase-config";
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy } from "firebase/firestore";
 import { DisputedTournament } from "../types";
 
+// Función para convertir datos legacy a la nueva estructura
+const migrateLegacyData = (data: any): DisputedTournament => {
+  // Si ya tiene evaluacionGeneral, no hay necesidad de migrar
+  if (data.evaluacionGeneral) {
+    return data as DisputedTournament;
+  }
+  
+  // Mapeo de rendimientoJugador legacy a evaluacionGeneral
+  const legacyMap: Record<string, DisputedTournament['evaluacionGeneral']> = {
+    'Muy malo': 'Muy malo',
+    'Malo': 'Malo',
+    'Bueno': 'Bueno',
+    'Muy bueno': 'Muy bueno',
+    'Excelente': 'Excelente'
+  };
+  
+  // Si no hay evaluacionGeneral pero sí rendimientoJugador, migrar
+  const evaluacionGeneral = data.rendimientoJugador 
+    ? (legacyMap[data.rendimientoJugador] || 'Regular')
+    : 'Regular';
+  
+  // Si no hay fechaInicio pero sí fechaFin, usar fechaFin como fechaInicio
+  const fechaInicio = data.fechaInicio || data.fechaFin;
+  
+  return {
+    ...data,
+    evaluacionGeneral,
+    fechaInicio
+  };
+};
+
 // Agregar un torneo disputado
 export const addDisputedTournament = async (academiaId: string, tournamentData: Omit<DisputedTournament, "id">) => {
   try {
+    console.log('Intentando agregar torneo disputado:', {
+      academiaId,
+      tournamentData
+    });
+    
+    // Validar campos requeridos
+    if (!tournamentData.evaluacionGeneral) {
+      throw new Error('evaluacionGeneral es requerido');
+    }
+    
     const disputedTournamentsCollection = collection(db, "academias", academiaId, "disputedTournaments");
     const dataWithRegistrationDate = {
       ...tournamentData,
       fechaRegistro: new Date().toISOString()
     };
+    
+    console.log('Datos finales a guardar:', dataWithRegistrationDate);
+    
     const docRef = await addDoc(disputedTournamentsCollection, dataWithRegistrationDate);
     console.log("Torneo disputado agregado con ID:", docRef.id);
     return docRef.id;
   } catch (error) {
     console.error("Error al agregar torneo disputado:", error);
+    if (error instanceof Error) {
+      console.error("Mensaje de error:", error.message);
+      console.error("Stack trace:", error.stack);
+    }
     throw error;
   }
 };
@@ -23,12 +71,16 @@ export const addDisputedTournament = async (academiaId: string, tournamentData: 
 export const getDisputedTournaments = async (academiaId: string): Promise<DisputedTournament[]> => {
   try {
     const disputedTournamentsCollection = collection(db, "academias", academiaId, "disputedTournaments");
-    const q = query(disputedTournamentsCollection, orderBy("fechaFin", "desc"));
+    const q = query(disputedTournamentsCollection, orderBy("fechaInicio", "desc"));
     const querySnapshot = await getDocs(q);
-    const tournaments: DisputedTournament[] = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data() as Omit<DisputedTournament, "id">
-    }));
+    const tournaments: DisputedTournament[] = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      const migratedData = migrateLegacyData(data);
+      return {
+        ...migratedData,
+        id: doc.id
+      };
+    });
     return tournaments;
   } catch (error) {
     console.error("Error al obtener torneos disputados:", error);
@@ -48,21 +100,25 @@ export const getPlayerDisputedTournaments = async (
     let q = query(
       disputedTournamentsCollection, 
       where("jugadorId", "==", playerId),
-      orderBy("fechaFin", "desc")
+      orderBy("fechaInicio", "desc")
     );
     
     const querySnapshot = await getDocs(q);
-    let tournaments: DisputedTournament[] = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data() as Omit<DisputedTournament, "id">
-    }));
+    let tournaments: DisputedTournament[] = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      const migratedData = migrateLegacyData(data);
+      return {
+        ...migratedData,
+        id: doc.id
+      };
+    });
     
     // Filtrar por fechas si se proporcionan
     if (startDate || endDate) {
       tournaments = tournaments.filter(t => {
-        const tournamentEndDate = new Date(t.fechaFin);
-        if (startDate && tournamentEndDate < startDate) return false;
-        if (endDate && tournamentEndDate > endDate) return false;
+        const tournamentDate = new Date(t.fechaInicio);
+        if (startDate && tournamentDate < startDate) return false;
+        if (endDate && tournamentDate > endDate) return false;
         return true;
       });
     }
@@ -112,8 +168,7 @@ export const convertToDisputedTournament = async (
   resultData: {
     resultado: string;
     nivelDificultad: number;
-    rendimientoJugador: DisputedTournament['rendimientoJugador'];
-    conformidadGeneral: DisputedTournament['conformidadGeneral'];
+    evaluacionGeneral: DisputedTournament['evaluacionGeneral'];
     observaciones?: string;
   }
 ) => {
@@ -121,8 +176,7 @@ export const convertToDisputedTournament = async (
     const disputedTournamentData: Omit<DisputedTournament, "id"> = {
       jugadorId: futureTournament.jugadorId,
       nombreTorneo: futureTournament.nombreTorneo,
-      fechaInicio: futureTournament.fechaInicio,
-      fechaFin: futureTournament.fechaFin,
+      fechaInicio: futureTournament.fechaInicio, // Usar solo fecha de inicio
       torneoFuturoId: futureTournament.id,
       ...resultData
     };

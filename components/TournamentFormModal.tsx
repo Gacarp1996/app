@@ -1,203 +1,163 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { Tournament, TournamentImportance } from '../types';
-import { TOURNAMENT_IMPORTANCE_LEVELS } from '../constants';
+import { DisputedTournament, Tournament, EvaluacionGeneral } from '../types';
 
-interface TournamentFormModalProps {
+interface DisputedTournamentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (tournamentData: Omit<Tournament, 'id' | 'jugadorId'>) => void;
+  onSave: (tournamentData: Omit<DisputedTournament, 'id' | 'jugadorId' | 'fechaRegistro'>) => void;
   playerId: string;
-  existingTournament: Tournament | null;
+  existingDisputedTournament?: DisputedTournament | null;
+  futureTournamentToConvert?: Tournament | null;
 }
 
-const TournamentFormModal: React.FC<TournamentFormModalProps> = ({
-  isOpen,
-  onClose,
-  onSave,
-  existingTournament,
-}) => {
+const EVALUACION_OPTIONS: EvaluacionGeneral[] = ['Muy malo', 'Malo', 'Bueno', 'Muy bueno', 'Excelente'];
+const RESULTADO_SUGERIDOS = ['Campeón', 'Finalista', 'Semifinal', 'Cuartos de final', 'Octavos de final', 'Segunda ronda', 'Primera ronda', 'Clasificación'];
+
+const CardSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+    <div className="relative bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-2xl">
+        <div className="bg-gray-900/95 backdrop-blur-xl rounded-2xl p-4 sm:p-6">
+            <h4 className="text-lg font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">
+                {title}
+            </h4>
+            {children}
+        </div>
+    </div>
+);
+
+const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = ({ isOpen, onClose, onSave, existingDisputedTournament, futureTournamentToConvert }) => {
   const [nombreTorneo, setNombreTorneo] = useState('');
-  const [gradoImportancia, setGradoImportancia] = useState<TournamentImportance>(TOURNAMENT_IMPORTANCE_LEVELS[2]);
   const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
+  const [resultado, setResultado] = useState('');
+  const [nivelDificultad, setNivelDificultad] = useState(3);
+  const [evaluacionGeneral, setEvaluacionGeneral] = useState<EvaluacionGeneral>('Bueno');
+  const [observaciones, setObservaciones] = useState('');
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    if (existingTournament) {
-      setNombreTorneo(existingTournament.nombreTorneo);
-      setGradoImportancia(existingTournament.gradoImportancia);
-      setFechaInicio(existingTournament.fechaInicio.split('T')[0]);
-      setFechaFin(existingTournament.fechaFin.split('T')[0]);
-      setError('');
+    if (existingDisputedTournament) {
+      setNombreTorneo(existingDisputedTournament.nombreTorneo);
+      setFechaInicio(existingDisputedTournament.fechaInicio.split('T')[0]);
+      setResultado(existingDisputedTournament.resultado);
+      setNivelDificultad(existingDisputedTournament.nivelDificultad);
+      setEvaluacionGeneral(existingDisputedTournament.evaluacionGeneral);
+      setObservaciones(existingDisputedTournament.observaciones || '');
+    } else if (futureTournamentToConvert) {
+      setNombreTorneo(futureTournamentToConvert.nombreTorneo);
+      setFechaInicio(futureTournamentToConvert.fechaInicio.split('T')[0]);
+      // Resetear campos de evaluación
+      setResultado('');
+      setNivelDificultad(3);
+      setEvaluacionGeneral('Bueno');
+      setObservaciones('');
     } else {
-      setNombreTorneo('');
-      setGradoImportancia(TOURNAMENT_IMPORTANCE_LEVELS[2]);
-      setFechaInicio('');
-      setFechaFin('');
-      setError('');
+      setNombreTorneo(''); 
+      setFechaInicio(''); 
+      setResultado('');
+      setNivelDificultad(3); 
+      setEvaluacionGeneral('Bueno');
+      setObservaciones('');
     }
-  }, [existingTournament, isOpen]);
+    setError('');
+  }, [existingDisputedTournament, futureTournamentToConvert, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (!nombreTorneo.trim()) {
-      setError('El nombre del torneo no puede estar vacío.');
+    if (!nombreTorneo.trim() || !fechaInicio || !resultado.trim()) {
+      setError('Por favor, completa todos los campos obligatorios.');
       return;
     }
-    if (!fechaInicio || !fechaFin) {
-      setError('Debe seleccionar una fecha de inicio y una fecha de fin.');
-      return;
-    }
-    if (new Date(fechaInicio) > new Date(fechaFin)) {
-      setError('La fecha de inicio no puede ser posterior a la fecha de fin.');
-      return;
-    }
-
-    onSave({
+    
+    const tournamentData = {
       nombreTorneo: nombreTorneo.trim(),
-      gradoImportancia,
-      fechaInicio: new Date(fechaInicio + 'T00:00:00Z').toISOString(), 
-      fechaFin: new Date(fechaFin + 'T00:00:00Z').toISOString(),
-    });
+      fechaInicio: new Date(fechaInicio + 'T00:00:00Z').toISOString(),
+      resultado: resultado.trim(),
+      nivelDificultad, 
+      evaluacionGeneral,
+      ...(observaciones.trim() && { observaciones: observaciones.trim() }),
+      ...(futureTournamentToConvert?.id && { torneoFuturoId: futureTournamentToConvert.id })
+    };
+    onSave(tournamentData);
     onClose();
   };
 
-  const getImportanceColor = (level: TournamentImportance) => {
-    // Usamos indexOf para determinar el nivel de importancia
-    const index = TOURNAMENT_IMPORTANCE_LEVELS.indexOf(level);
-    switch (index) {
-      case 0: // Primer nivel (menos importante)
-        return 'text-gray-500';
-      case 1: // Segundo nivel
-        return 'text-blue-400';
-      case 2: // Tercer nivel (medio)
-        return 'text-yellow-400';
-      case 3: // Cuarto nivel
-        return 'text-orange-400';
-      case 4: // Quinto nivel (más importante)
-        return 'text-red-400';
-      default:
-        return 'text-gray-400';
-    }
+  const getTitle = () => {
+    if (existingDisputedTournament) return 'Editar Torneo Disputado';
+    if (futureTournamentToConvert) return 'Registrar Resultado del Torneo';
+    return 'Agregar Torneo Disputado';
   };
 
-  const getImportanceDescription = (level: TournamentImportance) => {
-    const index = TOURNAMENT_IMPORTANCE_LEVELS.indexOf(level);
-    const descriptions = [
-      '🎯 Torneo de práctica o amistoso',
-      '🏃 Torneo de preparación para eventos importantes',
-      '⭐ Torneo con puntos o ranking regional',
-      '🏆 Torneo nacional o con clasificación importante',
-      '🔥 Torneo crucial para los objetivos del año'
-    ];
-    return descriptions[index] || '';
-  };
+  const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} className={`app-input w-full ${props.className}`} />;
+  const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => <select {...props} className={`app-input w-full ${props.className}`} />;
+  const Textarea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} className={`app-input w-full resize-none ${props.className}`} />;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={existingTournament ? 'Editar Torneo' : 'Agregar Nuevo Torneo'}>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="nombreTorneo" className="block text-sm font-medium text-gray-400 mb-2">
-            Nombre del Torneo
-          </label>
-          <input
-            type="text"
-            id="nombreTorneo"
-            value={nombreTorneo}
-            onChange={(e) => setNombreTorneo(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-            placeholder="Ej: Torneo Nacional Sub-16"
-            required
-          />
-        </div>
-
-        <div>
-          <label htmlFor="gradoImportancia" className="block text-sm font-medium text-gray-400 mb-2">
-            Grado de Importancia
-          </label>
-          <div className="relative">
-            <select
-              id="gradoImportancia"
-              value={gradoImportancia}
-              onChange={(e) => setGradoImportancia(e.target.value as TournamentImportance)}
-              className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 appearance-none"
-            >
-              {TOURNAMENT_IMPORTANCE_LEVELS.map(level => (
-                <option key={level} value={level}>{level}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+    <Modal isOpen={isOpen} onClose={onClose} title={getTitle()}>
+      <form onSubmit={handleSubmit} className="space-y-6 custom-scrollbar pr-2 -mr-2">
+        <CardSection title="Información del Torneo">
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="nombreTorneo" className="block text-sm font-medium text-gray-400 mb-2">Nombre del Torneo</label>
+              <Input type="text" id="nombreTorneo" value={nombreTorneo} onChange={(e) => setNombreTorneo(e.target.value)} required disabled={!!futureTournamentToConvert} />
+            </div>
+            <div>
+              <label htmlFor="fechaInicio" className="block text-sm font-medium text-gray-400 mb-2">Fecha de inicio del torneo</label>
+              <Input type="date" id="fechaInicio" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} required disabled={!!futureTournamentToConvert} />
             </div>
           </div>
-          <p className={`mt-2 text-sm ${getImportanceColor(gradoImportancia)}`}>
-            {getImportanceDescription(gradoImportancia)}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="fechaInicio" className="block text-sm font-medium text-gray-400 mb-2">
-              Fecha de Inicio
-            </label>
-            <input
-              type="date"
-              id="fechaInicio"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-              required
-            />
+        </CardSection>
+        
+        <CardSection title="Resultado y Evaluación">
+          <div className="space-y-6">
+            <div>
+              <label htmlFor="resultado" className="block text-sm font-medium text-gray-400 mb-2">Resultado Final</label>
+              <div className="flex gap-2">
+                <Input type="text" id="resultado" value={resultado} onChange={(e) => setResultado(e.target.value)} placeholder="Ej: Semifinal" required className="flex-1" />
+                <Select onChange={(e) => setResultado(e.target.value)} value="" className="flex-shrink-0 w-auto">
+                  <option value="" disabled>Sugerencias</option>
+                  {RESULTADO_SUGERIDOS.map(res => <option key={res} value={res}>{res}</option>)}
+                </Select>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-3">Nivel de Dificultad del Torneo</label>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-500">Fácil</span>
+                <input type="range" min="1" max="5" value={nivelDificultad} onChange={(e) => setNivelDificultad(Number(e.target.value))} className="w-full" />
+                <span className="text-sm text-gray-500">Difícil</span>
+                <span className="ml-2 font-bold text-green-400 bg-gray-800/50 px-3 py-1 rounded-full">{nivelDificultad}</span>
+              </div>
+            </div>
+            
+            <div>
+                <label className="block text-sm font-medium text-gray-400 mb-3">Evaluación general del jugador</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {EVALUACION_OPTIONS.map(option => (
+                        <label key={option} className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 ${evaluacionGeneral === option ? 'border-green-500 bg-green-500/10' : 'border-gray-700 bg-gray-800/30 hover:border-green-500/50'}`}>
+                            <input type="radio" name="evaluacion" value={option} checked={evaluacionGeneral === option} onChange={(e) => setEvaluacionGeneral(e.target.value as EvaluacionGeneral)} className="mr-3" />
+                            <span className="text-sm text-gray-200">{option}</span>
+                        </label>
+                    ))}
+                </div>
+            </div>
+            
+            <div>
+              <label htmlFor="observaciones" className="block text-sm font-medium text-gray-400 mb-2">Observaciones (opcional)</label>
+              <Textarea id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={3} placeholder="Notas adicionales sobre el torneo..." />
+            </div>
           </div>
-          <div>
-            <label htmlFor="fechaFin" className="block text-sm font-medium text-gray-400 mb-2">
-              Fecha de Fin
-            </label>
-            <input
-              type="date"
-              id="fechaFin"
-              value={fechaFin}
-              onChange={(e) => setFechaFin(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-              required
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className="text-red-400 text-sm flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {error}
-            </p>
-          </div>
-        )}
-
+        </CardSection>
+        
+        {error && <div className="p-3 bg-red-900/40 border border-red-500/50 rounded-lg text-red-300 text-sm">{error}</div>}
+        
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          <button
-            type="submit"
-            className="flex-1 py-3 px-4 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-green-500/25"
-          >
-            {existingTournament ? 'Guardar Cambios' : 'Agregar Torneo'}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 py-3 px-4 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all duration-200 border border-gray-700"
-          >
-            Cancelar
-          </button>
+          <button type="submit" className="app-button btn-primary flex-1">{existingDisputedTournament ? 'Guardar Cambios' : 'Registrar Torneo'}</button>
+          <button type="button" onClick={onClose} className="app-button btn-secondary flex-1">Cancelar</button>
         </div>
       </form>
     </Modal>
   );
 };
 
-export default TournamentFormModal;
+export default DisputedTournamentFormModal;

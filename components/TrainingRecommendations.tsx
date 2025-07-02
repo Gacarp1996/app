@@ -4,7 +4,7 @@ import { getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { getSessions } from '../Database/FirebaseSessions';
 import { useAcademia } from '../contexts/AcademiaContext';
 import PlanningAccordion from './PlanningAccordion';
-import Modal from './Modal'; // <<< IMPORTANTE: Importamos el Modal estándar
+import Modal from './Modal';
 
 const TrainingRecommendations: React.FC<{ players: Player[] }> = ({ players }) => {
   const { academiaActual } = useAcademia();
@@ -104,20 +104,32 @@ const TrainingRecommendations: React.FC<{ players: Player[] }> = ({ players }) =
         })}
       </div>
       
-      {/* USO DEL MODAL ESTÁNDAR */}
+      {/* Modal con prioridad alta para superponerse correctamente */}
       <Modal 
         isOpen={!!selectedPlayer} 
         onClose={() => setSelectedPlayer(null)}
         title={selectedPlayer ? `Análisis de: ${selectedPlayer.name}` : ''}
+        priority="high" // Importante: prioridad alta para z-index mayor
       >
         {selectedPlayer && academiaActual && (
-          <PlanningAccordion 
-            player={selectedPlayer} 
-            academiaId={academiaActual.id} 
-          />
+          <div className="w-full">
+            <PlanningAccordion 
+              player={selectedPlayer} 
+              academiaId={academiaActual.id} 
+            />
+            {/* Botón de cerrar sticky para móviles */}
+            <div className="sticky bottom-0 bg-gray-900/95 border-t border-gray-700 p-4 -mx-4 sm:-mx-6 -mb-2 sm:hidden mt-4">
+              <button
+                onClick={() => setSelectedPlayer(null)}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-medium rounded-lg transition-all duration-200"
+              >
+                Volver
+              </button>
+            </div>
+          </div>
         )}
       </Modal>
-    </Card> // <<< ETIQUETA DE CIERRE AÑADIDA
+    </Card>
   );
 };
 

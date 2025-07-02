@@ -547,6 +547,16 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+/* Ocultar flechitas de inputs numéricos */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
 /* Transiciones globales suaves */
 * {
   transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
@@ -572,4 +582,225 @@ button:focus-visible {
   .hover\:scale-105:hover {
     transform: scale(1.05);
   }
+}
+
+
+/* Agrega estos estilos a tu archivo CSS global o index.css */
+
+/* Scrollbar personalizado para navegadores webkit */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(31, 41, 55, 0.5); /* gray-800 con opacidad */
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #34d399, #06b6d4); /* gradient green-400 to cyan-400 */
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #10b981, #0891b2); /* gradient green-500 to cyan-500 */
+}
+
+/* Para Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #34d399 rgba(31, 41, 55, 0.5);
+}
+
+/* Estilos adicionales para mejorar la experiencia móvil */
+@media (max-width: 640px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+/* Agrega estos estilos a tu archivo CSS global para mejorar el comportamiento del modal en móviles */
+
+/* Prevenir scroll del body cuando el modal está abierto */
+body.modal-open {
+  position: fixed;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Fix para iOS Safari y Chrome mobile */
+@supports (-webkit-touch-callout: none) {
+  /* CSS específico para iOS */
+  body.modal-open {
+    position: fixed;
+    width: 100%;
+  }
+}
+
+/* Asegurar que el grid funcione correctamente en todos los navegadores */
+.grid.place-items-center {
+  display: grid;
+  place-items: center;
+  align-content: center;
+}
+
+/* Soporte para dvh con fallback */
+@supports (height: 100dvh) {
+  .min-h-screen {
+    min-height: 100dvh !important;
+  }
+  
+  .max-h-\[80vh\] {
+    max-height: 80dvh !important;
+  }
+}
+
+/* Fix adicional para Android Chrome */
+@media screen and (max-width: 768px) {
+  .fixed.inset-0 {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+}
+
+/* CSS para manejar safe areas en dispositivos móviles */
+
+/* Soporte para safe areas (iPhone X+, etc) */
+.fixed.inset-0 {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Asegurar que el modal respete las safe areas */
+@supports (padding: max(0px)) {
+  .mx-4 {
+    margin-left: max(1rem, env(safe-area-inset-left));
+    margin-right: max(1rem, env(safe-area-inset-right));
+  }
+  
+  .my-8 {
+    margin-top: max(2rem, env(safe-area-inset-top));
+    margin-bottom: max(2rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Fix específico para altura en móviles */
+@media (max-width: 640px) {
+  .relative[style*="max-height"] {
+    max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 4rem) !important;
+  }
+}
+
+/* Prevenir problemas con el teclado virtual */
+@media (max-height: 600px) {
+  .my-8 {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+}
+
+/* Fix para el scroll en iOS */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Asegurar que el contenido sea visible */
+.flex-1 {
+  min-height: 0;
+}
+
+/* Agrega estos estilos a tu archivo CSS global para mejorar las animaciones */
+
+/* Animación de entrada desde arriba */
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: slideInFromTop 0.3s ease-out;
+}
+
+.slide-in-from-top {
+  animation: slideInFromTop 0.3s ease-out;
+}
+
+/* Transiciones suaves para el botón de expandir */
+.transition-transform {
+  transition: transform 0.2s ease-out;
+}
+
+/* Hover effect mejorado para las tarjetas de recomendación */
+.recommendation-card:hover {
+  transform: translateY(-2px);
+  transition: all 0.2s ease-out;
+}
+
+/* Badge animations */
+.recommendation-badge {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Scroll suave para el contenido expandido */
+.planning-accordion-container {
+  scroll-behavior: smooth;
+}
+
+/* Mejora visual para el slider de intensidad */
+.slider-thumb::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(to right, #34d399, #06b6d4);
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+  transition: all 0.2s ease;
+}
+
+.slider-thumb::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.7);
+}
+
+.slider-thumb::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(to right, #34d399, #06b6d4);
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.slider-thumb::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.7);
 }

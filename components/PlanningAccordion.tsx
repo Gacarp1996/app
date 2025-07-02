@@ -200,79 +200,73 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
     const hasChildren = node.children && node.children.length > 0;
     
     return (
-      <div key={nodePath} className={`${level > 0 ? 'ml-4 pl-4 border-l border-gray-800' : ''}`}>
+      <div key={nodePath} className={`${level > 0 ? 'ml-3 sm:ml-4 pl-3 sm:pl-4 border-l border-gray-800' : ''}`}>
         <div 
-          className={`flex items-center justify-between p-3 rounded-lg mb-2 transition-all duration-200 ${level === 0 ? 'bg-gray-800/50' : ''} ${hasChildren ? 'cursor-pointer hover:bg-gray-800/80' : ''}`}
+          className={`flex items-center justify-between p-3 sm:p-3 rounded-lg mb-2 transition-all duration-200 ${level === 0 ? 'bg-gray-800/50' : ''} ${hasChildren ? 'cursor-pointer hover:bg-gray-800/80' : ''}`}
           onClick={() => hasChildren && toggleNode(nodePath)}
         >
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             {hasChildren && (
-              <svg className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-500 transition-transform duration-200 flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
               </svg>
             )}
-            <div className={`flex-1 ${!hasChildren ? 'ml-7' : ''}`}>
-              <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
-                <span className={`font-medium ${level === 0 ? 'text-lg text-white' : 'text-base text-gray-300'}`}>{node.name}</span>
-                {node.esDistribucionLibre && (
-                  <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full font-medium">Distribución Libre</span>
-                )}
+            <div className={`flex-1 min-w-0 ${!hasChildren ? 'ml-5 sm:ml-7' : ''}`}>
+              <div className="flex items-center flex-wrap gap-x-1 sm:gap-x-2 gap-y-1">
+                <span className={`font-medium ${level === 0 ? 'text-base sm:text-lg text-white' : 'text-sm sm:text-base text-gray-300'} break-words`}>{node.name}</span>
               </div>
-              <div className="mt-2 w-full bg-gray-700 rounded-full h-2.5">
-                <div className={`h-2.5 rounded-full transition-all duration-500 ${getProgressBarColor(node.diferencia)}`} style={{ width: `${Math.min(100, (node.realizado / node.planificado) * 100)}%` }} />
+              <div className="mt-1.5 sm:mt-2 w-full bg-gray-700 rounded-full h-2 sm:h-2.5">
+                <div className={`h-2 sm:h-2.5 rounded-full transition-all duration-500 ${getProgressBarColor(node.diferencia)}`} style={{ width: `${Math.min(100, (node.realizado / node.planificado) * 100)}%` }} />
               </div>
-              <div className="mt-1.5 flex justify-between text-xs text-gray-400">
+              <div className="mt-1 sm:mt-1.5 flex justify-between text-[10px] sm:text-xs text-gray-400">
                 <span>Plan: {node.planificado.toFixed(1)}%</span>
                 <span>Real: {node.realizado.toFixed(1)}%</span>
               </div>
             </div>
           </div>
-          <div className={`flex items-center gap-2 flex-shrink-0 ml-4 ${getStatusColor(node.diferencia)}`}>
-            <span className="text-2xl">{getStatusIcon(node.diferencia)}</span>
+          <div className={`flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-3 sm:ml-4 ${getStatusColor(node.diferencia)}`}>
+            <span className="text-xl sm:text-2xl">{getStatusIcon(node.diferencia)}</span>
             <div className="text-right">
-              <div className="font-bold text-base">{node.diferencia > 0 ? '-' : '+'}{Math.abs(node.diferencia).toFixed(1)}%</div>
-              <div className="text-xs">{node.diferencia > 0 ? 'Falta' : node.diferencia < -5 ? 'Exceso' : 'OK'}</div>
+              <div className="font-bold text-sm sm:text-base whitespace-nowrap">{node.diferencia > 0 ? '-' : '+'}{Math.abs(node.diferencia).toFixed(1)}%</div>
+              <div className="text-[11px] sm:text-xs">{node.diferencia > 0 ? 'Falta' : node.diferencia < -5 ? 'Exceso' : 'OK'}</div>
             </div>
           </div>
         </div>
-        {isExpanded && hasChildren && <div className="mt-2">{node.children!.map(child => renderNode(child, level + 1, nodePath))}</div>}
+        {isExpanded && hasChildren && <div className="mt-1 sm:mt-2">{node.children!.map(child => renderNode(child, level + 1, nodePath))}</div>}
       </div>
     );
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
-        <p className="mt-4 text-gray-400">Analizando planificación...</p>
+      <div className="flex flex-col items-center justify-center py-8 sm:py-12">
+        <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-green-500"></div>
+        <p className="mt-3 sm:mt-4 text-gray-400 text-sm sm:text-base">Analizando planificación...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-900/40 border border-red-500/50 p-4 rounded-lg flex items-center gap-3">
-        <span className='text-red-400 text-xl'>⚠️</span>
-        <p className="text-red-300">{error}</p>
+      <div className="bg-red-900/40 border border-red-500/50 p-3 sm:p-4 rounded-lg flex items-start gap-2 sm:gap-3">
+        <span className='text-red-400 text-lg sm:text-xl flex-shrink-0'>⚠️</span>
+        <p className="text-red-300 text-sm sm:text-base">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">Análisis del Plan</h3>
-        <span className="text-sm text-gray-500 bg-gray-800/50 px-3 py-1 rounded-full">Últimos {rangoAnalisis} días</span>
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex justify-between items-center gap-2">
+        <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">Análisis del Plan</h3>
+        <span className="text-xs sm:text-sm text-gray-500 bg-gray-800/50 px-2 sm:px-3 py-1 rounded-full flex-shrink-0">Últimos {rangoAnalisis} días</span>
       </div>
-      {analysisTree.length === 0 ? <p className="text-gray-500 text-center py-8">No hay datos de entrenamiento para analizar en este período.</p> : <div>{analysisTree.map(node => renderNode(node))}</div>}
-      <div className="mt-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
-        <h4 className="font-semibold text-white mb-3">Leyenda</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-          <div className="flex items-center gap-2"><span className="text-xl">✅</span><span className='text-gray-300'>OK (±5%)</span></div>
-          <div className="flex items-center gap-2"><span className="text-xl">🔻</span><span className="text-red-400">Falta entrenar</span></div>
-          <div className="flex items-center gap-2"><span className="text-xl">🔺</span><span className="text-orange-400">Entrenado de más</span></div>
-        </div>
-      </div>
+      {analysisTree.length === 0 ? (
+        <p className="text-gray-500 text-sm sm:text-base text-center py-6 sm:py-8">No hay datos de entrenamiento para analizar en este período.</p>
+      ) : (
+        <div className="space-y-1 sm:space-y-2">{analysisTree.map(node => renderNode(node))}</div>
+      )}
+
     </div>
   );
 };

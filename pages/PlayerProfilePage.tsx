@@ -19,6 +19,7 @@ import PlanningAccordion from '@/components/PlanningAccordion';
 import DisputedTournamentFormModal from '../components/DisputedTournamentFormModal';
 import TournamentPerformanceChart from '../components/TournamentPerformanceChart';
 import { getPlayerDisputedTournaments, addDisputedTournament, updateDisputedTournament, deleteDisputedTournament, convertToDisputedTournament } from '../Database/FirebaseDisputedTournaments';
+import { useHashNavigation } from '../hooks/useHashNavigation';
 
 interface PlayerProfilePageProps {
   players: Player[];
@@ -84,6 +85,15 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
 
   const [player, setPlayer] = useState<Player | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("perfil");
+  
+  // Hook para manejar navegación con hash
+  useHashNavigation<Tab>(setActiveTab, {
+    'trainings': 'trainings',
+    'planificacion': 'planificacion',
+    'objectives': 'objectives',
+    'tournaments': 'tournaments'
+  });
+  
   const [edad, setEdad] = useState<number | ''>('');
   const [altura, setAltura] = useState<number | ''>('');
   const [peso, setPeso] = useState<number | ''>('');
@@ -95,6 +105,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
   const [lesionesActuales, setLesionesActuales] = useState('');
   const [lesionesPasadas, setLesionesPasadas] = useState('');
   const [frecuenciaSemanal, setFrecuenciaSemanal] = useState('');
+  const [requierePlanificacion, setRequierePlanificacion] = useState<boolean>(true);
   
   const defaultDates = getDefaultDateRange();
   const [startDate, setStartDate] = useState<string>(defaultDates.start);
@@ -152,6 +163,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
       setLesionesActuales(foundPlayer.lesionesActuales || '');
       setLesionesPasadas(foundPlayer.lesionesPasadas || '');
       setFrecuenciaSemanal(foundPlayer.frecuenciaSemanal || '');
+      setRequierePlanificacion(foundPlayer.requierePlanificacion ?? true);
     } else if (players.length > 0) {
       navigate('/players');
     }
@@ -664,6 +676,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
       lesionesActuales, 
       lesionesPasadas, 
       frecuenciaSemanal, 
+      requierePlanificacion,
     }; 
     await updatePlayer(academiaId, player.id, profileData); 
     onDataChange(); 
@@ -855,6 +868,26 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
                   <label className="block text-sm lg:text-base font-medium text-gray-400 mb-2">Frecuencia Semanal</label>
                   <textarea value={frecuenciaSemanal} onChange={e => setFrecuenciaSemanal(e.target.value)} rows={6} className="w-full p-3 lg:p-4 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 resize-none"/>
                 </div>
+                
+                {/* Campo de planificación requerida */}
+                <div className="mt-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <span className="text-sm lg:text-base font-medium text-gray-300">
+                        Requiere planificación
+                      </span>
+                      <p className="text-xs lg:text-sm text-gray-500 mt-1">
+                        Activar si este jugador necesita objetivos y plan de entrenamiento
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={requierePlanificacion ?? true}
+                      onChange={(e) => setRequierePlanificacion(e.target.checked)}
+                      className="h-5 w-5 lg:h-6 lg:w-6 rounded text-green-400 bg-gray-800 border-gray-600 focus:ring-2 focus:ring-green-500/20 focus:ring-offset-0 transition-all duration-200"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
             
@@ -886,7 +919,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
         )}
 
         {activeTab === "trainings" && (
-          <section className="space-y-8 lg:space-y-12">
+          <section id="trainings" className="space-y-8 lg:space-y-12">
             {/* Filtros de fecha mejorados */}
             <div className="bg-gray-900/50 backdrop-blur-sm p-4 lg:p-6 rounded-xl shadow-lg border border-gray-800">
               <h3 className="text-lg lg:text-xl font-semibold text-green-400 mb-4">Filtrar por Fecha</h3>
@@ -1379,7 +1412,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ players, objectiv
         )}
 
         {activeTab === "planificacion" && (
-          <section className="bg-gray-900/50 backdrop-blur-sm p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800">
+          <section id="planificacion" className="bg-gray-900/50 backdrop-blur-sm p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800">
             <h2 className="text-2xl lg:text-3xl font-semibold text-green-400 mb-6">Plan de Entrenamiento</h2>
             
             {planLoading ? (

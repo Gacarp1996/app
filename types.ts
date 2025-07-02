@@ -1,3 +1,4 @@
+// Agregar esta propiedad a la interfaz Player en types.ts
 export interface Player {
   id: string;
   name: string;
@@ -13,6 +14,7 @@ export interface Player {
   lesionesActuales?: string;
   lesionesPasadas?: string;
   frecuenciaSemanal?: string;
+  requierePlanificacion?: boolean; // Nueva propiedad
 }
 
 // --- MODIFICADO ---
@@ -115,31 +117,35 @@ export interface Academia {
 
 // ===== NUEVAS ADICIONES PARA TORNEOS DISPUTADOS =====
 
-// Tipos para valoraciones de torneos disputados
+// Tipos legacy para compatibilidad con datos antiguos
 export type RendimientoJugador = 'Muy malo' | 'Malo' | 'Bueno' | 'Muy bueno' | 'Excelente';
 export type ConformidadGeneral = 'Muy insatisfecho' | 'Insatisfecho' | 'Satisfecho' | 'Muy satisfecho' | 'Totalmente satisfecho';
 
-// Interfaz para torneos disputados
+// Tipo simplificado para evaluación general del jugador
+export type EvaluacionGeneral = 'Muy malo' | 'Malo' | 'Regular' | 'Bueno' | 'Muy bueno' | 'Excelente';
+
+// Interfaz simplificada para torneos disputados
 export interface DisputedTournament {
   id: string;
   jugadorId: string;
   nombreTorneo: string;
-  fechaInicio: string; // ISO date string
-  fechaFin: string; // ISO date string
-  resultado: string; // "Ganó", "Finalista", "Semifinal", "Cuartos", "Octavos", "1R", etc.
+  fechaInicio: string; // ISO date string - Solo fecha de inicio
+  resultado: string; // "Campeón", "Finalista", "Semifinal", "Cuartos", etc.
   nivelDificultad: number; // 1-5
-  rendimientoJugador: RendimientoJugador;
-  conformidadGeneral: ConformidadGeneral;
+  evaluacionGeneral: EvaluacionGeneral; // Campo unificado para evaluación del jugador
   observaciones?: string; // Campo opcional
   fechaRegistro?: string; // Cuándo se registró el resultado
   torneoFuturoId?: string; // Si el torneo fue "convertido" desde un torneo futuro
+  // Campos legacy para compatibilidad (pueden eliminarse después de migración completa)
+  fechaFin?: string; 
+  rendimientoJugador?: RendimientoJugador;
+  conformidadGeneral?: ConformidadGeneral;
 }
 
 // Para estadísticas y gráficos
 export interface TournamentPerformanceData {
   fecha: string;
-  rendimiento: number; // 1-5 (mapeado desde RendimientoJugador)
-  conformidad: number; // 1-5 (mapeado desde ConformidadGeneral)
+  evaluacion: number; // 1-6 (mapeado desde EvaluacionGeneral)
   dificultad: number;
   resultado: string;
   nombreTorneo: string;

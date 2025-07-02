@@ -8,6 +8,7 @@ import { NEW_EXERCISE_HIERARCHY_CONST, NEW_EXERCISE_HIERARCHY_MAPPING } from '..
 import ObjectiveModal from '../components/ObjectiveModal';
 import Modal from '../components/Modal';
 import PostTrainingSurveyModal from '../components/PostTrainingSurveyModal';
+import TrainingRecommendationsInline from '../components/TrainingRecommendationsInLine';
 
 interface TrainingSessionPageProps {
   allPlayers: Player[];
@@ -90,8 +91,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
 
   // TODOS los useMemo también deben estar antes de cualquier return
   const playerNamesDisplay = useMemo(() => participants.map(p => p.name).join(', '), [participants]);
-  const singleActivePlayer = useMemo(() => (activePlayerIds.size === 1) ? participants.find(p => p.id === Array.from(activePlayerIds)[0]) : null, [activePlayerIds, participants]);
-  const objectivesForSingleActivePlayer = useMemo(() => singleActivePlayer ? allObjectives.filter(obj => obj.jugadorId === singleActivePlayer.id && obj.estado === 'actual-progreso') : [], [singleActivePlayer, allObjectives]);
   
   const availableTipoKeys = Object.keys(NEW_EXERCISE_HIERARCHY_CONST);
   const availableAreaKeys = currentTipoKey ? Object.keys(NEW_EXERCISE_HIERARCHY_CONST[currentTipoKey] || {}) : [];
@@ -111,13 +110,9 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
     }
   }, [participants.length, loadSession, navigate]);
 
-  // useEffect para actualizar activePlayerIds y mostrar modal
+  // useEffect para actualizar activePlayerIds - NO mostrar modal de objetivos automáticamente
   useEffect(() => {
     setActivePlayerIds(new Set(participants.map(p => p.id)));
-    if (participants.length > 0 && !modalOpenedOnceRef.current) {
-        setIsObjectiveModalOpen(true);
-        modalOpenedOnceRef.current = true;
-    }
   }, [participants]);
 
   // Todas las funciones handler
@@ -387,14 +382,12 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allPlayers, a
               </div>
             </div>
             
-            {/* Mostrar objetivos cuando hay un solo jugador seleccionado */}
-            {singleActivePlayer && objectivesForSingleActivePlayer.length > 0 && (
-              <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg">
-                <p className="text-gray-400 text-sm lg:text-base">
-                  <span className="text-green-400 font-semibold">Objetivos de {singleActivePlayer.name}:</span> {objectivesForSingleActivePlayer.map(o => o.textoObjetivo).join(', ')}
-                </p>
-              </div>
-            )}
+            {/* NUEVA SECCIÓN: Recomendaciones de Planificación */}
+            <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg">
+              <h3 className="text-lg lg:text-xl font-semibold text-green-400 mb-4">📊 Análisis de Planificación</h3>
+              <p className="text-sm text-gray-400 mb-4">Recomendaciones basadas en el plan de entrenamiento de cada jugador</p>
+              <TrainingRecommendationsInline players={participants} />
+            </div>
 
             {/* Formulario de ejercicio mejorado para desktop */}
             <form onSubmit={handleAddExerciseToSession} className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg space-y-6">
