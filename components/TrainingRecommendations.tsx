@@ -4,12 +4,9 @@ import { getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { getSessions } from '../Database/FirebaseSessions';
 import { useAcademia } from '../contexts/AcademiaContext';
 import PlanningAccordion from './PlanningAccordion';
+import Modal from './Modal'; // <<< IMPORTANTE: Importamos el Modal estándar
 
-interface TrainingRecommendationsProps {
-  players: Player[];
-}
-
-const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ players }) => {
+const TrainingRecommendations: React.FC<{ players: Player[] }> = ({ players }) => {
   const { academiaActual } = useAcademia();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [playersWithPlan, setPlayersWithPlan] = useState<Set<string>>(new Set());
@@ -18,36 +15,26 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
   useEffect(() => {
     if (academiaActual && players.length > 0) {
       checkPlayersPlans();
+    } else {
+      setLoading(false);
     }
   }, [academiaActual, players]);
 
   const checkPlayersPlans = async () => {
     if (!academiaActual) return;
-    
     setLoading(true);
     const playersWithValidPlan = new Set<string>();
-    
     for (const player of players) {
       try {
         const plan = await getTrainingPlan(academiaActual.id, player.id);
         if (plan && plan.planificacion) {
-          // Verificar si el plan tiene algún porcentaje asignado
-          const tienePorcentajes = Object.values(plan.planificacion).some(
-            tipo => tipo && tipo.porcentajeTotal > 0
-          );
-          
+          const tienePorcentajes = Object.values(plan.planificacion).some(t => t && t.porcentajeTotal > 0);
           if (tienePorcentajes) {
-            // Verificar si hay sesiones recientes
             const sessions = await getSessions(academiaActual.id);
             const playerSessions = sessions.filter(s => s.jugadorId === player.id);
-            
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - (plan.rangoAnalisis || 30));
-            const recentSessions = playerSessions.filter(s => 
-              new Date(s.fecha) >= cutoffDate
-            );
-            
-            if (recentSessions.length > 0) {
+            if (playerSessions.some(s => new Date(s.fecha) >= cutoffDate)) {
               playersWithValidPlan.add(player.id);
             }
           }
@@ -56,113 +43,81 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
         console.error(`Error verificando plan de ${player.name}:`, error);
       }
     }
-    
     setPlayersWithPlan(playersWithValidPlan);
     setLoading(false);
   };
+  
+  const Card: React.FC<{ title: string; children: React.ReactNode, className?: string }> = ({ title, children, className }) => (
+    <div className={`relative bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-2xl ${className}`}>
+        <div className="bg-gray-900/95 backdrop-blur-xl rounded-2xl p-6 h-full">
+            <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">{title}</h3>
+            {children}
+        </div>
+    </div>
+  );
 
   if (loading) {
     return (
-      <div className="text-center py-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-app-accent mx-auto"></div>
-        <p className="mt-2 text-app-secondary text-sm">Verificando planificaciones...</p>
+      <div className="flex items-center justify-center py-10">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500"></div>
       </div>
     );
   }
 
   if (playersWithPlan.size === 0) {
     return (
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-app-accent">
-          📊 Análisis de Planificación
-        </h3>
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg">
-          <p className="text-sm text-yellow-700 dark:text-yellow-300">
-            No hay análisis disponibles. Esto puede deberse a:
+      <div className="relative bg-gradient-to-br from-yellow-500/10 to-orange-500/10 p-[1px] rounded-2xl">
+        <div className="bg-gray-900/95 backdrop-blur-xl rounded-2xl p-6">
+          <h3 className="text-xl font-bold text-yellow-300 mb-2">📊 No hay Análisis Disponibles</h3>
+          <p className="text-sm text-yellow-200/80">
+            Esto puede deberse a que ningún jugador tiene un plan de entrenamiento con porcentajes asignados y sesiones de entrenamiento recientes.
           </p>
-          <ul className="list-disc list-inside text-sm text-yellow-600 dark:text-yellow-400 mt-2">
-            <li>No hay planes de entrenamiento configurados</li>
-            <li>Los planes no tienen porcentajes asignados</li>
-            <li>No hay sesiones registradas en el período de análisis</li>
-          </ul>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-app-accent">
-        📊 Análisis de Planificación
-      </h3>
-      
-      {/* Lista de jugadores con botones */}
-      <div className="grid gap-3">
+    <Card title="📊 Análisis de Planificación">
+      <div className="space-y-3">
         {players.map(player => {
           const hasPlan = playersWithPlan.has(player.id);
-          
           return (
-            <div 
-              key={player.id} 
-              className="flex items-center justify-between bg-app-surface-alt p-3 rounded-lg"
-            >
+            <div key={player.id} className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg border border-gray-700/50">
               <div className="flex items-center gap-3">
-                <span className="font-medium">{player.name}</span>
+                <span className="font-medium text-white">{player.name}</span>
                 {hasPlan && (
-                  <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded">
-                    Plan activo
+                  <span className="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full font-semibold">
+                    Plan Activo
                   </span>
                 )}
               </div>
-              
               <button
                 onClick={() => setSelectedPlayer(player)}
                 disabled={!hasPlan}
-                className={`
-                  px-4 py-2 rounded-lg font-medium transition-all
-                  ${hasPlan 
-                    ? 'app-button btn-primary' 
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                  }
-                `}
+                className="app-button btn-primary text-sm py-1.5 px-3 disabled:bg-gray-700 disabled:shadow-none disabled:text-gray-500"
               >
-                {hasPlan ? '📊 Ver análisis' : 'Sin plan'}
+                {hasPlan ? 'Ver análisis' : 'Sin datos'}
               </button>
             </div>
           );
         })}
       </div>
       
-      {/* Modal o vista expandida con el análisis */}
-      {selectedPlayer && academiaActual && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-app-surface rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-app">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-app-accent">
-                  {selectedPlayer.name} - Análisis de Planificación
-                </h2>
-                <button
-                  onClick={() => setSelectedPlayer(null)}
-                  className="text-app-secondary hover:text-app-primary transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <PlanningAccordion 
-                player={selectedPlayer} 
-                academiaId={academiaActual.id} 
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      {/* USO DEL MODAL ESTÁNDAR */}
+      <Modal 
+        isOpen={!!selectedPlayer} 
+        onClose={() => setSelectedPlayer(null)}
+        title={selectedPlayer ? `Análisis de: ${selectedPlayer.name}` : ''}
+      >
+        {selectedPlayer && academiaActual && (
+          <PlanningAccordion 
+            player={selectedPlayer} 
+            academiaId={academiaActual.id} 
+          />
+        )}
+      </Modal>
+    </Card> // <<< ETIQUETA DE CIERRE AÑADIDA
   );
 };
 

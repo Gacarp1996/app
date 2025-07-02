@@ -1,0 +1,185 @@
+/* Estilos para el TrainingCalendar, extraídos del componente para compatibilidad con React estándar */
+
+.training-calendar-wrapper {
+  /* Este contenedor ayuda a aplicar los estilos de forma aislada */
+}
+
+.training-calendar-wrapper .react-calendar {
+  width: 100%;
+  max-width: 100%;
+  background-color: transparent; /* El fondo ahora lo da el contenedor de cristal */
+  border: none;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+/* Navegación del calendario */
+.training-calendar-wrapper .react-calendar__navigation {
+  display: flex;
+  height: 3rem;
+  margin-bottom: 1rem;
+  background: transparent;
+}
+
+.training-calendar-wrapper .react-calendar__navigation button {
+  color: #e5e7eb;
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  flex-grow: 1; /* Para que ocupen el espacio disponible */
+}
+
+.training-calendar-wrapper .react-calendar__navigation button:hover:not(:disabled) {
+  background-color: rgba(0, 232, 122, 0.1);
+  color: var(--color-accent-primary);
+  transform: scale(1.05);
+}
+
+.training-calendar-wrapper .react-calendar__navigation button:disabled {
+  color: #6b7280;
+  cursor: not-allowed;
+  transform: none;
+  background-color: transparent;
+}
+
+.training-calendar-wrapper .react-calendar__navigation__label {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--color-accent-primary);
+  flex-grow: 2; /* Darle más espacio al nombre del mes */
+}
+
+/* Días de la semana */
+.training-calendar-wrapper .react-calendar__month-view__weekdays {
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.training-calendar-wrapper .react-calendar__month-view__weekdays__weekday {
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.training-calendar-wrapper .react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+}
+
+/* Tiles (días) */
+.training-calendar-wrapper .react-calendar__tile {
+  background: transparent;
+  color: #e5e7eb;
+  border: 2px solid transparent;
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+  font-size: 0.9rem;
+  position: relative;
+  transition: all 0.2s ease;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 0.5rem;
+}
+
+@media (min-width: 1024px) {
+  .training-calendar-wrapper .react-calendar__tile {
+    font-size: 1rem;
+  }
+}
+
+.training-calendar-wrapper .react-calendar__tile:enabled:hover {
+  background-color: rgba(0, 232, 122, 0.05);
+  transform: scale(1.05);
+  box-shadow: var(--shadow-neon-green-subtle);
+}
+
+.training-calendar-wrapper .react-calendar__tile:disabled {
+  color: #6b7280;
+  background-color: transparent;
+}
+
+/* Día actual */
+.training-calendar-wrapper .react-calendar__tile--now {
+  background: rgba(0, 232, 122, 0.1);
+  box-shadow: inset 0 0 10px rgba(0, 232, 122, 0.15);
+  color: var(--color-text-accent);
+  font-weight: 700;
+}
+
+.training-calendar-wrapper .react-calendar__tile--now:hover {
+  background: rgba(0, 232, 122, 0.15);
+}
+
+/* Día activo/seleccionado */
+.training-calendar-wrapper .react-calendar__tile--active {
+  background: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-secondary));
+  color: #000000;
+  font-weight: 700;
+  transform: scale(1.05);
+  box-shadow: var(--shadow-neon-green-soft);
+}
+
+.training-calendar-wrapper .react-calendar__tile--active:hover {
+  filter: brightness(1.1);
+  transform: scale(1.08);
+}
+
+/* Punto indicador de entrenamiento */
+.training-dot {
+  width: 6px;
+  height: 6px;
+  background: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-secondary));
+  border-radius: 50%;
+  margin-top: 4px; /* Separación del número del día */
+  box-shadow: 0 0 6px rgba(0, 232, 122, 0.6);
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.training-dot {
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+/* Días del mes anterior/siguiente */
+.training-calendar-wrapper .react-calendar__month-view__days__day--neighboringMonth {
+  color: #4b5563;
+  opacity: 0.5;
+}
+
+/* Estilos para vista de año y década */
+.training-calendar-wrapper .react-calendar__year-view__months__month,
+.training-calendar-wrapper .react-calendar__decade-view__years__year,
+.training-calendar-wrapper .react-calendar__century-view__decades__decade {
+  color: #e5e7eb;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  transition: all 0.2s ease;
+}
+
+.training-calendar-wrapper .react-calendar__year-view__months__month:hover,
+.training-calendar-wrapper .react-calendar__decade-view__years__year:hover,
+.training-calendar-wrapper .react-century-view__decades__decade:hover {
+  background-color: rgba(0, 232, 122, 0.1);
+  color: var(--color-accent-primary);
+  transform: scale(1.05);
+}

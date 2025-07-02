@@ -1,4 +1,3 @@
-// components/SurveyVisualization.tsx
 import React, { useMemo } from 'react';
 import { PostTrainingSurvey, SurveyDataPoint } from '../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -8,49 +7,43 @@ interface SurveyVisualizationProps {
   timeZone?: string;
 }
 
-const SurveyVisualization: React.FC<SurveyVisualizationProps> = ({ surveys, timeZone = 'America/Argentina/Buenos_Aires' }) => {
-  // Función para mostrar fecha local con zona horaria configurable
-  const formatDateLocal = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      timeZone
-    });
-  };
+// Componente de ayuda para las tarjetas de estadísticas
+const StatCard: React.FC<{ title: string; value: string; color: string; icon: React.ReactNode }> = ({ title, value, color, icon }) => (
+    <div className="relative bg-gradient-to-br from-gray-800 to-gray-900 p-[1px] rounded-2xl">
+        <div className="bg-gray-900/90 backdrop-blur-lg rounded-2xl p-4 text-center h-full flex flex-col justify-center">
+            <div className={`mx-auto w-10 h-10 rounded-full flex items-center justify-center mb-2`} style={{ backgroundColor: `${color}20`, border: `1px solid ${color}50` }}>
+                {icon}
+            </div>
+            <p className="text-sm text-gray-400">{title}</p>
+            <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+        </div>
+    </div>
+);
 
-  // Preparar datos para el gráfico
+const SurveyVisualization: React.FC<SurveyVisualizationProps> = ({ surveys, timeZone = 'America/Argentina/Buenos_Aires' }) => {
+  const formatDateLocal = (dateString: string) => new Date(dateString).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', timeZone });
+
   const chartData = useMemo((): SurveyDataPoint[] => {
     if (!surveys || surveys.length === 0) return [];
-
-    const sortedSurveys = [...surveys].sort((a, b) =>
-      new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-    );
-
-    return sortedSurveys.map(survey => ({
-      fecha: formatDateLocal(survey.fecha),
-      cansancioFisico: survey.cansancioFisico,
-      concentracion: survey.concentracion,
-      actitudMental: survey.actitudMental,
-      sensacionesTenisticas: survey.sensacionesTenisticas
-    }));
+    return [...surveys]
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+      .map(survey => ({
+        fecha: formatDateLocal(survey.fecha),
+        cansancioFisico: survey.cansancioFisico,
+        concentracion: survey.concentracion,
+        actitudMental: survey.actitudMental,
+        sensacionesTenisticas: survey.sensacionesTenisticas
+      }));
   }, [surveys, timeZone]);
 
   const avgValues = useMemo(() => {
     if (!surveys || surveys.length === 0) return null;
-
     const totals = surveys.reduce((acc, survey) => ({
       cansancioFisico: acc.cansancioFisico + survey.cansancioFisico,
       concentracion: acc.concentracion + survey.concentracion,
       actitudMental: acc.actitudMental + survey.actitudMental,
       sensacionesTenisticas: acc.sensacionesTenisticas + survey.sensacionesTenisticas
-    }), {
-      cansancioFisico: 0,
-      concentracion: 0,
-      actitudMental: 0,
-      sensacionesTenisticas: 0
-    });
-
+    }), { cansancioFisico: 0, concentracion: 0, actitudMental: 0, sensacionesTenisticas: 0 });
     const count = surveys.length;
     return {
       cansancioFisico: (totals.cansancioFisico / count).toFixed(1),
@@ -63,158 +56,124 @@ const SurveyVisualization: React.FC<SurveyVisualizationProps> = ({ surveys, time
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="p-3 bg-app-surface-alt shadow-lg rounded-lg border border-app">
-          <p className="text-app-primary font-semibold mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {entry.value}/5
-            </p>
+        <div className="bg-gray-900/80 backdrop-blur-md p-3 shadow-lg rounded-lg border border-gray-700">
+          <p className="text-white font-semibold mb-2">{label}</p>
+          {payload.map((entry: any) => (
+            <p key={entry.name} className="text-sm" style={{ color: entry.color }}>{entry.name}: {entry.value}/5</p>
           ))}
         </div>
       );
     }
     return null;
   };
+  
+  const ValueBadge: React.FC<{ value: number; color: string }> = ({ value, color }) => (
+    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm" style={{ backgroundColor: `${color}20`, color: `${color}`}}>
+      {value}
+    </span>
+  );
 
   if (!surveys || surveys.length === 0) {
     return (
-      <div className="bg-app-surface p-6 rounded-lg shadow text-center">
-        <p className="text-app-secondary">
-          No hay encuestas registradas para este jugador en el período seleccionado.
-        </p>
+      <div className="relative bg-gradient-to-br from-gray-800 to-gray-900 p-[1px] rounded-2xl">
+        <div className="bg-gray-900/90 backdrop-blur-lg rounded-2xl p-6 text-center">
+            <p className="text-gray-400">No hay encuestas registradas para este jugador en el período seleccionado.</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Promedios */}
-      {avgValues && (
-        <div className="bg-app-surface p-6 rounded-lg shadow">
-          <h3 className="text-xl font-semibold text-app-accent mb-4">
-            Promedios del Período ({surveys.length} {surveys.length === 1 ? 'encuesta' : 'encuestas'})
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Tarjetas de promedio */}
-            {/* ... (sin cambios en tarjetas) */}
-          </div>
-        </div>
-      )}
+  const METRICS = {
+      cansancioFisico: { name: 'Energía', color: '#22c55e', icon: '⚡️' },
+      concentracion: { name: 'Concentración', color: '#3b82f6', icon: '🎯' },
+      actitudMental: { name: 'Actitud', color: '#facc15', icon: '🧠' },
+      sensacionesTenisticas: { name: 'Sensaciones', color: '#a855f7', icon: '🎾' }
+  };
 
-      {/* Gráfico */}
-      <div className="bg-app-surface p-6 rounded-lg shadow">
-        <h3 className="text-xl font-semibold text-app-accent mb-4">Evolución en el Tiempo</h3>
-        {chartData.length > 0 ? (
+  return (
+    <div className="space-y-8">
+      <div className="relative bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-2xl">
+        <div className="bg-gray-900/95 backdrop-blur-xl rounded-2xl p-6">
+          <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">Promedios ({surveys.length} {surveys.length === 1 ? 'encuesta' : 'encuestas'})</h3>
+          {avgValues && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard title="Energía" value={avgValues.cansancioFisico} color={METRICS.cansancioFisico.color} icon={<span className='text-xl'>{METRICS.cansancioFisico.icon}</span>} />
+              <StatCard title="Concentración" value={avgValues.concentracion} color={METRICS.concentracion.color} icon={<span className='text-xl'>{METRICS.concentracion.icon}</span>} />
+              <StatCard title="Actitud" value={avgValues.actitudMental} color={METRICS.actitudMental.color} icon={<span className='text-xl'>{METRICS.actitudMental.icon}</span>} />
+              <StatCard title="Sensaciones" value={avgValues.sensacionesTenisticas} color={METRICS.sensacionesTenisticas.color} icon={<span className='text-xl'>{METRICS.sensacionesTenisticas.icon}</span>} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="relative bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-2xl">
+        <div className="bg-gray-900/95 backdrop-blur-xl rounded-2xl p-6">
+          <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">Evolución en el Tiempo</h3>
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+            <LineChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="fecha" stroke="var(--color-text-secondary)" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 12 }} />
+              <XAxis dataKey="fecha" stroke="var(--color-text-secondary)" tick={{ fontSize: 12 }} />
               <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} stroke="var(--color-text-secondary)" tick={{ fontSize: 12 }} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="line" />
-              {/* Líneas */}
-              <Line type="monotone" dataKey="cansancioFisico" stroke="#22c55e" name="Energía" />
-              <Line type="monotone" dataKey="concentracion" stroke="#3b82f6" name="Concentración" />
-              <Line type="monotone" dataKey="actitudMental" stroke="#facc15" name="Actitud" />
-              <Line type="monotone" dataKey="sensacionesTenisticas" stroke="#a855f7" name="Sensaciones" />
+              <Legend iconType="circle" />
+              {Object.entries(METRICS).map(([key, { name, color }]) => (
+                <Line key={key} type="monotone" dataKey={key} stroke={color} name={name} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}/>
+              ))}
             </LineChart>
           </ResponsiveContainer>
-        ) : (
-          <div className="text-center py-10">
-            <p className="text-app-secondary">No hay datos suficientes para mostrar el gráfico</p>
+        </div>
+      </div>
+
+      <div className="relative bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-2xl">
+        <div className="bg-gray-900/95 backdrop-blur-xl rounded-2xl p-6">
+          <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">Detalle de Encuestas</h3>
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  {['Fecha', ...Object.values(METRICS).map(m => m.name), 'Promedio'].map(header => (
+                    <th key={header} className="p-3 font-medium text-gray-400">{header}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...surveys].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map(survey => {
+                  const promedio = ((survey.cansancioFisico + survey.concentracion + survey.actitudMental + survey.sensacionesTenisticas) / 4).toFixed(1);
+                  return (
+                    <tr key={survey.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                      <td className="p-3 text-white">{formatDateLocal(survey.fecha)}</td>
+                      <td className="p-3 text-center"><ValueBadge value={survey.cansancioFisico} color={METRICS.cansancioFisico.color} /></td>
+                      <td className="p-3 text-center"><ValueBadge value={survey.concentracion} color={METRICS.concentracion.color} /></td>
+                      <td className="p-3 text-center"><ValueBadge value={survey.actitudMental} color={METRICS.actitudMental.color} /></td>
+                      <td className="p-3 text-center"><ValueBadge value={survey.sensacionesTenisticas} color={METRICS.sensacionesTenisticas.color} /></td>
+                      <td className="p-3 text-white font-bold">{promedio}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
-
-      {/* Tabla detallada para pantallas grandes y tarjetas para móviles */}
-      <div className="bg-app-surface p-6 rounded-lg shadow">
-        <h3 className="text-xl font-semibold text-app-accent mb-4">
-          Detalle de Encuestas ({surveys.length})
-        </h3>
-        {/* Tabla para pantallas medianas y grandes */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-app">
-                <th className="text-left p-2 font-medium text-app-secondary">Fecha</th>
-                <th className="text-center p-2 font-medium text-app-secondary">Energía</th>
-                <th className="text-center p-2 font-medium text-app-secondary">Concentr.</th>
-                <th className="text-center p-2 font-medium text-app-secondary">Actitud</th>
-                <th className="text-center p-2 font-medium text-app-secondary">Sensac.</th>
-                <th className="text-center p-2 font-medium text-app-secondary">Promedio</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...surveys].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map((survey) => {
-                const promedio = (
-                  (survey.cansancioFisico +
-                   survey.concentracion +
-                   survey.actitudMental +
-                   survey.sensacionesTenisticas) / 4
-                ).toFixed(1);
-
+          <div className="md:hidden space-y-4">
+             {[...surveys].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map(survey => {
+                const promedio = ((survey.cansancioFisico + survey.concentracion + survey.actitudMental + survey.sensacionesTenisticas) / 4).toFixed(1);
                 return (
-                  <tr key={survey.id} className="border-b border-app hover:bg-app-surface-alt transition-colors">
-                    <td className="p-2">{formatDateLocal(survey.fecha)}</td>
-                    <td className="text-center p-2">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 font-medium">
-                        {survey.cansancioFisico}
-                      </span>
-                    </td>
-                    <td className="text-center p-2">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium">
-                        {survey.concentracion}
-                      </span>
-                    </td>
-                    <td className="text-center p-2">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 font-medium">
-                        {survey.actitudMental}
-                      </span>
-                    </td>
-                    <td className="text-center p-2">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-medium">
-                        {survey.sensacionesTenisticas}
-                      </span>
-                    </td>
-                    <td className="text-center p-2 font-medium">{promedio}</td>
-                  </tr>
+                    <div key={survey.id} className="relative bg-gradient-to-br from-gray-800 to-gray-900 p-[1px] rounded-2xl">
+                        <div className="bg-gray-900/90 backdrop-blur-lg rounded-2xl p-4">
+                            <div className="flex justify-between items-center mb-3">
+                                <p className="font-semibold text-white">{formatDateLocal(survey.fecha)}</p>
+                                <p className="font-bold text-lg text-green-400">{promedio}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                {Object.entries(METRICS).map(([key, {name, color}]) => (
+                                    <p key={key}><strong style={{color}}>{name}:</strong> <span className='text-gray-300'>{survey[key as keyof PostTrainingSurvey]}/5</span></p>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 );
-              })}
-            </tbody>
-          </table>
+             })}
+          </div>
         </div>
-        {/* Tarjetas para pantallas pequeñas */}
-        <div className="md:hidden space-y-4">
-          {[...surveys].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map((survey) => {
-            const promedio = (
-              (survey.cansancioFisico +
-               survey.concentracion +
-               survey.actitudMental +
-               survey.sensacionesTenisticas) / 4
-            ).toFixed(1);
-            return (
-              <div key={survey.id} className="bg-app-surface-alt p-4 rounded-lg">
-                <div className="flex justify-between items-center mb-3">
-                  <p className="font-semibold">{formatDateLocal(survey.fecha)}</p>
-                  <p className="font-bold text-lg text-app-accent">{promedio}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <p><strong>Energía:</strong> {survey.cansancioFisico}/5</p>
-                  <p><strong>Concentración:</strong> {survey.concentracion}/5</p>
-                  <p><strong>Actitud:</strong> {survey.actitudMental}/5</p>
-                  <p><strong>Sensaciones:</strong> {survey.sensacionesTenisticas}/5</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
-        <p className="text-sm text-blue-700 dark:text-blue-300">
-          <strong>Interpretación de valores:</strong>
-          1 = Muy bajo/negativo | 2 = Bajo | 3 = Normal | 4 = Bueno | 5 = Excelente
-        </p>
       </div>
     </div>
   );

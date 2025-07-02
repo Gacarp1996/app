@@ -35,16 +35,12 @@ const AcademiaSettingsPage: React.FC = () => {
     const loadData = async () => {
       if (academiaActual && currentUser) {
         try {
-          // Si no hay rol, intentar cargarlo de nuevo
           if (!rolActual) {
             const role = await getUserRoleInAcademia(academiaActual.id, currentUser.uid);
             if (role) {
-              // Forzar actualización del contexto
               await setAcademiaActual(academiaActual);
             }
           }
-          
-          // Cargar usuarios
           await loadUsers();
         } catch (error: any) {
           console.error('Error cargando datos:', error);
@@ -58,24 +54,19 @@ const AcademiaSettingsPage: React.FC = () => {
         setLoadingRole(false);
       }
     };
-
     loadData();
   }, [academiaActual, currentUser, rolActual, setAcademiaActual]);
 
   const loadUsers = async () => {
     if (!academiaActual) return;
-    
     setLoading(true);
     try {
       const academiaUsers = await getAcademiaUsers(academiaActual.id);
-      // Ordenar por rol: directores primero, luego subdirectores, luego entrenadores
-      const sortedUsers = academiaUsers.sort((a, b) => {
-        const roleOrder = { director: 0, subdirector: 1, entrenador: 2 };
-        return roleOrder[a.role] - roleOrder[b.role];
-      });
+      const roleOrder = { director: 0, subdirector: 1, entrenador: 2 };
+      const sortedUsers = academiaUsers.sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
       setUsers(sortedUsers);
     } catch (error: any) {
-      console.error('Error cargando usuarios:', error);
+      console.error('Error cargando entrenadores:', error);
       if (error.code === 'permission-denied' || error.message?.includes('permissions')) {
         setPermissionError(true);
       }
@@ -86,11 +77,9 @@ const AcademiaSettingsPage: React.FC = () => {
 
   const handleRemoveUser = async (userId: string) => {
     if (!academiaActual || !currentUser) return;
-    
     const userToRemove = users.find(u => u.userId === userId);
     if (!userToRemove) return;
     
-    // Verificar que no se está eliminando al último director
     if (userToRemove.role === 'director') {
       const directorCount = await countDirectors(academiaActual.id);
       if (directorCount <= 1) {
@@ -104,10 +93,9 @@ const AcademiaSettingsPage: React.FC = () => {
       try {
         await removeUserFromAcademia(academiaActual.id, userId);
         await loadUsers();
-        alert('Usuario eliminado exitosamente');
+        alert('Entrenador eliminado exitosamente');
       } catch (error) {
-        console.error('Error eliminando usuario:', error);
-        alert('Error al eliminar el usuario');
+        alert('Error al eliminar el entrenador');
       } finally {
         setProcessingAction(false);
       }
@@ -116,7 +104,6 @@ const AcademiaSettingsPage: React.FC = () => {
 
   const handlePromoteUser = async (userId: string, newRole: UserRole) => {
     if (!academiaActual) return;
-    
     setProcessingAction(true);
     try {
       await updateUserRole(academiaActual.id, userId, newRole);
@@ -125,7 +112,6 @@ const AcademiaSettingsPage: React.FC = () => {
       setSelectedUserId(null);
       alert('Rol actualizado exitosamente');
     } catch (error) {
-      console.error('Error actualizando rol:', error);
       alert('Error al actualizar el rol');
     } finally {
       setProcessingAction(false);
@@ -135,25 +121,16 @@ const AcademiaSettingsPage: React.FC = () => {
   const handleDeleteAcademia = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!academiaActual || !currentUser || !currentUser.email) return;
-    
     setDeleteError('');
     setProcessingAction(true);
-    
     try {
-      // Verificar la contraseña
       const auth = getAuth();
       await signInWithEmailAndPassword(auth, currentUser.email, deletePassword);
-      
-      // Eliminar la academia
       await deleteAcademia(academiaActual.id);
-      
-      // Eliminar la academia del listado local del usuario
       await eliminarAcademiaDeMisAcademias(academiaActual.id);
-      
       alert('Academia eliminada exitosamente');
       navigate('/select-academia');
     } catch (error: any) {
-      console.error('Error eliminando academia:', error);
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         setDeleteError('Contraseña incorrecta');
       } else {
@@ -164,351 +141,184 @@ const AcademiaSettingsPage: React.FC = () => {
     }
   };
 
-  const getRoleBadgeColor = (role: UserRole) => {
+  const getRoleBadgeStyle = (role: UserRole) => {
     switch (role) {
       case 'director':
-        return 'bg-red-500 text-white';
+        return 'bg-purple-600/90 text-white shadow-lg shadow-purple-500/20';
       case 'subdirector':
-        return 'bg-orange-500 text-white';
+        return 'bg-cyan-500/90 text-black font-bold shadow-lg shadow-cyan-500/20';
       case 'entrenador':
-        return 'bg-blue-500 text-white';
+        return 'bg-green-500/90 text-black font-bold shadow-lg shadow-green-500/20';
     }
   };
 
-  const getRoleDisplayName = (role: UserRole) => {
-    switch (role) {
-      case 'director':
-        return 'Director';
-      case 'subdirector':
-        return 'Subdirector';
-      case 'entrenador':
-        return 'Entrenador';
-    }
-  };
+  const getRoleDisplayName = (role: UserRole) => ({
+    director: 'Director',
+    subdirector: 'Subdirector',
+    entrenador: 'Entrenador',
+  }[role]);
 
-  // Cambiar la validación inicial
-  if (!academiaActual) {
-    return (
-      <div className="text-center py-10">
-        <p className="text-app-secondary">No hay academia seleccionada</p>
-        <button 
-          onClick={() => navigate('/select-academia')} 
-          className="mt-4 app-button btn-primary"
-        >
-          Seleccionar Academia
-        </button>
+  const renderCard = (title: string, children: React.ReactNode) => (
+    <div className="relative bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-2xl shadow-2xl shadow-green-500/10 mb-8">
+      <div className="bg-gray-900/95 backdrop-blur-xl rounded-2xl p-6 sm:p-8">
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-6">
+          {title}
+        </h2>
+        {children}
       </div>
-    );
-  }
+    </div>
+  );
+  
+  const currentRole = rolActual;
 
   if (loadingRole) {
     return (
-      <div className="text-center py-10">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-accent mx-auto"></div>
-        <p className="mt-4 text-app-secondary">Cargando configuración...</p>
+      <div className="flex items-center justify-center min-h-screen bg-black">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 shadow-lg shadow-green-500/50"></div>
       </div>
     );
   }
-
-  // Si hay error de permisos, mostrar mensaje específico
-  if (permissionError) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-6 rounded-lg">
-          <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-4">
-            Error de Permisos
-          </h2>
-          <p className="text-app-primary mb-4">
-            No tienes permisos para acceder a la configuración de la academia. 
-            Esto puede deberse a que las reglas de seguridad de Firebase no están configuradas correctamente.
-          </p>
-          <p className="text-app-primary mb-4">
-            Por favor, contacta al administrador del sistema para que configure las reglas de Firestore 
-            para permitir el acceso a la subcolección de usuarios.
-          </p>
-          <div className="mt-6 space-y-2">
-            <button 
-              onClick={() => navigate('/')} 
-              className="app-button btn-primary mr-2"
-            >
-              Volver al Inicio
-            </button>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="app-button btn-secondary"
-            >
-              Reintentar
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Usar el rol actual
-  const currentRole = rolActual;
-
+  
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-      <h1 className="text-3xl font-bold text-app-accent mb-8">Configuración de Academia</h1>
+    <div className="min-h-screen bg-black text-white p-4 sm:p-6 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
+      <div className="absolute top-0 left-0 w-96 h-96 bg-green-500/10 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }}></div>
 
-      {/* Información del Usuario */}
-      <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
-        <h2 className="text-2xl font-semibold text-app-accent mb-4">Mi Perfil</h2>
-        <div className="space-y-2">
-          <p className="text-app-primary">
-            <span className="font-semibold">Email:</span> {currentUser?.email}
-          </p>
-          <p className="text-app-primary">
-            <span className="font-semibold">Mi rol:</span>{' '}
-            {currentRole ? (
-              <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(currentRole)}`}>
-                {getRoleDisplayName(currentRole)}
-              </span>
-            ) : (
-              <span className="text-app-secondary italic">Sin rol asignado</span>
-            )}
-          </p>
+      <div className="relative z-10 max-w-4xl mx-auto pb-8">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent text-shadow-neon-sm">
+            Configuración
+          </h1>
         </div>
-      </div>
-
-      {/* Información de la Academia */}
-      <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
-        <h2 className="text-2xl font-semibold text-app-accent mb-4">Información de la Academia</h2>
-        <div className="space-y-2">
-          <p className="text-app-primary">
-            <span className="font-semibold">Nombre:</span> {academiaActual.nombre}
-          </p>
-          <p className="text-app-primary">
-            <span className="font-semibold">ID de Academia:</span>{' '}
-            <span className="font-mono text-xl bg-app-surface-alt px-3 py-1 rounded">
-              {academiaActual.id}
-            </span>
-          </p>
-          <p className="text-sm text-app-secondary mt-2">
-            Comparte este ID con otros entrenadores para que puedan unirse a la academia
-          </p>
-        </div>
-      </div>
-
-      {/* Lista de Usuarios - Solo visible para directores y subdirectores */}
-      {currentRole && (currentRole === 'director' || currentRole === 'subdirector') && !permissionError && (
-        <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
-          <h2 className="text-2xl font-semibold text-app-accent mb-4">
-            Usuarios de la Academia ({users.length})
-          </h2>
-          
-          {loading ? (
-            <div className="text-center py-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-app-accent mx-auto"></div>
+        
+        {!academiaActual && (
+            <div className="text-center py-10">
+                <p className="text-gray-400 text-lg">No hay ninguna academia seleccionada.</p>
+                <button onClick={() => navigate('/select-academia')} className="mt-6 app-button btn-primary">
+                    Seleccionar Academia
+                </button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {users.map((user) => (
-                <div 
-                  key={user.userId} 
-                  className="bg-app-surface-alt p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-                >
-                  <div className="flex-grow">
-                    <p className="text-app-primary font-medium">{user.userName || user.userEmail}</p>
-                    <p className="text-app-secondary text-sm">{user.userEmail}</p>
-                    <div className="mt-2">
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(user.role)}`}>
-                        {getRoleDisplayName(user.role)}
-                      </span>
-                      {user.userId === currentUser?.uid && (
-                        <span className="ml-2 text-xs text-app-secondary">(Tú)</span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Solo los directores pueden modificar usuarios */}
-                  {currentRole && currentRole === 'director' && user.userId !== currentUser?.uid && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedUserId(user.userId);
-                          setIsRoleModalOpen(true);
-                        }}
-                        className="app-button btn-primary text-sm px-3 py-1"
-                        disabled={processingAction}
-                      >
-                        Cambiar Rol
-                      </button>
-                      <button
-                        onClick={() => handleRemoveUser(user.userId)}
-                        className="app-button btn-danger text-sm px-3 py-1"
-                        disabled={processingAction}
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* Botón de Cambiar Academia - Visible para todos */}
-      <div className="bg-app-surface p-6 rounded-lg shadow-lg mb-6">
-        <h2 className="text-2xl font-semibold text-app-accent mb-4">Cambiar de Academia</h2>
-        <p className="text-app-secondary mb-4">
-          Si necesitas acceder a otra academia, puedes cambiar desde aquí.
-        </p>
-        <button
-          onClick={() => {
-            limpiarAcademiaActual();
-            navigate('/select-academia');
-          }}
-          className="app-button btn-primary"
-        >
-          Cambiar Academia
-        </button>
-      </div>
-
-      {/* Sección de Eliminar Academia - Solo para directores */}
-      {currentRole && currentRole === 'director' && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-6 rounded-lg">
-          <h2 className="text-2xl font-semibold text-red-600 dark:text-red-400 mb-4">
-            Zona de Peligro
-          </h2>
-          <p className="text-app-primary mb-4">
-            Eliminar la academia es una acción permanente que no se puede deshacer. 
-            Se eliminarán todos los datos asociados (jugadores, objetivos, sesiones, torneos).
-          </p>
-          <button
-            onClick={() => setIsDeleteModalOpen(true)}
-            className="app-button btn-danger"
-            disabled={processingAction}
-          >
-            Eliminar Academia
-          </button>
-        </div>
-      )}
-
-      {/* Modal para cambiar rol */}
-      <Modal 
-        isOpen={isRoleModalOpen} 
-        onClose={() => {
-          setIsRoleModalOpen(false);
-          setSelectedUserId(null);
-        }} 
-        title="Cambiar Rol de Usuario"
-      >
-        {selectedUserId && (
-          <div className="space-y-4">
-            <p className="text-app-primary">
-              Selecciona el nuevo rol para {users.find(u => u.userId === selectedUserId)?.userEmail}:
-            </p>
-            <div className="space-y-2">
-              <button
-                onClick={() => handlePromoteUser(selectedUserId, 'director')}
-                className="w-full app-button btn-danger text-left px-4 py-3"
-                disabled={processingAction}
-              >
-                <span className="font-semibold">Director</span>
-                <p className="text-sm opacity-90">Todos los permisos de gestión</p>
-              </button>
-              <button
-                onClick={() => handlePromoteUser(selectedUserId, 'subdirector')}
-                className="w-full app-button btn-warning text-left px-4 py-3"
-                disabled={processingAction}
-              >
-                <span className="font-semibold">Subdirector</span>
-                <p className="text-sm opacity-90">Puede ver información pero no eliminar</p>
-              </button>
-              <button
-                onClick={() => handlePromoteUser(selectedUserId, 'entrenador')}
-                className="w-full app-button btn-primary text-left px-4 py-3"
-                disabled={processingAction}
-              >
-                <span className="font-semibold">Entrenador</span>
-                <p className="text-sm opacity-90">Acceso básico para entrenamientos</p>
-              </button>
-            </div>
+        {permissionError && renderCard("Error de Permisos", 
+          <div>
+              <p className="text-red-400 mb-4">No tienes permisos para ver los entrenadores de esta academia.</p>
+              <p className="text-gray-300 mb-6">Contacta al director para obtener acceso o verifica las reglas de seguridad de Firestore.</p>
+              <div className="flex gap-4">
+                  <button onClick={() => navigate('/')} className="app-button btn-primary">Volver al Inicio</button>
+                  <button onClick={() => window.location.reload()} className="app-button btn-secondary">Reintentar</button>
+              </div>
           </div>
         )}
+        
+        {academiaActual && !permissionError && (
+          <>
+            {renderCard("Mi Perfil",
+              <div className="space-y-3">
+                <p><span className="font-semibold text-gray-400">Email:</span> {currentUser?.email}</p>
+                <p className="flex items-center gap-2">
+                  <span className="font-semibold text-gray-400">Mi rol:</span>
+                  {currentRole ? (
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${getRoleBadgeStyle(currentRole)}`}>
+                      {getRoleDisplayName(currentRole)}
+                    </span>
+                  ) : <span className="text-gray-500 italic">No asignado</span>}
+                </p>
+              </div>
+            )}
+
+            {renderCard("Información de la Academia",
+              <div className="space-y-3">
+                  <p><span className="font-semibold text-gray-400">Nombre:</span> {academiaActual.nombre}</p>
+                  <p><span className="font-semibold text-gray-400">ID de Academia:</span></p>
+                  <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-center">
+                    <span className="font-mono text-xl tracking-widest text-green-400">{academiaActual.id}</span>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2 text-center">Comparte este ID con otros entrenadores para que puedan unirse.</p>
+              </div>
+            )}
+
+            {(currentRole === 'director' || currentRole === 'subdirector') && renderCard(`Entrenadores de la Academia (${users.length})`,
+              loading ? <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500 mx-auto"></div> :
+              <div className="space-y-4">
+                {users.map((user) => (
+                  <div key={user.userId} className="bg-gray-800/50 p-4 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-4 transition-colors hover:bg-gray-800/80">
+                    <div>
+                      <p className="font-medium text-white">{user.userName || user.userEmail}</p>
+                      <span className={`mt-2 inline-block px-3 py-1 text-sm font-medium rounded-full ${getRoleBadgeStyle(user.role)}`}>
+                        {getRoleDisplayName(user.role)}
+                        {user.userId === currentUser?.uid && <span className="text-xs opacity-80 ml-2">(Tú)</span>}
+                      </span>
+                    </div>
+                    {currentRole === 'director' && user.userId !== currentUser?.uid && (
+                      <div className="flex-shrink-0 flex gap-2 self-end sm:self-center">
+                        <button onClick={() => { setSelectedUserId(user.userId); setIsRoleModalOpen(true); }} className="app-button btn-secondary text-sm px-3 py-1" disabled={processingAction}>Cambiar Rol</button>
+                        <button onClick={() => handleRemoveUser(user.userId)} className="app-button btn-danger text-sm px-3 py-1" disabled={processingAction}>Eliminar</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {renderCard("Opciones", 
+              <div>
+                <p className="text-gray-400 mb-4">Vuelve a la pantalla de selección si necesitas acceder a otra academia.</p>
+                <button onClick={() => { limpiarAcademiaActual(); navigate('/select-academia'); }} className="app-button btn-primary">Cambiar de Academia</button>
+              </div>
+            )}
+
+            {currentRole === 'director' &&
+              <div className="bg-red-900/40 border border-red-500/50 rounded-2xl p-6 sm:p-8">
+                <h2 className="text-2xl font-bold text-red-400 text-shadow-neon-sm mb-4">Zona de Peligro</h2>
+                <p className="text-red-300/90 mb-6">Eliminar la academia es una acción permanente. Se borrarán todos los jugadores, objetivos y entrenamientos asociados.</p>
+                <button onClick={() => setIsDeleteModalOpen(true)} className="app-button btn-danger" disabled={processingAction}>Eliminar Academia Permanentemente</button>
+              </div>
+            }
+          </>
+        )}
+        
+        <div className="mt-12 text-center">
+          <button onClick={() => navigate('/')} className="app-link font-medium">&larr; Volver al Inicio</button>
+        </div>
+      </div>
+
+      <Modal isOpen={isRoleModalOpen} onClose={() => setIsRoleModalOpen(false)} title="Cambiar Rol de Entrenador">
+        {selectedUserId &&
+          <div className="space-y-4">
+            <p className="text-gray-300">Selecciona el nuevo rol para <span className='font-bold text-white'>{users.find(u => u.userId === selectedUserId)?.userEmail}</span>:</p>
+            <div className="space-y-3">
+              {[ 'director', 'subdirector', 'entrenador' ].map((role) => (
+                <button key={role} onClick={() => handlePromoteUser(selectedUserId, role as UserRole)} className={`w-full text-left p-4 rounded-lg transition-transform hover:scale-105 app-button ${role === 'director' ? 'btn-special' : role === 'subdirector' ? 'btn-secondary' : 'btn-primary'}`} disabled={processingAction}>
+                  <span className="font-semibold text-lg">{getRoleDisplayName(role as UserRole)}</span>
+                  <p className="text-sm opacity-90 font-normal">{ {director: "Control total, puede eliminar la academia.", subdirector: "Gestiona entrenadores, jugadores y entrenamientos.", entrenador: "Acceso básico a jugadores y entrenamientos."}[role] }</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        }
       </Modal>
 
-      {/* Modal para eliminar academia */}
-      <Modal 
-        isOpen={isDeleteModalOpen} 
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setDeletePassword('');
-          setDeleteError('');
-        }} 
-        title="Confirmar Eliminación de Academia"
-      >
-        <form onSubmit={handleDeleteAcademia} className="space-y-4">
-          <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-lg">
-            <p className="text-red-700 dark:text-red-300 font-semibold">
-              ⚠️ Esta acción es irreversible
-            </p>
-            <p className="text-red-600 dark:text-red-400 text-sm mt-2">
-              Se eliminarán permanentemente:
-            </p>
-            <ul className="list-disc list-inside text-red-600 dark:text-red-400 text-sm mt-1">
-              <li>Todos los jugadores</li>
-              <li>Todos los objetivos</li>
-              <li>Todas las sesiones de entrenamiento</li>
-              <li>Todos los torneos</li>
-              <li>Todos los usuarios asociados</li>
-            </ul>
+      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmar Eliminación">
+        <form onSubmit={handleDeleteAcademia} className="space-y-6">
+          <div className="bg-red-900/50 p-4 rounded-lg border border-red-500/50">
+              <p className="text-red-300 font-bold text-lg">⚠️ ¡Atención! Esta acción es irreversible.</p>
+              <p className="text-red-400 text-sm mt-2">Para confirmar, escribe tu contraseña. Todos los datos de la academia (<span className='font-bold'>{academiaActual?.nombre}</span>) serán eliminados.</p>
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-app-secondary mb-2">
-              Ingresa tu contraseña para confirmar:
-            </label>
-            <input
-              type="password"
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-              className="w-full p-3 app-input rounded-md"
-              placeholder="Tu contraseña"
-              required
-            />
-            {deleteError && (
-              <p className="text-red-500 text-sm mt-2">{deleteError}</p>
-            )}
+            <label className="block text-sm font-medium text-gray-400 mb-2">Contraseña</label>
+            <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30" required />
+            {deleteError && <p className="text-red-400 text-sm mt-2">{deleteError}</p>}
           </div>
-          
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              className="flex-1 app-button btn-danger"
-              disabled={processingAction || !deletePassword}
-            >
-              {processingAction ? 'Eliminando...' : 'Eliminar Academia'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsDeleteModalOpen(false);
-                setDeletePassword('');
-                setDeleteError('');
-              }}
-              className="flex-1 app-button btn-secondary"
-              disabled={processingAction}
-            >
-              Cancelar
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button type="button" onClick={() => setIsDeleteModalOpen(false)} className="app-button btn-secondary flex-1" disabled={processingAction}>Cancelar</button>
+            <button type="submit" className="app-button btn-danger flex-1" disabled={processingAction || !deletePassword}>
+              {processingAction ? 'Eliminando...' : 'Sí, eliminar esta academia'}
             </button>
           </div>
         </form>
       </Modal>
-
-      {/* Botón para volver */}
-      <div className="mt-8 text-center">
-        <button 
-          onClick={() => navigate('/')} 
-          className="app-link font-medium"
-        >
-          &larr; Volver al Inicio
-        </button>
-      </div>
     </div>
   );
 };

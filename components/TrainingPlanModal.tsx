@@ -11,6 +11,20 @@ interface TrainingPlanModalProps {
   player: Player;
 }
 
+// Componente para una sección con estilo de cristal
+const CardSection: React.FC<{ title?: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
+  <div className={`relative bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-2xl shadow-lg shadow-green-500/10 ${className}`}>
+    <div className="bg-gray-900/95 backdrop-blur-xl rounded-2xl p-4 sm:p-6">
+      {title && (
+        <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">
+          {title}
+        </h3>
+      )}
+      {children}
+    </div>
+  </div>
+);
+
 const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, player }) => {
   const { academiaActual } = useAcademia();
   const [loading, setLoading] = useState(true);
@@ -26,14 +40,12 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
 
   const loadExistingPlan = async () => {
     if (!academiaActual) return;
-    
     setLoading(true);
     try {
       const existingPlan = await getTrainingPlan(academiaActual.id, player.id);
-      
-      if (existingPlan) {
+      if (existingPlan && existingPlan.planificacion) {
         setPlanificacion(existingPlan.planificacion);
-        setRangoAnalisis(existingPlan.rangoAnalisis);
+        setRangoAnalisis(existingPlan.rangoAnalisis || 30);
       } else {
         initializeEmptyPlan();
       }
@@ -47,112 +59,53 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
 
   const initializeEmptyPlan = () => {
     const newPlan: TrainingPlan['planificacion'] = {};
-    
     Object.keys(NEW_EXERCISE_HIERARCHY_CONST).forEach(tipo => {
-      newPlan[tipo] = {
-        porcentajeTotal: 0,
-        areas: {}
-      };
-      
+      newPlan[tipo] = { porcentajeTotal: 0, areas: {} };
       Object.keys(NEW_EXERCISE_HIERARCHY_CONST[tipo]).forEach(area => {
-        newPlan[tipo].areas[area] = {
-          porcentajeDelTotal: 0,
-          ejercicios: {}
-        };
-        
+        newPlan[tipo].areas[area] = { porcentajeDelTotal: 0, ejercicios: {} };
         NEW_EXERCISE_HIERARCHY_CONST[tipo][area].forEach(ejercicio => {
-          newPlan[tipo].areas[area].ejercicios![ejercicio] = {
-            porcentajeDelTotal: 0
-          };
+          newPlan[tipo].areas[area].ejercicios![ejercicio] = { porcentajeDelTotal: 0 };
         });
       });
     });
-    
     setPlanificacion(newPlan);
   };
 
-  const handleTipoPercentageChange = (tipo: string, value: number) => {
-    setPlanificacion(prev => ({
-      ...prev,
-      [tipo]: {
-        ...prev[tipo],
-        porcentajeTotal: value
+  const handlePercentageChange = (path: string[], value: number) => {
+    setPlanificacion(prev => {
+      const newPlan = JSON.parse(JSON.stringify(prev)); // Deep copy
+      let currentLevel = newPlan;
+      for (let i = 0; i < path.length - 1; i++) {
+        currentLevel = currentLevel[path[i]];
       }
-    }));
+      currentLevel[path[path.length - 1]] = value;
+      return newPlan;
+    });
   };
+  
+  const handleTipoPercentageChange = (tipo: string, value: number) => handlePercentageChange([tipo, 'porcentajeTotal'], value);
+  const handleAreaPercentageChange = (tipo: string, area: string, value: number) => handlePercentageChange([tipo, 'areas', area, 'porcentajeDelTotal'], value);
+  const handleEjercicioPercentageChange = (tipo: string, area: string, ejercicio: string, value: number) => handlePercentageChange([tipo, 'areas', area, 'ejercicios', ejercicio, 'porcentajeDelTotal'], value);
 
-  const handleAreaPercentageChange = (tipo: string, area: string, value: number) => {
-    setPlanificacion(prev => ({
-      ...prev,
-      [tipo]: {
-        ...prev[tipo],
-        areas: {
-          ...prev[tipo].areas,
-          [area]: {
-            ...prev[tipo].areas[area],
-            porcentajeDelTotal: value
-          }
-        }
-      }
-    }));
-  };
-
-  const handleEjercicioPercentageChange = (tipo: string, area: string, ejercicio: string, value: number) => {
-    setPlanificacion(prev => ({
-      ...prev,
-      [tipo]: {
-        ...prev[tipo],
-        areas: {
-          ...prev[tipo].areas,
-          [area]: {
-            ...prev[tipo].areas[area],
-            ejercicios: {
-              ...prev[tipo].areas[area].ejercicios,
-              [ejercicio]: {
-                porcentajeDelTotal: value
-              }
-            }
-          }
-        }
-      }
-    }));
-  };
-
-  const calculateTotalPercentage = (): number => {
-    return Object.values(planificacion).reduce((sum, tipo) => sum + tipo.porcentajeTotal, 0);
-  };
-
-  const calculateAreasTotalPercentage = (tipo: string): number => {
-    return Object.values(planificacion[tipo]?.areas || {}).reduce(
-      (sum, area) => sum + area.porcentajeDelTotal, 0
-    );
-  };
-
-  const calculateEjerciciosTotalPercentage = (tipo: string, area: string): number => {
-    return Object.values(planificacion[tipo]?.areas[area]?.ejercicios || {}).reduce(
-      (sum, ej) => sum + ej.porcentajeDelTotal, 0
-    );
-  };
+  const calculateTotalPercentage = (): number => Object.values(planificacion).reduce((sum, tipo) => sum + (tipo.porcentajeTotal || 0), 0);
+  const calculateAreasTotalPercentage = (tipo: string): number => Object.values(planificacion[tipo]?.areas || {}).reduce((sum, area) => sum + (area.porcentajeDelTotal || 0), 0);
+  const calculateEjerciciosTotalPercentage = (tipo: string, area: string): number => Object.values(planificacion[tipo]?.areas[area]?.ejercicios || {}).reduce((sum, ej) => sum + (ej.porcentajeDelTotal || 0), 0);
 
   const handleSave = async () => {
     if (!academiaActual) return;
-    
     const total = calculateTotalPercentage();
     if (Math.abs(total - 100) > 0.01) {
       alert(`El total de porcentajes debe ser 100%. Actualmente es: ${total.toFixed(2)}%`);
       return;
     }
-
     setSaving(true);
     try {
-      const planData: Omit<TrainingPlan, 'fechaCreacion'> = {
+      await saveTrainingPlan(academiaActual.id, player.id, {
         jugadorId: player.id,
         fechaActualizacion: new Date().toISOString(),
         rangoAnalisis,
         planificacion
-      };
-      
-      await saveTrainingPlan(academiaActual.id, player.id, planData);
+      });
       alert('Plan de entrenamiento guardado exitosamente');
       onClose();
     } catch (error) {
@@ -162,119 +115,108 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
       setSaving(false);
     }
   };
+  
+  const InputNumber = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <input 
+      type="number" 
+      step="0.1"
+      min="0"
+      {...props}
+      className={`px-3 py-1.5 bg-gray-800/70 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 ${props.className}`}
+    />
+  );
 
   if (loading) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title={`Plan de Entrenamiento - ${player.name}`}>
-        <div className="text-center py-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto shadow-lg shadow-green-500/50"></div>
-          <p className="mt-4 text-gray-400">Cargando plan...</p>
+        <div className="flex items-center justify-center min-h-[300px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 shadow-lg shadow-green-500/50"></div>
         </div>
       </Modal>
     );
   }
 
   const totalPercentage = calculateTotalPercentage();
+  const isTotalCorrect = Math.abs(totalPercentage - 100) < 0.01;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Plan de Entrenamiento - ${player.name}`}>
-      <div className="space-y-6 max-h-[70vh] overflow-y-auto">
-        {/* Configuración de rango de análisis */}
-        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Días hacia atrás para análisis
-          </label>
-          <input
-            type="number"
+      <div className="space-y-6 custom-scrollbar pr-4 -mr-4">
+        
+        <CardSection title="Configuración General">
+          <label className="block text-sm font-medium text-gray-400 mb-2">Días hacia atrás para análisis</label>
+          <InputNumber
             value={rangoAnalisis}
             onChange={(e) => setRangoAnalisis(Number(e.target.value))}
-            min="7"
             max="365"
-            className="w-full px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
+            className="w-full"
           />
-          <p className="text-xs text-gray-500 mt-2">
-            Se analizarán los últimos {rangoAnalisis} días de entrenamiento
-          </p>
-        </div>
+          <p className="text-xs text-gray-500 mt-2">Se analizarán los últimos {rangoAnalisis} días de entrenamiento.</p>
+        </CardSection>
 
-        {/* Total general */}
-        <div className={`p-4 rounded-lg border-2 transition-all duration-300 ${
-          Math.abs(totalPercentage - 100) < 0.01 
-            ? 'bg-green-500/10 border-green-500/50 shadow-lg shadow-green-500/20' 
-            : 'bg-red-500/10 border-red-500/50 shadow-lg shadow-red-500/20'
-        }`}>
-          <p className="font-bold text-lg flex items-center justify-between">
-            <span>Total General:</span>
-            <span className={Math.abs(totalPercentage - 100) < 0.01 ? 'text-green-400' : 'text-red-400'}>
-              {totalPercentage.toFixed(2)}% / 100%
+        <div className={`relative bg-gradient-to-br p-[1px] rounded-2xl shadow-lg ${isTotalCorrect ? 'from-green-500/20 to-cyan-500/20 shadow-green-500/20' : 'from-red-500/20 to-orange-500/20 shadow-red-500/20'}`}>
+          <div className={`bg-gray-900/95 backdrop-blur-xl rounded-2xl p-4 flex items-center justify-between`}>
+            <span className="text-lg font-bold text-white">Total General:</span>
+            <span className={`text-2xl font-black ${isTotalCorrect ? 'text-green-400' : 'text-red-400'}`}>
+              {totalPercentage.toFixed(1)}%
             </span>
-          </p>
+          </div>
         </div>
 
-        {/* Planificación por tipo */}
         {Object.keys(NEW_EXERCISE_HIERARCHY_CONST).map(tipo => (
-          <div key={tipo} className="border border-gray-700 rounded-lg p-4 space-y-4 bg-gray-900/50">
+          <CardSection key={tipo}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-green-400">{tipo}</h3>
+              <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">{tipo}</h3>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
+                <InputNumber
                   value={planificacion[tipo]?.porcentajeTotal || 0}
                   onChange={(e) => handleTipoPercentageChange(tipo, Number(e.target.value))}
-                  min="0"
                   max="100"
-                  step="0.1"
-                  className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
+                  className="w-24 text-lg text-center"
                 />
-                <span className="text-sm text-gray-400">%</span>
+                <span className="text-lg font-semibold text-gray-400">%</span>
               </div>
             </div>
 
             {planificacion[tipo]?.porcentajeTotal > 0 && (
-              <div className="ml-4 space-y-3">
+              <div className="mt-4 pl-4 border-l-2 border-gray-800 space-y-3">
                 <div className="text-sm text-gray-500">
-                  Total áreas: <span className={calculateAreasTotalPercentage(tipo) === planificacion[tipo].porcentajeTotal ? 'text-green-400' : 'text-yellow-400'}>
-                    {calculateAreasTotalPercentage(tipo).toFixed(2)}%
+                  Total áreas: <span className={Math.abs(calculateAreasTotalPercentage(tipo) - planificacion[tipo].porcentajeTotal) < 0.01 ? 'text-green-400' : 'text-yellow-400'}>
+                    {calculateAreasTotalPercentage(tipo).toFixed(1)}%
                   </span> / {planificacion[tipo].porcentajeTotal}%
                 </div>
                 
                 {Object.keys(NEW_EXERCISE_HIERARCHY_CONST[tipo]).map(area => (
                   <div key={area} className="bg-gray-800/30 rounded-lg p-3 space-y-2 border border-gray-700/50">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-cyan-400">{area}</h4>
+                      <h4 className="font-medium text-cyan-300">{area}</h4>
                       <div className="flex items-center gap-2">
-                        <input
-                          type="number"
+                        <InputNumber
                           value={planificacion[tipo]?.areas[area]?.porcentajeDelTotal || 0}
                           onChange={(e) => handleAreaPercentageChange(tipo, area, Number(e.target.value))}
-                          min="0"
                           max={planificacion[tipo].porcentajeTotal}
-                          step="0.1"
-                          className="w-16 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20"
+                          className="w-20 text-center"
                         />
-                        <span className="text-xs text-gray-400">%</span>
+                        <span className="text-sm text-gray-400">%</span>
                       </div>
                     </div>
 
                     {planificacion[tipo]?.areas[area]?.porcentajeDelTotal > 0 && (
-                      <div className="ml-4 space-y-1">
+                       <div className="mt-2 pl-4 border-l-2 border-gray-700/50 space-y-1">
                         <div className="text-xs text-gray-500">
-                          Total ejercicios: <span className={calculateEjerciciosTotalPercentage(tipo, area) === planificacion[tipo].areas[area].porcentajeDelTotal ? 'text-green-400' : 'text-yellow-400'}>
-                            {calculateEjerciciosTotalPercentage(tipo, area).toFixed(2)}%
+                          Total ejercicios: <span className={Math.abs(calculateEjerciciosTotalPercentage(tipo, area) - planificacion[tipo].areas[area].porcentajeDelTotal) < 0.01 ? 'text-green-400' : 'text-yellow-400'}>
+                            {calculateEjerciciosTotalPercentage(tipo, area).toFixed(1)}%
                           </span> / {planificacion[tipo].areas[area].porcentajeDelTotal}%
                         </div>
                         {NEW_EXERCISE_HIERARCHY_CONST[tipo][area].map(ejercicio => (
                           <div key={ejercicio} className="flex items-center justify-between py-1 px-2 hover:bg-gray-800/50 rounded">
                             <span className="text-sm text-gray-300">{ejercicio}</span>
                             <div className="flex items-center gap-1">
-                              <input
-                                type="number"
+                              <InputNumber
                                 value={planificacion[tipo]?.areas[area]?.ejercicios?.[ejercicio]?.porcentajeDelTotal || 0}
                                 onChange={(e) => handleEjercicioPercentageChange(tipo, area, ejercicio, Number(e.target.value))}
-                                min="0"
                                 max={planificacion[tipo].areas[area].porcentajeDelTotal}
-                                step="0.1"
-                                className="w-14 px-1 py-0.5 bg-gray-900 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-green-500"
+                                className="w-16 text-center text-xs"
                               />
                               <span className="text-xs text-gray-500">%</span>
                             </div>
@@ -286,14 +228,13 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
                 ))}
               </div>
             )}
-          </div>
+          </CardSection>
         ))}
 
-        {/* Botones de acción */}
-        <div className="flex gap-3 pt-4">
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
           <button
             onClick={handleSave}
-            disabled={saving || Math.abs(totalPercentage - 100) > 0.01}
+            disabled={saving || !isTotalCorrect}
             className="flex-1 py-3 px-4 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-green-500/25"
           >
             {saving ? 'Guardando...' : 'Guardar Plan'}
