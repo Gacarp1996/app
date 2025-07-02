@@ -15,7 +15,6 @@ const PIE_CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8',
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    // Usar el porcentaje precalculado o calcularlo si no existe
     const percentage = data.percentage || '0.0';
     return (
       <div className="p-2 bg-app-surface-alt shadow-md rounded border border-app">
@@ -29,18 +28,14 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 const AreaPieChart: React.FC<AreaPieChartProps> = ({ data, chartTitle, onSliceClick, height = '100%' }) => {
-  // --- PASO 1: AÑADIR ESTADOS PARA DETECCIÓN ---
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    // Esto se ejecuta solo en el navegador para evitar errores
     setIsClient(true);
   }, []);
 
-  // --- PASO 2: DETECTAR SI ES UN DISPOSITIVO TÁCTIL ---
   const isTouchDevice = isClient && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
-  // Calcular el total de minutos
   const totalMinutes = data.reduce((sum, item) => sum + (item.value || 0), 0);
 
   if (!data || data.length === 0 || totalMinutes === 0) {
@@ -54,7 +49,6 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({ data, chartTitle, onSliceCl
     );
   }
 
-  // Preparar datos con porcentajes calculados
   const dataWithPercentages = data.map(item => ({
     ...item,
     percentage: ((item.value / totalMinutes) * 100).toFixed(1)
@@ -69,20 +63,12 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({ data, chartTitle, onSliceCl
             data={dataWithPercentages}
             cx="50%"
             cy="50%"
+            label={false}
             labelLine={false}
-            outerRadius={100}
+            outerRadius={110} 
             fill="#8884d8"
             dataKey="value"
             nameKey="name"
-            label={({ index }) => {
-              if (index === undefined) return '';
-              const item = dataWithPercentages[index];
-              // Para labels muy pequeños, no mostrar texto
-              const percent = parseFloat(item.percentage);
-              if (percent < 3) return '';
-              
-              return `${item.name}: ${item.value} min`;
-            }}
             onClick={onSliceClick ? (payload) => onSliceClick(payload as any as ChartDataPoint) : undefined}
             style={{ cursor: onSliceClick ? 'pointer' : 'default' }}
           >
@@ -91,7 +77,6 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({ data, chartTitle, onSliceCl
             ))}
           </Pie>
 
-          {/* --- PASO 3: RENDERIZAR EL TOOLTIP CONDICIONALMENTE --- */}
           {!isTouchDevice && <Tooltip content={<CustomTooltip />} />}
           
           <Legend 
@@ -102,7 +87,8 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({ data, chartTitle, onSliceCl
               }
               return `${value}: ${item?.value || 0} min`;
             }}
-            wrapperStyle={{fontSize: '0.8rem', color: 'var(--color-text-secondary)'}} 
+            // ===== ¡LETRA AÚN MÁS GRANDE! =====
+            wrapperStyle={{fontSize: '1.2rem', color: 'var(--color-text-secondary)'}} 
           />
         </PieChart>
       </ResponsiveContainer>

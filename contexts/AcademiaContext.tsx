@@ -1,10 +1,8 @@
 // contexts/AcademiaContext.tsx
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-// Asegúrate de importar serverTimestamp si no lo tienes ya.
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'; 
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'; 
 import { db } from '../firebase/firebase-config';
-// Bien
 import { Academia, TipoEntidad } from '../types'; 
 import { getUserRoleInAcademia, addUserToAcademia, UserRole } from '../Database/FirebaseRoles';
 
@@ -12,8 +10,8 @@ interface UserAcademia {
   academiaId: string;
   nombre: string;
   id?: string;
-  // Cambiamos a un tipo que Firestore entiende, o lo manejamos en la conversión.
-  ultimoAcceso: any; 
+  // Cambiado para usar timestamp de JavaScript
+  ultimoAcceso: number; // timestamp en millisegundos
   role?: UserRole;
   tipo?: TipoEntidad;
 }
@@ -79,7 +77,7 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
         const academias = data.academias || [];
 
         const academiasConDetalles = await Promise.all(
-          academias.map(async (academia: UserAcademia) => {
+          academias.map(async (academia: any) => {
             // Aseguramos que los datos básicos estén
             if (!academia.academiaId) return null;
 
@@ -94,6 +92,10 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
                     nombre: academiaData.nombre,
                     tipo: academiaData.tipo,
                     role: role,
+                    // Convertir Timestamp de Firestore a número si es necesario
+                    ultimoAcceso: academia.ultimoAcceso?.toMillis ? 
+                      academia.ultimoAcceso.toMillis() : 
+                      academia.ultimoAcceso || Date.now()
                 };
             }
             return null;
@@ -137,12 +139,11 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
         userRole = 'entrenador';
       }
 
-      // Usamos serverTimestamp() para el manejo de fechas en Firestore
+      // CORRECCIÓN: Usamos Date.now() en lugar de serverTimestamp() para arrays
       const nuevoAcceso = {
         academiaId: academiaId,
         nombre: nombre,
-        // No es necesario 'id' aquí, ya que se basa en la lista de academias
-        ultimoAcceso: serverTimestamp() 
+        ultimoAcceso: Date.now() // Timestamp en millisegundos
       };
 
       const userRef = doc(db, 'userAcademias', currentUser.uid);
@@ -155,10 +156,19 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
         academiasActualizadas = academiasPrevias.filter((a: UserAcademia) => a.academiaId !== academiaId);
         academiasActualizadas.unshift(nuevoAcceso);
 
-        await updateDoc(userRef, { academias: academiasActualizadas });
+        await updateDoc(userRef, { 
+          academias: academiasActualizadas,
+          // Opcionalmente, puedes usar serverTimestamp() aquí fuera del array
+          ultimaActualizacion: serverTimestamp()
+        });
       } else {
         academiasActualizadas = [nuevoAcceso];
-        await setDoc(userRef, { academias: academiasActualizadas });
+        await setDoc(userRef, { 
+          academias: academiasActualizadas,
+          // Opcionalmente, puedes usar serverTimestamp() aquí fuera del array
+          fechaCreacion: serverTimestamp(),
+          ultimaActualizacion: serverTimestamp()
+        });
       }
       
       // Actualizamos el estado local para reflejar el cambio inmediatamente
@@ -188,7 +198,10 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
         const academias = userDoc.data().academias || [];
         const academiasActualizadas = academias.filter((a: UserAcademia) => a.academiaId !== academiaId);
 
-        await updateDoc(userRef, { academias: academiasActualizadas });
+        await updateDoc(userRef, { 
+          academias: academiasActualizadas,
+          ultimaActualizacion: serverTimestamp() // Esto sí funciona fuera del array
+        });
 
         setMisAcademias(academiasActualizadas);
 

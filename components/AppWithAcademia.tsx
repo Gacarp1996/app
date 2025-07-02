@@ -8,6 +8,7 @@ import { getPlayers } from "../Database/FirebasePlayers";
 import { getObjectives } from '../Database/FirebaseObjectives';
 import { getSessions } from '../Database/FirebaseSessions';
 import { getTournaments } from '../Database/FirebaseTournaments';
+import { getDisputedTournaments } from '../Database/FirebaseDisputedTournaments'; // NUEVO IMPORT
 import GlobalHeader from './GlobalHeader';
 import HomePage from '../pages/HomePage'; // Esta importación ya la tenías, ¡perfecto!
 import PlayersListPage from '../pages/PlayersListPage';
@@ -17,7 +18,7 @@ import PlayerProfilePage from '../pages/PlayerProfilePage';
 import EditObjectivesPage from '../pages/EditObjectivesPage';
 import ObjectiveDetailPage from '../pages/ObjectiveDetailPage';
 import SessionDetailPage from '../pages/SessionDetailPage';
-import { Player, Objective, TrainingSession, Tournament } from '../types';
+import { Player, Objective, TrainingSession, Tournament, DisputedTournament } from '../types'; // ACTUALIZADO
 import AcademiaSettingsPage from '../pages/AcademiaSettingsPage';
 
 
@@ -29,6 +30,8 @@ const AppWithAcademia: React.FC = () => {
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [disputedTournaments, setDisputedTournaments] = useState<DisputedTournament[]>([]);
+  const [dataLoading, setDataLoading] = useState(true); // NUEVO ESTADO
 
   useEffect(() => {
     if (!academiaActual) {
@@ -42,14 +45,48 @@ const AppWithAcademia: React.FC = () => {
   const fetchData = async () => {
     if (!academiaActual) return;
     
-    setPlayers(await getPlayers(academiaActual.id));
-    setObjectives(await getObjectives(academiaActual.id));
-    setSessions(await getSessions(academiaActual.id));
-    setTournaments(await getTournaments(academiaActual.id));
+    setDataLoading(true);
+    try {
+      const [playersData, objectivesData, sessionsData, tournamentsData, disputedData] = await Promise.all([
+        getPlayers(academiaActual.id),
+        getObjectives(academiaActual.id),
+        getSessions(academiaActual.id),
+        getTournaments(academiaActual.id),
+        getDisputedTournaments(academiaActual.id)
+      ]);
+      
+      setPlayers(playersData || []);
+      setObjectives(objectivesData || []);
+      setSessions(sessionsData || []);
+      setTournaments(tournamentsData || []);
+      setDisputedTournaments(disputedData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      // Establecer arrays vacíos en caso de error
+      setPlayers([]);
+      setObjectives([]);
+      setSessions([]);
+      setTournaments([]);
+      setDisputedTournaments([]);
+    } finally {
+      setDataLoading(false);
+    }
   };
 
   if (!academiaActual) {
     return null;
+  }
+
+  // Mostrar loading mientras se cargan los datos
+  if (dataLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center pt-[60px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-accent mx-auto"></div>
+          <p className="mt-4 text-app-secondary">Cargando datos de la academia...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -65,7 +102,7 @@ const AppWithAcademia: React.FC = () => {
 
             <Route path="/players" element={
              <PlayersListPage 
-             players={players} 
+             players={players || []} 
              onDataChange={fetchData} 
              academiaId={academiaActual.id}
              academiaActual={academiaActual}
@@ -77,46 +114,46 @@ const AppWithAcademia: React.FC = () => {
 
             <Route path="/player/:playerId" element={
               <PlayerProfilePage 
-                players={players} 
-                objectives={objectives} 
-                sessions={sessions} 
-                tournaments={tournaments} 
+                players={players || []} 
+                objectives={objectives || []} 
+                sessions={sessions || []} 
+                tournaments={tournaments || []} 
                 onDataChange={fetchData}
                 academiaId={academiaActual.id}
               />
             } />
             <Route path="/start-training" element={
               <StartTrainingPage 
-                players={players} 
+                players={players || []} 
               />
             } />
             <Route path="/training/:playerId" element={
               <TrainingSessionPage 
-                allPlayers={players} 
-                allObjectives={objectives} 
-                allTournaments={tournaments} 
+                allPlayers={players || []} 
+                allObjectives={objectives || []} 
+                allTournaments={tournaments || []} 
                 onDataChange={fetchData}
                 academiaId={academiaActual.id}
               />
             } />
             <Route path="/session/:sessionId" element={
               <SessionDetailPage 
-                sessions={sessions} 
-                players={players} 
+                sessions={sessions || []} 
+                players={players || []} 
               />
             } />
             <Route path="/objective/:objectiveId/edit" element={
               <ObjectiveDetailPage 
-                allObjectives={objectives} 
-                players={players} 
+                allObjectives={objectives || []} 
+                players={players || []} 
                 onDataChange={fetchData}
                 academiaId={academiaActual.id}
               />
             } />
             <Route path="/player/:playerId/edit-objectives" element={
               <EditObjectivesPage 
-                players={players} 
-                allObjectives={objectives} 
+                players={players || []} 
+                allObjectives={objectives || []} 
                 onDataChange={fetchData}
                 academiaId={academiaActual.id}
               />

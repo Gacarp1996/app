@@ -29,7 +29,6 @@ const AcademiaSelectPage: React.FC = () => {
     setError('');
 
     try {
-      // CORREGIDO: Se pasa un solo objeto como argumento
       const academiaId = await crearAcademia({
         nombre: nombreNuevaAcademia.trim(),
         creadorId: currentUser.uid,
@@ -60,7 +59,6 @@ const AcademiaSelectPage: React.FC = () => {
     setError('');
 
     try {
-      // CORREGIDO: Se pasa un solo objeto como argumento
       const grupoId = await crearAcademia({
         nombre: nombreNuevoGrupo.trim(),
         creadorId: currentUser.uid,
@@ -109,7 +107,6 @@ const AcademiaSelectPage: React.FC = () => {
         };
         
         await setAcademiaActual(entidadEncontrada as any);
-        // CORREGIDO: Se usa la variable correcta
         await registrarAccesoAcademia(doc.id, (entidadEncontrada as any).nombre);
         navigate('/');
       } else {
@@ -146,9 +143,12 @@ const AcademiaSelectPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-app-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-4xl">
-        <h1 className="text-4xl font-bold text-app-accent text-center mb-8">
-          Selecciona tu espacio de entrenamiento
-        </h1>
+        <header className="py-12 text-center">
+            <h1 className="text-5xl font-bold text-app-accent mb-6">Bienvenido a TenisCoaching</h1>
+            <p className="text-xl text-app-secondary max-w-2xl mx-auto">
+              Gestiona los objetivos de tus jugadores, registra entrenamientos y visualiza su progreso.
+            </p>
+        </header>
 
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           {/* Botón Crear Academia */}
@@ -168,7 +168,7 @@ const AcademiaSelectPage: React.FC = () => {
           <button 
             onClick={() => setIsCrearGrupoModalOpen(true)} 
             disabled={loading} 
-            className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group disabled:opacity-50 border-2 border-app-accent/20"
+            className="bg-app-surface p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group disabled:opacity-50"
           >
             <div className="text-center">
               <div className="mb-4 text-4xl">👥</div>

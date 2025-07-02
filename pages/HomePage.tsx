@@ -1,17 +1,68 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAcademia } from '../contexts/AcademiaContext';
+import { db } from '../firebase/firebase-config';
+import { collection, getDocs, query } from 'firebase/firestore';
 
 const HomePage: React.FC = () => {
+  const { academiaActual } = useAcademia();
+  const [hasPlayers, setHasPlayers] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkPlayers = async () => {
+      // Si tenemos una academia seleccionada con su ID...
+      if (academiaActual?.id) {
+        try {
+          // --- ESTA ES LA LÍNEA CORREGIDA ---
+          // Ahora buscamos en la sub-colección 'players' dentro de la academia actual.
+          const playersQuery = query(
+            collection(db, "academias", academiaActual.id, "players")
+          );
+          
+          const querySnapshot = await getDocs(playersQuery);
+          
+          // Si la consulta no está vacía, hay jugadores.
+          setHasPlayers(!querySnapshot.empty);
+        } catch (error) {
+          console.error("Error al verificar jugadores:", error);
+          setHasPlayers(false);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+
+    checkPlayers();
+  }, [academiaActual]);
+
+  if (loading) {
+    return <div className="text-center py-20">Cargando...</div>;
+  }
+
   return (
     <div className="text-center">
       <header className="py-12">
-        <h1 className="text-5xl font-bold text-app-accent mb-6">Bienvenido a TenisCoaching</h1>
-        <p className="text-xl text-app-secondary max-w-2xl mx-auto">
-          Gestiona los objetivos de tus jugadores, registra entrenamientos y visualiza su progreso.
-        </p>
+        {hasPlayers ? (
+          <>
+            <h1 className="text-5xl font-bold text-app-accent mb-4">Continúa el gran trabajo</h1>
+            <p className="text-xl text-app-secondary max-w-2xl mx-auto">
+              Revisa el progreso de tus jugadores o inicia un nuevo entrenamiento.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-5xl font-bold text-app-accent mb-4">¿Listo para empezar?</h1>
+            <p className="text-xl text-app-secondary max-w-2xl mx-auto">
+              Comienza a cargar jugadores y llevar el registro de tus entrenamientos.
+            </p>
+          </>
+        )}
       </header>
 
-      {/* Acciones Principales */}
+      {/* Acciones Principales (sin cambios) */}
       <section className="mt-12 grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
         <Link
           to="/start-training"
@@ -33,27 +84,31 @@ const HomePage: React.FC = () => {
         </Link>
       </section>
 
-      {/* Guía Rápida */}
-      <section className="mt-16 bg-app-surface p-8 rounded-lg shadow-lg max-w-4xl mx-auto">
-        <h2 className="text-2xl font-bold text-app-accent mb-4">Guía Rápida</h2>
-        <div className="grid md:grid-cols-3 gap-8 text-left">
-          <div>
-            <h3 className="text-xl font-semibold mb-2">1. Crea Jugadores</h3>
-            <p className="text-app-secondary">Ve a la sección de "Ver Jugadores" y añade a tus atletas. </p>
+      {/* Guía Rápida (sin cambios) */}
+      <section className="mt-16 max-w-4xl mx-auto">
+        <h2 className="text-3xl font-bold text-app-accent mb-6">Guía Rápida</h2>
+        <div className="grid md:grid-cols-3 gap-6 text-left">
+          <div className="bg-app-surface p-6 rounded-lg shadow-lg border-t-4 border-app-primary">
+            <div className="flex items-center mb-3">
+                <span className="bg-app-primary text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg mr-3">1</span>
+                <h3 className="text-xl font-semibold">Crea Jugadores</h3>
+            </div>
+            <p className="text-app-secondary">Ve a la sección de "Ver Jugadores" y añade a tus atletas.</p>
           </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-2">2. Define Objetivos</h3>
-            <p className="text-app-secondary">En el perfil de cada jugador, establece los objetivos a corto y largo plazo.</p>
+          <div className="bg-app-surface p-6 rounded-lg shadow-lg border-t-4 border-app-accent">
+            <div className="flex items-center mb-3">
+                <span className="bg-app-accent text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg mr-3">2</span>
+                <h3 className="text-xl font-semibold">Define Objetivos</h3>
+            </div>
+            <p className="text-app-secondary">Define metas para cada jugador y sigue su evolución desde "Actuales" hasta que los consideres "Incorporados".</p>
           </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-2">3. Registra Entrenamientos</h3>
+          <div className="bg-app-surface p-6 rounded-lg shadow-lg border-t-4 border-app-success">
+            <div className="flex items-center mb-3">
+                <span className="bg-app-success text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg mr-3">3</span>
+                <h3 className="text-xl font-semibold">Registra Entrenamientos</h3>
+            </div>
             <p className="text-app-secondary">Inicia un entrenamiento, selecciona a los participantes y registra los ejercicios realizados.</p>
           </div>
-        </div>
-        <div className="mt-8 text-center">
-            <button onClick={() => alert('Próximamente: Manual de Usuario Detallado')} className="app-button btn-secondary">
-                Ver Manual de Usuario Completo
-            </button>
         </div>
       </section>
     </div>

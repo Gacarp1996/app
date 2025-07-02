@@ -20,10 +20,10 @@ const AuthenticatedApp: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-black">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-accent mx-auto"></div>
-          <p className="mt-4 text-app-secondary">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto shadow-lg shadow-green-500/50"></div>
+          <p className="mt-4 text-gray-400">Cargando...</p>
         </div>
       </div>
     );

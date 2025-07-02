@@ -122,37 +122,37 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
     >
       <div className="space-y-6">
         {totalPlayers > 1 && (
-          <div className="flex items-center justify-between bg-app-surface-alt p-3 rounded-lg">
-            <span className="text-sm text-app-secondary">
+          <div className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+            <span className="text-sm text-gray-400">
               Jugador {currentIndex + 1} de {totalPlayers}
             </span>
             <div className="flex gap-1">
               {Array.from({ length: totalPlayers }).map((_, idx) => (
                 <div
                   key={idx}
-                  className={`w-2 h-2 rounded-full ${
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
                     idx === currentIndex
-                      ? 'bg-app-accent'
+                      ? 'bg-green-400 shadow-lg shadow-green-400/50'
                       : idx < currentIndex
-                      ? 'bg-green-500'
-                      : 'bg-app-surface-alt border border-app'
+                      ? 'bg-green-600'
+                      : 'bg-gray-700'
                   }`}
                 />
               ))}
             </div>
           </div>
         )}
-        <p className="text-app-secondary">
-          ¿Cómo se sintió {player.name} durante el entrenamiento?
+        <p className="text-gray-400">
+          ¿Cómo se sintió <span className="text-green-400 font-semibold">{player.name}</span> durante el entrenamiento?
         </p>
 
         {SURVEY_QUESTIONS.map((question) => (
-          <div key={question.key} className="space-y-3">
-            <h3 className="font-semibold text-app-accent text-lg">{question.title}</h3>
+          <div key={question.key} className="space-y-3 p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
+            <h3 className="font-semibold text-green-400 text-lg">{question.title}</h3>
             
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-app-secondary">{question.lowDescription}</span>
-              <span className="text-sm text-app-secondary">{question.highDescription}</span>
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm text-gray-500">{question.lowDescription}</span>
+              <span className="text-sm text-gray-500">{question.highDescription}</span>
             </div>
             
             <div className="flex justify-between gap-2">
@@ -160,10 +160,10 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
                 <button
                   key={value}
                   onClick={() => handleValueChange(question.key, value)}
-                  className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
+                  className={`flex-1 py-3 px-4 rounded-lg font-bold transition-all duration-200 transform ${
                     responses[question.key] === value
-                      ? 'bg-app-accent text-white transform scale-105 shadow-lg'
-                      : 'bg-app-surface-alt hover:bg-opacity-80'
+                      ? 'bg-gradient-to-r from-green-500 to-cyan-500 text-black scale-105 shadow-lg shadow-green-500/30'
+                      : 'bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700'
                   }`}
                 >
                   {value}
@@ -177,13 +177,13 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
           <button
             onClick={handleSubmit}
             disabled={!isComplete}
-            className="flex-1 app-button btn-success disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-3 px-4 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-green-500/25"
           >
             Guardar Respuestas
           </button>
           <button
             onClick={onClose}
-            className="flex-1 app-button btn-secondary"
+            className="flex-1 py-3 px-4 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all duration-200 border border-gray-700"
           >
             Cancelar
           </button>

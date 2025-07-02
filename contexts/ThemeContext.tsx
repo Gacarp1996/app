@@ -1,6 +1,6 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useContext } from 'react';
 
-export type Theme = 'interiores' | 'exteriores';
+export type Theme = 'exteriores'; // Solo tema oscuro
 
 interface ThemeContextType {
   theme: Theme;
@@ -10,28 +10,14 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    try {
-      const storedTheme = localStorage.getItem('appTheme') as Theme | null;
-      return storedTheme || 'exteriores'; // Default to 'exteriores' (dark)
-    } catch (error) {
-      console.warn('Failed to read theme from localStorage', error);
-      return 'exteriores';
-    }
-  });
+  // Siempre usa tema oscuro
+  const theme: Theme = 'exteriores';
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('appTheme', theme);
-      document.documentElement.setAttribute('data-theme', theme);
-    } catch (error) {
-      console.warn('Failed to save theme to localStorage or set attribute', error);
-    }
-  }, [theme]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme(prevTheme => (prevTheme === 'interiores' ? 'exteriores' : 'interiores'));
-  }, []);
+  // Función vacía para mantener compatibilidad
+  const toggleTheme = () => {
+    // No hace nada - el tema siempre es oscuro
+    console.log('Cambio de tema deshabilitado - siempre modo oscuro');
+  };
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

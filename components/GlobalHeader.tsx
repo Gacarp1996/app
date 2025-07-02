@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { getAuth, signOut } from 'firebase/auth';
 
 const GlobalHeader: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
   const navigate = useNavigate();
@@ -36,18 +34,18 @@ const GlobalHeader: React.FC = () => {
 
   return (
     <>
-      <header style={{ backgroundColor: 'var(--color-global-header-bg)'}} className="shadow-md fixed top-0 left-0 right-0 z-50">
+      <header className="bg-black/95 backdrop-blur-md shadow-lg shadow-green-500/10 fixed top-0 left-0 right-0 z-50 border-b border-gray-800">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link 
               to="/" 
-              className="text-xl sm:text-2xl font-bold text-app-accent flex items-center"
+              className="text-xl sm:text-2xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent flex items-center hover:scale-105 transition-transform"
               onClick={closeMobileMenu}
             >
-              <span className="hidden sm:inline">TenisCoaching</span>
+              <span className="hidden sm:inline">TennisCoaching</span>
               <span className="sm:hidden">TC</span>
               {academiaActual && (
-                <span className="ml-2 text-sm font-normal text-app-secondary hidden lg:inline">
+                <span className="ml-2 text-sm font-normal text-gray-400 hidden lg:inline">
                   - {academiaActual.nombre}
                   {academiaActual.tipo === 'grupo-entrenamiento' && ' (Grupo Personal)'}
                 </span>
@@ -58,24 +56,30 @@ const GlobalHeader: React.FC = () => {
               <nav className="hidden md:flex items-center space-x-6">
                 <Link 
                   to="/" 
-                  className={`font-medium transition-colors ${
-                    isActive('/') ? 'text-app-accent' : 'text-app-secondary hover:text-app-primary'
+                  className={`font-medium transition-all duration-200 ${
+                    isActive('/') 
+                      ? 'text-green-400 text-shadow-neon' 
+                      : 'text-gray-400 hover:text-green-400 hover:text-shadow-neon-sm'
                   }`}
                 >
                   Inicio
                 </Link>
                 <Link 
                   to="/players" 
-                  className={`font-medium transition-colors ${
-                    isActive('/players') ? 'text-app-accent' : 'text-app-secondary hover:text-app-primary'
+                  className={`font-medium transition-all duration-200 ${
+                    isActive('/players') 
+                      ? 'text-green-400 text-shadow-neon' 
+                      : 'text-gray-400 hover:text-green-400 hover:text-shadow-neon-sm'
                   }`}
                 >
                   Jugadores
                 </Link>
                 <Link 
                   to="/start-training" 
-                  className={`font-medium transition-colors ${
-                    isActive('/start-training') ? 'text-app-accent' : 'text-app-secondary hover:text-app-primary'
+                  className={`font-medium transition-all duration-200 ${
+                    isActive('/start-training') 
+                      ? 'text-green-400 text-shadow-neon' 
+                      : 'text-gray-400 hover:text-green-400 hover:text-shadow-neon-sm'
                   }`}
                 >
                   Entrenar
@@ -84,27 +88,10 @@ const GlobalHeader: React.FC = () => {
             )}
 
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-lg hover:bg-app-surface-alt transition-colors"
-                aria-label={theme === 'interiores' ? 'Cambiar a tema oscuro' : 'Cambiar a tema claro'}
-                title={theme === 'interiores' ? 'Tema oscuro' : 'Tema claro'}
-              >
-                {theme === 'interiores' ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-                  </svg>
-                )}
-              </button>
-
               {currentUser && academiaActual && (
                 <button
                   onClick={() => navigate('/academia-settings')}
-                  className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-app-surface-alt hover:bg-app-accent hover:text-white transition-colors"
+                  className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-800/50 border border-gray-700 hover:border-green-500/50 hover:bg-gray-800 hover:text-green-400 transition-all duration-200"
                   title="Configuración de Academia"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -117,7 +104,7 @@ const GlobalHeader: React.FC = () => {
               {currentUser && (
                 <button
                   onClick={handleLogout}
-                  className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-app-surface-alt hover:bg-red-600 hover:text-white transition-colors"
+                  className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-800/50 border border-gray-700 hover:border-red-500/50 hover:bg-red-950/50 hover:text-red-400 transition-all duration-200"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
@@ -129,15 +116,15 @@ const GlobalHeader: React.FC = () => {
               {currentUser && (
                 <button
                   onClick={toggleMobileMenu}
-                  className="md:hidden p-2 rounded-lg hover:bg-app-surface-alt transition-colors"
+                  className="md:hidden p-2 rounded-lg bg-gray-800/50 border border-gray-700 hover:border-green-500/50 hover:bg-gray-800 transition-all duration-200"
                   aria-label="Menú de navegación"
                 >
                   {isMobileMenuOpen ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-green-400">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-gray-400">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                     </svg>
                   )}
@@ -148,15 +135,15 @@ const GlobalHeader: React.FC = () => {
         </div>
 
         {currentUser && isMobileMenuOpen && (
-          <div className="md:hidden bg-app-surface border-t border-app">
+          <div className="md:hidden bg-gray-900/95 backdrop-blur-md border-t border-gray-800">
             <nav className="px-4 pt-2 pb-4 space-y-2">
               <Link
                 to="/"
                 onClick={closeMobileMenu}
-                className={`block px-3 py-2 rounded-lg font-medium transition-colors ${
+                className={`block px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
                   isActive('/') 
-                    ? 'bg-app-accent text-white' 
-                    : 'text-app-secondary hover:bg-app-surface-alt hover:text-app-primary'
+                    ? 'bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400 border border-green-500/30' 
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-green-400'
                 }`}
               >
                 <div className="flex items-center space-x-3">
@@ -170,10 +157,10 @@ const GlobalHeader: React.FC = () => {
               <Link
                 to="/players"
                 onClick={closeMobileMenu}
-                className={`block px-3 py-2 rounded-lg font-medium transition-colors ${
+                className={`block px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
                   isActive('/players') 
-                    ? 'bg-app-accent text-white' 
-                    : 'text-app-secondary hover:bg-app-surface-alt hover:text-app-primary'
+                    ? 'bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400 border border-green-500/30' 
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-green-400'
                 }`}
               >
                 <div className="flex items-center space-x-3">
@@ -187,10 +174,10 @@ const GlobalHeader: React.FC = () => {
               <Link
                 to="/start-training"
                 onClick={closeMobileMenu}
-                className={`block px-3 py-2 rounded-lg font-medium transition-colors ${
+                className={`block px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
                   isActive('/start-training') 
-                    ? 'bg-app-accent text-white' 
-                    : 'text-app-secondary hover:bg-app-surface-alt hover:text-app-primary'
+                    ? 'bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400 border border-green-500/30' 
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-green-400'
                 }`}
               >
                 <div className="flex items-center space-x-3">
@@ -202,13 +189,13 @@ const GlobalHeader: React.FC = () => {
               </Link>
 
               {academiaActual && (
-                <div className="border-t border-app my-2 pt-2">
+                <div className="border-t border-gray-800 my-2 pt-2">
                   <button
                     onClick={() => {
                       navigate('/academia-settings');
                       closeMobileMenu();
                     }}
-                    className="w-full text-left px-3 py-2 rounded-lg font-medium text-app-secondary hover:bg-app-surface-alt transition-colors"
+                    className="w-full text-left px-3 py-2 rounded-lg font-medium text-gray-400 hover:bg-gray-800 hover:text-green-400 transition-all duration-200"
                   >
                     <div className="flex items-center space-x-3">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -220,13 +207,13 @@ const GlobalHeader: React.FC = () => {
                 </div>
               )}
 
-              <div className="border-t border-app my-2 pt-2">
+              <div className="border-t border-gray-800 my-2 pt-2">
                 <button
                   onClick={() => {
                     handleLogout();
                     closeMobileMenu();
                   }}
-                  className="w-full text-left px-3 py-2 rounded-lg font-medium text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                  className="w-full text-left px-3 py-2 rounded-lg font-medium text-red-500 hover:bg-red-950/50 hover:text-red-400 transition-all duration-200"
                 >
                   <div className="flex items-center space-x-3">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
