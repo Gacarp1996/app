@@ -1,241 +1,393 @@
 /* 
- * TennisCoaching App - Tema Neón Elegante
- * Versión refinada con efectos sutiles y menor intensidad visual
- * Mantiene la estética neón pero con un enfoque más profesional
+ * TennisCoaching App - Sistema de Diseño Neón
+ * Versión refactorizada y optimizada
+ * 
+ * Estructura:
+ * 1. Variables CSS y configuración del tema
+ * 2. Reset y estilos base
+ * 3. Tipografía
+ * 4. Layout y contenedores
+ * 5. Componentes de formulario
+ * 6. Botones
+ * 7. Calendario
+ * 8. Scrollbars
+ * 9. Animaciones
+ * 10. Utilidades
+ * 11. Media queries y responsive
  */
 
+/* ========================================
+   1. VARIABLES CSS Y CONFIGURACIÓN DEL TEMA
+   ======================================== */
 :root {
-  /* Tema Oscuro Neón - Versión Elegante */
+  /* Colores base del tema oscuro */
   --color-background: #000000;
   --color-surface: #111111;
   --color-surface-alt: #1a1a1a;
-  --color-text-primary: #FFFFFF;
-  --color-text-secondary: #9ca3af;
-  --color-text-accent: #00E87A;  /* Verde neón ligeramente menos saturado */
-  --color-text-on-accent: #000000;
   --color-border: #374151;
   
-  --color-accent-primary: #00E87A;  /* Verde neón más elegante */
+  /* Colores de texto */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #9ca3af;
+  --color-text-accent: #00E87A;
+  --color-text-on-accent: #000000;
+  
+  /* Colores de acento */
+  --color-accent-primary: #00E87A;
   --color-accent-primary-hover: #00B85F;
-  --color-accent-secondary: #00D9E8;  /* Cian ligeramente menos saturado */
+  --color-accent-secondary: #00D9E8;
   --color-accent-secondary-hover: #00A8B5;
-
-  /* Colores de botones */
-  --color-button-primary-bg: #00E87A;
-  --color-button-primary-hover-bg: #00B85F;
-  --color-button-secondary-bg: #1f2937;
-  --color-button-secondary-hover-bg: #374151;
-  --color-button-success-bg: #00E87A;
-  --color-button-success-hover-bg: #00B85F;
-  --color-button-danger-bg: #ef4444;
-  --color-button-danger-hover-bg: #dc2626;
-  --color-button-warning-bg: #f59e0b;
-  --color-button-warning-hover-bg: #d97706;
-  --color-button-special-bg: #8b5cf6;
-  --color-button-special-hover-bg: #7c3aed;
   
-  --color-global-header-bg: #0a0a0a;
-  --color-nav-bg: var(--color-surface);
-  --color-footer-bg: var(--color-surface-alt);
-  --color-footer-text: var(--color-text-secondary);
-
-  --ring-color-focus: var(--color-accent-primary);
+  /* Colores de estado */
+  --color-success: #00E87A;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #8b5cf6;
   
-  /* Sombras neón suavizadas */
-  --shadow-neon-green: 0 0 10px rgba(0, 232, 122, 0.2);
-  --shadow-neon-green-soft: 0 0 8px rgba(0, 232, 122, 0.15);
-  --shadow-neon-green-subtle: 0 0 5px rgba(0, 232, 122, 0.1);
-  --shadow-neon-cyan: 0 0 10px rgba(0, 217, 232, 0.2);
-  --shadow-neon-cyan-soft: 0 0 8px rgba(0, 217, 232, 0.15);
-  --shadow-neon-cyan-subtle: 0 0 5px rgba(0, 217, 232, 0.1);
+  /* Sombras neón */
+  --shadow-neon-sm: 0 0 5px rgba(0, 232, 122, 0.1);
+  --shadow-neon: 0 0 10px rgba(0, 232, 122, 0.2);
+  --shadow-neon-lg: 0 0 20px rgba(0, 232, 122, 0.3);
   
-  /* Sombras para botones más sutiles */
-  --shadow-button-primary: 0 2px 8px rgba(0, 232, 122, 0.25);
-  --shadow-button-primary-hover: 0 4px 12px rgba(0, 232, 122, 0.35);
-  --shadow-button-danger: 0 2px 8px rgba(239, 68, 68, 0.25);
-  --shadow-button-danger-hover: 0 4px 12px rgba(239, 68, 68, 0.35);
+  /* Espaciado */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
   
-  /* Opacidades para efectos */
-  --opacity-hover-bg: 0.05;
-  --opacity-active-bg: 0.15;
-  --opacity-disabled: 0.5;
+  /* Bordes */
+  --border-radius-sm: 0.25rem;
+  --border-radius: 0.5rem;
+  --border-radius-lg: 0.75rem;
+  --border-radius-xl: 1rem;
   
-  /* Intensidad de blur para fondos */
-  --blur-intensity: 8px;
-  --blur-intensity-lg: 16px;
+  /* Transiciones */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+  
+  /* Z-index */
+  --z-base: 1;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-modal: 30;
+  --z-tooltip: 40;
 }
 
+/* ========================================
+   2. RESET Y ESTILOS BASE
+   ======================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  /* Prevenir problemas de scroll en móviles */
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
 
 body {
-  background-color: var(--color-background);
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   color: var(--color-text-primary);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-/* Clases de utilidad */
-.bg-app-surface { background-color: var(--color-surface); }
-.text-app-primary { color: var(--color-text-primary); }
-.text-app-secondary { color: var(--color-text-secondary); }
-.text-app-accent { color: var(--color-text-accent); }
-.border-app { border-color: var(--color-border); }
+/* Prevenir scroll cuando modal está abierto */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100vh;
+}
 
-/* Enlaces con efecto neón sutil */
-.app-link { 
+/* ========================================
+   3. TIPOGRAFÍA
+   ======================================== */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+a {
   color: var(--color-text-accent);
   text-decoration: none;
-  transition: all 0.3s ease;
-}
-.app-link:hover { 
-  filter: brightness(1.1);
-  text-shadow: 0 0 6px rgba(0, 232, 122, 0.4);
+  transition: color var(--transition-base);
 }
 
-/* Inputs con estilo oscuro */
-.app-input {
-  background-color: rgba(31, 41, 55, 0.5);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
-  transition: all 0.2s ease;
+a:hover {
+  color: var(--color-accent-primary-hover);
+  text-shadow: var(--shadow-neon-sm);
 }
-.app-input:focus {
+
+/* ========================================
+   4. LAYOUT Y CONTENEDORES
+   ======================================== */
+.container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-md);
+}
+
+/* Superficie de aplicación */
+.bg-app-surface {
+  background-color: var(--color-surface);
+}
+
+/* ========================================
+   5. COMPONENTES DE FORMULARIO
+   ======================================== */
+.app-input,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+textarea,
+select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background-color: rgba(31, 41, 55, 0.5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  transition: all var(--transition-base);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.app-input:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
   border-color: var(--color-accent-primary);
   box-shadow: 0 0 0 2px rgba(0, 232, 122, 0.15);
-  outline: none;
 }
-.app-input::placeholder {
-  color: #6b7280;
-}
-.app-input:disabled {
+
+.app-input:disabled,
+input:disabled,
+textarea:disabled,
+select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   background-color: rgba(31, 41, 55, 0.3);
 }
 
-/* Textarea con estilo neón elegante */
-textarea.app-input {
-  resize: vertical;
+/* Placeholder */
+::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+/* Textarea específico */
+textarea {
   min-height: 80px;
+  resize: vertical;
 }
 
-textarea.app-input:focus {
+/* Select personalizado */
+select {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+/* Checkbox y Radio */
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  cursor: pointer;
+  background-color: var(--color-surface-alt);
+  border: 2px solid var(--color-border);
+  transition: all var(--transition-base);
+}
+
+input[type="radio"] {
+  border-radius: 50%;
+}
+
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+  background-color: var(--color-accent-primary);
   border-color: var(--color-accent-primary);
-  box-shadow: 0 0 0 2px rgba(0, 232, 122, 0.15);
+  box-shadow: var(--shadow-neon-sm);
 }
 
-/* Botones con estilo neón elegante */
-.app-button {
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 700;
+input[type="checkbox"]:checked::after {
+  content: '✓';
+  display: block;
+  text-align: center;
   color: var(--color-text-on-accent);
-  transition: all 0.2s ease;
-  transform: translateY(0);
+  font-weight: bold;
+  font-size: 0.9rem;
+  line-height: 1.25rem;
 }
+
+input[type="radio"]:checked::after {
+  content: '';
+  display: block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin: 0.25rem auto;
+  background-color: var(--color-text-on-accent);
+  border-radius: 50%;
+}
+
+/* Range input */
+input[type="range"] {
+  width: 100%;
+  height: 6px;
+  padding: 0;
+  background: var(--color-surface-alt);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--color-accent-primary);
+  border: none;
+  border-radius: 50%;
+  box-shadow: var(--shadow-neon-sm);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-neon);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--color-accent-primary);
+  border: none;
+  border-radius: 50%;
+  box-shadow: var(--shadow-neon-sm);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+/* Eliminar spinner de inputs numéricos */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* ========================================
+   6. BOTONES
+   ======================================== */
+.app-button,
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .app-button:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .app-button:active:not(:disabled) {
   transform: translateY(0);
 }
 
-/* Botón primario neón elegante */
-.btn-primary { 
-  background: linear-gradient(135deg, rgba(0, 232, 122, 0.9), rgba(0, 217, 232, 0.9));
-  color: #000000;
-  font-weight: 700;
-  box-shadow: var(--shadow-button-primary);
-}
-.btn-primary:hover:not(:disabled) { 
-  background: linear-gradient(135deg, rgba(0, 184, 95, 0.95), rgba(0, 168, 181, 0.95));
-  box-shadow: var(--shadow-button-primary-hover);
-}
-
-.btn-secondary { 
-  background-color: var(--color-button-secondary-bg);
-  border: 1px solid var(--color-border);
-}
-.btn-secondary:hover:not(:disabled) { 
-  background-color: var(--color-button-secondary-hover-bg);
-  border-color: var(--color-accent-primary);
-  box-shadow: var(--shadow-neon-green-subtle);
-}
-
-.btn-success { 
-  background-color: var(--color-button-success-bg);
-  color: #000000;
-  box-shadow: var(--shadow-button-primary);
-}
-.btn-success:hover:not(:disabled) { 
-  background-color: var(--color-button-success-hover-bg);
-  box-shadow: var(--shadow-button-primary-hover);
-}
-
-.btn-danger { 
-  background-color: var(--color-button-danger-bg);
-  box-shadow: var(--shadow-button-danger);
-}
-.btn-danger:hover:not(:disabled) { 
-  background-color: var(--color-button-danger-hover-bg);
-  box-shadow: var(--shadow-button-danger-hover);
-}
-
-/* Estados deshabilitados */
-.disabled, :disabled {
+.app-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
 }
 
-/* --- Estilos para el Calendario --- */
-.app-calendar {
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  background-color: var(--color-surface);
-  padding: 1rem;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+/* Variantes de botones */
+.btn-primary {
+  color: var(--color-text-on-accent);
+  background: linear-gradient(135deg, rgba(0, 232, 122, 0.9), rgba(0, 217, 232, 0.9));
+  box-shadow: 0 2px 8px rgba(0, 232, 122, 0.25);
 }
 
-.app-calendar .react-calendar__tile {
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(0, 184, 95, 0.95), rgba(0, 168, 181, 0.95));
+  box-shadow: 0 4px 12px rgba(0, 232, 122, 0.35);
+}
+
+.btn-secondary {
   color: var(--color-text-primary);
-  background: none;
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
+  background-color: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
 }
 
-.app-calendar .react-calendar__tile:enabled:hover,
-.app-calendar .react-calendar__tile:enabled:focus {
-  background-color: rgba(0, 232, 122, 0.05);
-  box-shadow: var(--shadow-neon-green-subtle);
+.btn-secondary:hover:not(:disabled) {
+  background-color: #374151;
+  border-color: var(--color-accent-primary);
+  box-shadow: var(--shadow-neon-sm);
 }
 
-.app-calendar .react-calendar__tile--active {
-  background: linear-gradient(135deg, #00E87A, #00D9E8);
-  color: #000000;
-  font-weight: 700;
-  box-shadow: var(--shadow-neon-green-soft);
+.btn-success {
+  color: var(--color-text-on-accent);
+  background-color: var(--color-success);
+  box-shadow: 0 2px 8px rgba(0, 232, 122, 0.25);
 }
 
-.calendar-dot {
-  height: 6px;
-  width: 6px;
-  background: linear-gradient(135deg, #00E87A, #00D9E8);
-  border-radius: 50%;
-  margin: 2px auto 0;
-  box-shadow: 0 0 4px rgba(0, 232, 122, 0.6);
+.btn-danger {
+  color: white;
+  background-color: var(--color-danger);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
 }
 
-/* React Calendar personalizado con estilo elegante */
+.btn-danger:hover:not(:disabled) {
+  background-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+}
+
+/* ========================================
+   7. CALENDARIO
+   ======================================== */
 .react-calendar {
   width: 100%;
-  border: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
-  border-radius: 0.75rem;
   font-family: inherit;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
   overflow: hidden;
 }
 
@@ -243,14 +395,14 @@ textarea.app-input:focus {
   color: var(--color-text-accent);
   font-weight: bold;
   font-size: 1.1em;
-  border-radius: 0.25rem;
-  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-base);
 }
 
-.react-calendar__navigation button:hover,
-.react-calendar__navigation button:focus {
+.react-calendar__navigation button:hover:enabled {
   background-color: rgba(0, 232, 122, 0.05);
-  text-shadow: 0 0 4px rgba(0, 232, 122, 0.3);
 }
 
 .react-calendar__month-view__weekdays__weekday {
@@ -259,35 +411,31 @@ textarea.app-input:focus {
   text-transform: uppercase;
   font-weight: bold;
   font-size: 0.75em;
-  text-decoration: none;
+  text-align: center;
 }
 
 .react-calendar__tile {
+  padding: 0.75em 0.5em;
   background: none;
   color: var(--color-text-primary);
-  border-radius: 0.5rem;
   border: none;
-  padding: 0.75em 0.5em;
-  position: relative;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  transition: all var(--transition-base);
 }
 
-.react-calendar__tile:enabled:hover,
-.react-calendar__tile:enabled:focus {
+.react-calendar__tile:hover:enabled {
   background-color: rgba(0, 232, 122, 0.05);
-  box-shadow: inset 0 0 8px rgba(0, 232, 122, 0.15);
 }
 
 .react-calendar__tile--now {
   background: rgba(0, 232, 122, 0.15);
-  box-shadow: inset 0 0 10px rgba(0, 232, 122, 0.2);
 }
 
 .react-calendar__tile--active {
   background: linear-gradient(135deg, #00E87A, #00D9E8);
-  color: #000000;
+  color: var(--color-text-on-accent);
   font-weight: 700;
-  box-shadow: var(--shadow-neon-green-soft);
+  box-shadow: var(--shadow-neon-sm);
 }
 
 .react-calendar__month-view__days__day--neighboringMonth {
@@ -295,74 +443,10 @@ textarea.app-input:focus {
   opacity: 0.3;
 }
 
-.react-calendar__tile .training-dot {
-  height: 5px;
-  width: 5px;
-  background: linear-gradient(135deg, #00E87A, #00D9E8);
-  border-radius: 50%;
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  box-shadow: 0 0 4px rgba(0, 232, 122, 0.6);
-}
-
-/* Animaciones sutiles */
-@keyframes pulse-neon {
-  0%, 100% {
-    box-shadow: var(--shadow-neon-green-soft);
-  }
-  50% {
-    box-shadow: var(--shadow-neon-green);
-  }
-}
-
-@keyframes gradient-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-/* Clase de utilidad para animación de gradiente */
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradient-shift 3s ease infinite;
-}
-
-/* Animación de pulso suave */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 0.8;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
-.animate-pulse {
-  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Clases de utilidad para sombras neón en texto - versiones elegantes */
-.text-shadow-neon {
-  text-shadow: 0 0 6px rgba(0, 232, 122, 0.4);
-}
-
-.text-shadow-neon-sm {
-  text-shadow: 0 0 3px rgba(0, 232, 122, 0.3);
-}
-
-.text-shadow-neon-subtle {
-  text-shadow: 0 0 2px rgba(0, 232, 122, 0.2);
-}
-
-/* Scrollbar personalizada */
+/* ========================================
+   8. SCROLLBARS
+   ======================================== */
+/* Webkit browsers */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -381,190 +465,118 @@ textarea.app-input:focus {
   background: var(--color-accent-primary-hover);
 }
 
-/* Custom scrollbar para modales */
-.custom-scrollbar {
+/* Firefox */
+* {
   scrollbar-width: thin;
   scrollbar-color: var(--color-accent-primary) var(--color-surface);
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+/* Custom scrollbar class */
+.custom-scrollbar {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+/* ========================================
+   9. ANIMACIONES
+   ======================================== */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--color-accent-primary);
-  border-radius: 3px;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-accent-primary-hover);
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Efectos hover para el header */
-.hover\:text-shadow-neon-sm:hover {
-  text-shadow: 0 0 3px rgba(0, 255, 139, 0.3);
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
-/* Hover states más sutiles */
+/* Clases de animación */
+.animate-pulse {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* ========================================
+   10. UTILIDADES
+   ======================================== */
+/* Colores de texto */
+.text-app-primary {
+  color: var(--color-text-primary);
+}
+
+.text-app-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-app-accent {
+  color: var(--color-text-accent);
+}
+
+/* Sombras de texto */
+.text-shadow-neon {
+  text-shadow: 0 0 6px rgba(0, 232, 122, 0.4);
+}
+
+.text-shadow-neon-sm {
+  text-shadow: 0 0 3px rgba(0, 232, 122, 0.3);
+}
+
+/* Borders */
+.border-app {
+  border-color: var(--color-border);
+}
+
+/* Estados hover */
 .hover\:glow-sm:hover {
-  box-shadow: var(--shadow-neon-green-subtle);
+  box-shadow: var(--shadow-neon-sm);
 }
 
 .hover\:glow:hover {
-  box-shadow: var(--shadow-neon-green-soft);
+  box-shadow: var(--shadow-neon);
 }
 
-/* Estilos para elementos select */
-select.app-input {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.5rem center;
-  background-repeat: no-repeat;
-  background-size: 1.5em 1.5em;
-  padding-right: 2.5rem;
-}
-
-/* Estilos para range inputs */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-input[type="range"]::-webkit-slider-track {
-  background: var(--color-surface-alt);
-  height: 6px;
-  border-radius: 3px;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--color-accent-primary);
-  height: 18px;
-  width: 18px;
-  border-radius: 50%;
-  margin-top: -6px;
-  box-shadow: 0 0 6px rgba(0, 232, 122, 0.3);
-  transition: all 0.2s ease;
-}
-
-input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-  box-shadow: 0 0 8px rgba(0, 232, 122, 0.5);
-}
-
-input[type="range"]::-moz-range-track {
-  background: var(--color-surface-alt);
-  height: 6px;
-  border-radius: 3px;
-}
-
-input[type="range"]::-moz-range-thumb {
-  background: var(--color-accent-primary);
-  height: 18px;
-  width: 18px;
-  border-radius: 50%;
-  border: none;
-  box-shadow: 0 0 6px rgba(0, 232, 122, 0.3);
-  transition: all 0.2s ease;
-}
-
-input[type="range"]::-moz-range-thumb:hover {
-  transform: scale(1.1);
-  box-shadow: 0 0 8px rgba(0, 232, 122, 0.5);
-}
-
-/* Estilos para radio buttons y checkboxes */
-input[type="radio"],
-input[type="checkbox"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 1.25rem;
-  height: 1.25rem;
-  border: 2px solid var(--color-border);
-  border-radius: 0.25rem;
-  background-color: var(--color-surface-alt);
-  transition: all 0.2s ease;
-  cursor: pointer;
-  position: relative;
-}
-
-input[type="radio"] {
-  border-radius: 50%;
-}
-
-input[type="radio"]:checked,
-input[type="checkbox"]:checked {
-  background-color: var(--color-accent-primary);
-  border-color: var(--color-accent-primary);
-  box-shadow: 0 0 6px rgba(0, 232, 122, 0.3);
-}
-
-input[type="radio"]:checked::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background-color: #000;
-}
-
-input[type="checkbox"]:checked::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #000;
-  font-weight: bold;
-  font-size: 0.9rem;
-}
-
-input[type="radio"]:hover,
-input[type="checkbox"]:hover {
-  border-color: var(--color-accent-primary);
-  box-shadow: 0 0 3px rgba(0, 232, 122, 0.2);
-}
-
-/* Focus states para accesibilidad - más sutiles */
-*:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
-  outline-offset: 2px;
-  opacity: 0.9;
-}
-
-button:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
-  outline-offset: 2px;
-}
-
-/* Ocultar flechitas de inputs numéricos */
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type=number] {
-  -moz-appearance: textfield;
-}
-
-/* Transiciones globales suaves */
-* {
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 200ms;
-}
-
-/* Mejoras de accesibilidad */
+/* Accesibilidad */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -577,230 +589,108 @@ input[type=number] {
   border-width: 0;
 }
 
-/* Estados de hover mejorados */
-@media (hover: hover) {
-  .hover\:scale-105:hover {
-    transform: scale(1.05);
+/* Focus visible para accesibilidad */
+:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   11. MEDIA QUERIES Y RESPONSIVE
+   ======================================== */
+/* Soporte para safe areas en dispositivos móviles */
+@supports (padding: env(safe-area-inset-top)) {
+  .container {
+    padding-left: max(var(--spacing-md), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-md), env(safe-area-inset-right));
+  }
+  
+  body.modal-open {
+    padding-top: env(safe-area-inset-top);
   }
 }
 
-
-/* Agrega estos estilos a tu archivo CSS global o index.css */
-
-/* Scrollbar personalizado para navegadores webkit */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(31, 41, 55, 0.5); /* gray-800 con opacidad */
-  border-radius: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #34d399, #06b6d4); /* gradient green-400 to cyan-400 */
-  border-radius: 4px;
-  transition: background 0.3s;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, #10b981, #0891b2); /* gradient green-500 to cyan-500 */
-}
-
-/* Para Firefox */
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: #34d399 rgba(31, 41, 55, 0.5);
-}
-
-/* Estilos adicionales para mejorar la experiencia móvil */
+/* Ajustes para móviles */
 @media (max-width: 640px) {
-  .custom-scrollbar::-webkit-scrollbar {
+  body {
+    font-size: 14px;
+  }
+  
+  .container {
+    padding: 0 var(--spacing-sm);
+  }
+  
+  /* Modales responsivos */
+  .modal-content {
+    margin: var(--spacing-md);
+    max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem);
+  }
+  
+  /* Scrollbar más pequeño en móviles */
+  ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
 }
 
-/* Agrega estos estilos a tu archivo CSS global para mejorar el comportamiento del modal en móviles */
-
-/* Prevenir scroll del body cuando el modal está abierto */
-body.modal-open {
-  position: fixed;
-  width: 100%;
-  height: 100vh;
-  overflow: hidden;
+/* Ajustes para tablets */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container {
+    max-width: 768px;
+  }
 }
 
-/* Fix para iOS Safari y Chrome mobile */
+/* Fix para altura en móviles con teclado virtual */
+@media (max-height: 600px) {
+  .modal-content {
+    max-height: calc(100vh - 2rem);
+  }
+}
+
+/* Soporte para notch/safe areas */
+@media (orientation: landscape) {
+  @supports (padding: env(safe-area-inset-left)) {
+    body {
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+  }
+}
+
+/* Fix para iOS Safari */
 @supports (-webkit-touch-callout: none) {
-  /* CSS específico para iOS */
   body.modal-open {
     position: fixed;
     width: 100%;
   }
+  
+  /* Smooth scrolling en iOS */
+  .custom-scrollbar {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
-/* Asegurar que el grid funcione correctamente en todos los navegadores */
-.grid.place-items-center {
-  display: grid;
-  place-items: center;
-  align-content: center;
+/* Prevenir zoom en inputs en iOS */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
-/* Soporte para dvh con fallback */
-@supports (height: 100dvh) {
-  .min-h-screen {
-    min-height: 100dvh !important;
+/* Print styles */
+@media print {
+  body {
+    background: white;
+    color: black;
   }
   
-  .max-h-\[80vh\] {
-    max-height: 80dvh !important;
+  .no-print {
+    display: none;
   }
-}
-
-/* Fix adicional para Android Chrome */
-@media screen and (max-width: 768px) {
-  .fixed.inset-0 {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-}
-
-/* CSS para manejar safe areas en dispositivos móviles */
-
-/* Soporte para safe areas (iPhone X+, etc) */
-.fixed.inset-0 {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
-}
-
-/* Asegurar que el modal respete las safe areas */
-@supports (padding: max(0px)) {
-  .mx-4 {
-    margin-left: max(1rem, env(safe-area-inset-left));
-    margin-right: max(1rem, env(safe-area-inset-right));
-  }
-  
-  .my-8 {
-    margin-top: max(2rem, env(safe-area-inset-top));
-    margin-bottom: max(2rem, env(safe-area-inset-bottom));
-  }
-}
-
-/* Fix específico para altura en móviles */
-@media (max-width: 640px) {
-  .relative[style*="max-height"] {
-    max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 4rem) !important;
-  }
-}
-
-/* Prevenir problemas con el teclado virtual */
-@media (max-height: 600px) {
-  .my-8 {
-    margin-top: 1rem;
-    margin-bottom: 1rem;
-  }
-}
-
-/* Fix para el scroll en iOS */
-.overflow-y-auto {
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Asegurar que el contenido sea visible */
-.flex-1 {
-  min-height: 0;
-}
-
-/* Agrega estos estilos a tu archivo CSS global para mejorar las animaciones */
-
-/* Animación de entrada desde arriba */
-@keyframes slideInFromTop {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-in {
-  animation: slideInFromTop 0.3s ease-out;
-}
-
-.slide-in-from-top {
-  animation: slideInFromTop 0.3s ease-out;
-}
-
-/* Transiciones suaves para el botón de expandir */
-.transition-transform {
-  transition: transform 0.2s ease-out;
-}
-
-/* Hover effect mejorado para las tarjetas de recomendación */
-.recommendation-card:hover {
-  transform: translateY(-2px);
-  transition: all 0.2s ease-out;
-}
-
-/* Badge animations */
-.recommendation-badge {
-  animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Scroll suave para el contenido expandido */
-.planning-accordion-container {
-  scroll-behavior: smooth;
-}
-
-/* Mejora visual para el slider de intensidad */
-.slider-thumb::-webkit-slider-thumb {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  background: linear-gradient(to right, #34d399, #06b6d4);
-  cursor: pointer;
-  border-radius: 50%;
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
-  transition: all 0.2s ease;
-}
-
-.slider-thumb::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 20px rgba(52, 211, 153, 0.7);
-}
-
-.slider-thumb::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  background: linear-gradient(to right, #34d399, #06b6d4);
-  cursor: pointer;
-  border-radius: 50%;
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
-  border: none;
-  transition: all 0.2s ease;
-}
-
-.slider-thumb::-moz-range-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 20px rgba(52, 211, 153, 0.7);
 }

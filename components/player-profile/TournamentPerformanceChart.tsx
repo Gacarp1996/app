@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
-import { DisputedTournament, EvaluacionGeneral, RendimientoJugador } from '../types';
+import { DisputedTournament, EvaluacionGeneral, RendimientoJugador } from '../../types';
 
 interface TournamentPerformanceChartProps {
   tournaments: DisputedTournament[];

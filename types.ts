@@ -150,3 +150,26 @@ export interface TournamentPerformanceData {
   resultado: string;
   nombreTorneo: string;
 }
+
+// Tipos para planificación de entrenamiento
+export interface TrainingPlan {
+  jugadorId: string;
+  fechaCreacion?: string;
+  fechaActualizacion?: string;
+  rangoAnalisis: number;
+  planificacion: {
+    [tipo: string]: {
+      porcentajeTotal: number;
+      areas: {
+        [area: string]: {
+          porcentajeDelTotal: number;
+          ejercicios?: {
+            [ejercicio: string]: {
+              porcentajeDelTotal: number;
+            };
+          };
+        };
+      };
+    };
+  };
+}
