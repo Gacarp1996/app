@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import Modal from './Modal';
-import { Tournament, TournamentImportance } from '../types';
-import { TOURNAMENT_IMPORTANCE_LEVELS } from '../constants';
+
+
+import { TOURNAMENT_IMPORTANCE_LEVELS } from '@/constants';
+import { Tournament, TournamentImportance } from '@/types';
+import Modal from '../shared/Modal';
+
 
 interface TournamentFormModalProps {
   isOpen: boolean;

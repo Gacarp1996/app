@@ -1,8 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Objective, Player, Tournament } from '../types';
-import Modal from './Modal';
-import TrainingRecommendations from './TrainingRecommendations';
+
+
+import TrainingRecommendations from '../training/TrainingRecommendations';
+import Modal from '../shared/Modal';
+import { Objective, Player, Tournament } from '@/types';
 
 interface ObjectiveModalProps {
   isOpen: boolean;

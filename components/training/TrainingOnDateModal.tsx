@@ -1,8 +1,9 @@
 // components/TrainingsOnDateModal.tsx
+import { TrainingSession } from '@/types';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrainingSession } from '../types';
-import Modal from './Modal';
+import Modal from '../shared/Modal';
+
 
 interface TrainingsOnDateModalProps {
   isOpen: boolean;

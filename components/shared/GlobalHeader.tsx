@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useAcademia } from '../contexts/AcademiaContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useAcademia } from '../../contexts/AcademiaContext';
 import { getAuth, signOut } from 'firebase/auth';
 
 const GlobalHeader: React.FC = () => {

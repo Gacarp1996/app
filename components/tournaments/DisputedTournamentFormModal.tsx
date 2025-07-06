@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Modal from './Modal';
-import { DisputedTournament, Tournament, RendimientoJugador, ConformidadGeneral } from '../types';
+
+
+import Modal from '../shared/Modal';
+import { ConformidadGeneral, DisputedTournament, RendimientoJugador, Tournament } from '@/types';
 
 interface DisputedTournamentFormModalProps {
   isOpen: boolean;

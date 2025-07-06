@@ -4,8 +4,9 @@ import { TrainingSession, Player, PostTrainingSurvey } from '../types';
 import { getSurveyBySessionId, addPostTrainingSurvey, updateSurvey } from '../Database/FirebaseSurveys';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useTraining } from '../contexts/TrainingContext';
-import PostTrainingSurveyModal from '../components/PostTrainingSurveyModal';
+
 import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
+import PostTrainingSurveyModal from '@/components/training/PostTrainingSurveyModal';
 
 interface SessionDetailPageProps {
   sessions: TrainingSession[];

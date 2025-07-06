@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Player } from '../types';
-import { getTrainingPlan } from '../Database/FirebaseTrainingPlans';
-import { getSessions } from '../Database/FirebaseSessions';
-import { useAcademia } from '../contexts/AcademiaContext';
-import PlanningAccordion from './PlanningAccordion';
+import { Player } from '../../types';
+import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
+import { getSessions } from '../../Database/FirebaseSessions';
+import { useAcademia } from '../../contexts/AcademiaContext';
+import PlanningAccordion from '../PlanningAccordion';
 
 interface TrainingRecommendationsProps {
   players: Player[];

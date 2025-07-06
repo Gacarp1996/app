@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Modal from './Modal';
-import { Player } from '../types';
+import Modal from '../shared/Modal';
+import { Player } from '@/types';
+
 
 interface SurveyQuestion {
   key: 'cansancioFisico' | 'concentracion' | 'actitudMental' | 'sensacionesTenisticas';
