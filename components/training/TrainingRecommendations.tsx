@@ -64,8 +64,8 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
   if (loading) {
     return (
       <div className="text-center py-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-app-accent mx-auto"></div>
-        <p className="mt-2 text-app-secondary text-sm">Verificando planificaciones...</p>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-400 mx-auto"></div>
+        <p className="mt-2 text-gray-400 text-sm">Verificando planificaciones...</p>
       </div>
     );
   }
@@ -73,14 +73,14 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
   if (playersWithPlan.size === 0) {
     return (
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-app-accent">
+        <h3 className="text-lg font-semibold text-green-400">
           📊 Análisis de Planificación
         </h3>
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg">
-          <p className="text-sm text-yellow-700 dark:text-yellow-300">
+        <div className="bg-yellow-900/20 border border-yellow-800 p-4 rounded-lg">
+          <p className="text-sm text-yellow-300">
             No hay análisis disponibles. Esto puede deberse a:
           </p>
-          <ul className="list-disc list-inside text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+          <ul className="list-disc list-inside text-sm text-yellow-400 mt-2">
             <li>No hay planes de entrenamiento configurados</li>
             <li>Los planes no tienen porcentajes asignados</li>
             <li>No hay sesiones registradas en el período de análisis</li>
@@ -92,7 +92,7 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-app-accent">
+      <h3 className="text-lg font-semibold text-green-400">
         📊 Análisis de Planificación
       </h3>
       
@@ -104,12 +104,12 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
           return (
             <div 
               key={player.id} 
-              className="flex items-center justify-between bg-app-surface-alt p-3 rounded-lg"
+              className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg"
             >
               <div className="flex items-center gap-3">
-                <span className="font-medium">{player.name}</span>
+                <span className="font-medium text-white">{player.name}</span>
                 {hasPlan && (
-                  <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded">
+                  <span className="text-xs bg-green-900/30 text-green-300 px-2 py-0.5 rounded">
                     Plan activo
                   </span>
                 )}
@@ -121,8 +121,8 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
                 className={`
                   px-4 py-2 rounded-lg font-medium transition-all
                   ${hasPlan 
-                    ? 'app-button btn-primary' 
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    ? 'bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black font-bold shadow-lg shadow-green-500/25' 
+                    : 'bg-gray-700 text-gray-400 cursor-not-allowed'
                   }
                 `}
               >
@@ -136,15 +136,15 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
       {/* Modal o vista expandida con el análisis */}
       {selectedPlayer && academiaActual && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-app-surface rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-app">
+          <div className="bg-gray-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-700">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-app-accent">
+                <h2 className="text-2xl font-bold text-green-400">
                   {selectedPlayer.name} - Análisis de Planificación
                 </h2>
                 <button
                   onClick={() => setSelectedPlayer(null)}
-                  className="text-app-secondary hover:text-app-primary transition-colors"
+                  className="text-gray-400 hover:text-white transition-colors"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

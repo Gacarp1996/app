@@ -117,29 +117,26 @@ export interface Academia {
 
 // Tipos para valoraciones de torneos disputados
 export type RendimientoJugador = 'Muy malo' | 'Malo' | 'Bueno' | 'Muy bueno' | 'Excelente';
-export type ConformidadGeneral = 'Muy insatisfecho' | 'Insatisfecho' | 'Satisfecho' | 'Muy satisfecho' | 'Totalmente satisfecho';
 
-// Interfaz para torneos disputados
+// Interfaz para torneos disputados (ACTUALIZADA SIN CONFORMIDAD GENERAL)
 export interface DisputedTournament {
   id: string;
   jugadorId: string;
   nombreTorneo: string;
   fechaInicio: string; // ISO date string
   fechaFin: string; // ISO date string
-  resultado: string; // "Ganó", "Finalista", "Semifinal", "Cuartos", "Octavos", "1R", etc.
+  resultado: string; // "Primera ronda de clasificación", "Campeón", etc.
   nivelDificultad: number; // 1-5
   rendimientoJugador: RendimientoJugador;
-  conformidadGeneral: ConformidadGeneral;
   observaciones?: string; // Campo opcional
   fechaRegistro?: string; // Cuándo se registró el resultado
   torneoFuturoId?: string; // Si el torneo fue "convertido" desde un torneo futuro
 }
 
-// Para estadísticas y gráficos
+// Para estadísticas y gráficos (ACTUALIZADA)
 export interface TournamentPerformanceData {
   fecha: string;
   rendimiento: number; // 1-5 (mapeado desde RendimientoJugador)
-  conformidad: number; // 1-5 (mapeado desde ConformidadGeneral)
   dificultad: number;
   resultado: string;
   nombreTorneo: string;

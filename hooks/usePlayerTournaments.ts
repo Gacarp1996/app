@@ -102,11 +102,11 @@ export const usePlayerTournaments = ({
       if (editingDisputedTournament) {
         await updateDisputedTournament(academiaId, editingDisputedTournament.id, data);
       } else if (tournamentToConvert) {
+        // ACTUALIZADO: Removido conformidadGeneral
         await convertToDisputedTournament(academiaId, tournamentToConvert, {
           resultado: data.resultado,
           nivelDificultad: data.nivelDificultad,
           rendimientoJugador: data.rendimientoJugador,
-          conformidadGeneral: data.conformidadGeneral,
           observaciones: data.observaciones
         });
       } else {

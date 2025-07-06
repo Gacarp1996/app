@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
-
 import Modal from '../shared/Modal';
-import { ConformidadGeneral, DisputedTournament, RendimientoJugador, Tournament } from '@/types';
+import { DisputedTournament, RendimientoJugador, Tournament } from '@/types';
 
 interface DisputedTournamentFormModalProps {
   isOpen: boolean;
@@ -17,19 +16,18 @@ const RENDIMIENTO_OPTIONS: RendimientoJugador[] = [
   'Muy malo', 'Malo', 'Bueno', 'Muy bueno', 'Excelente'
 ];
 
-const CONFORMIDAD_OPTIONS: ConformidadGeneral[] = [
-  'Muy insatisfecho', 'Insatisfecho', 'Satisfecho', 'Muy satisfecho', 'Totalmente satisfecho'
-];
-
-const RESULTADO_SUGERIDOS = [
-  'Campeón',
-  'Finalista',
-  'Semifinal',
-  'Cuartos de final',
-  'Octavos de final',
+// Nuevas opciones de resultado con orden lógico
+const RESULTADO_OPTIONS = [
+  'Primera ronda de clasificación',
+  'Segunda ronda de clasificación',
+  'Tercera ronda de clasificación',
+  'Primera ronda (main draw)',
   'Segunda ronda',
-  'Primera ronda',
-  'Clasificación'
+  'Octavos de final',
+  'Cuartos de final',
+  'Semifinal',
+  'Finalista',
+  'Campeón'
 ];
 
 const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = ({
@@ -45,7 +43,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
   const [resultado, setResultado] = useState('');
   const [nivelDificultad, setNivelDificultad] = useState(3);
   const [rendimientoJugador, setRendimientoJugador] = useState<RendimientoJugador>('Bueno');
-  const [conformidadGeneral, setConformidadGeneral] = useState<ConformidadGeneral>('Satisfecho');
   const [observaciones, setObservaciones] = useState('');
   const [error, setError] = useState<string>('');
 
@@ -57,7 +54,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
       setResultado(existingDisputedTournament.resultado);
       setNivelDificultad(existingDisputedTournament.nivelDificultad);
       setRendimientoJugador(existingDisputedTournament.rendimientoJugador);
-      setConformidadGeneral(existingDisputedTournament.conformidadGeneral);
       setObservaciones(existingDisputedTournament.observaciones || '');
     } else if (futureTournamentToConvert) {
       setNombreTorneo(futureTournamentToConvert.nombreTorneo);
@@ -66,7 +62,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
       setResultado('');
       setNivelDificultad(3);
       setRendimientoJugador('Bueno');
-      setConformidadGeneral('Satisfecho');
       setObservaciones('');
     } else {
       resetForm();
@@ -81,7 +76,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
     setResultado('');
     setNivelDificultad(3);
     setRendimientoJugador('Bueno');
-    setConformidadGeneral('Satisfecho');
     setObservaciones('');
   };
 
@@ -101,8 +95,8 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
       setError('La fecha de inicio no puede ser posterior a la fecha de fin.');
       return;
     }
-    if (!resultado.trim()) {
-      setError('Debe indicar el resultado del torneo.');
+    if (!resultado) {
+      setError('Debe seleccionar el resultado del torneo.');
       return;
     }
 
@@ -110,10 +104,10 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
       nombreTorneo: nombreTorneo.trim(),
       fechaInicio: new Date(fechaInicio + 'T00:00:00Z').toISOString(),
       fechaFin: new Date(fechaFin + 'T00:00:00Z').toISOString(),
-      resultado: resultado.trim(),
+      resultado: resultado,
       nivelDificultad,
       rendimientoJugador,
-      conformidadGeneral,
+      // Conformidad general eliminada
       ...(observaciones.trim() && { observaciones: observaciones.trim() }),
       ...(futureTournamentToConvert?.id && { torneoFuturoId: futureTournamentToConvert.id })
     };
@@ -126,6 +120,17 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
     if (existingDisputedTournament) return 'Editar Torneo Disputado';
     if (futureTournamentToConvert) return 'Registrar Resultado del Torneo';
     return 'Agregar Torneo Disputado';
+  };
+
+  // Función para obtener el emoji según el resultado
+  const getResultEmoji = (result: string) => {
+    if (result === 'Campeón') return '🏆';
+    if (result === 'Finalista') return '🥈';
+    if (result === 'Semifinal') return '🥉';
+    if (result.includes('Cuartos')) return '⭐';
+    if (result.includes('Octavos')) return '✨';
+    if (result.includes('clasificación')) return '🎯';
+    return '🎾';
   };
 
   return (
@@ -190,27 +195,20 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
             <label htmlFor="resultado" className="block text-sm font-medium text-gray-400 mb-1">
               Resultado Final
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                id="resultado"
-                value={resultado}
-                onChange={(e) => setResultado(e.target.value)}
-                className="flex-1 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-                placeholder="Ej: Semifinal, Ganó, Perdió en 1R..."
-                required
-              />
-              <select
-                onChange={(e) => setResultado(e.target.value)}
-                className="px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-                value=""
-              >
-                <option value="" disabled>Sugerencias</option>
-                {RESULTADO_SUGERIDOS.map(res => (
-                  <option key={res} value={res}>{res}</option>
-                ))}
-              </select>
-            </div>
+            <select
+              id="resultado"
+              value={resultado}
+              onChange={(e) => setResultado(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
+              required
+            >
+              <option value="">Seleccionar resultado...</option>
+              {RESULTADO_OPTIONS.map(res => (
+                <option key={res} value={res}>
+                  {getResultEmoji(res)} {res}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -251,21 +249,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
                 </label>
               ))}
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Nivel de Conformidad General
-            </label>
-            <select
-              value={conformidadGeneral}
-              onChange={(e) => setConformidadGeneral(e.target.value as ConformidadGeneral)}
-              className="w-full px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-            >
-              {CONFORMIDAD_OPTIONS.map(option => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
           </div>
 
           <div>

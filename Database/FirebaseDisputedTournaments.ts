@@ -113,7 +113,7 @@ export const convertToDisputedTournament = async (
     resultado: string;
     nivelDificultad: number;
     rendimientoJugador: DisputedTournament['rendimientoJugador'];
-    conformidadGeneral: DisputedTournament['conformidadGeneral'];
+    // ELIMINADO: conformidadGeneral
     observaciones?: string;
   }
 ) => {

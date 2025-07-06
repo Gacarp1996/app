@@ -1,12 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Player, TrainingSession } from '../types';
-import { getTrainingPlan, TrainingPlan } from '../Database/FirebaseTrainingPlans';
-import { getSessions } from '../Database/FirebaseSessions';
-import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
 
-interface PlanningAccordionProps {
-  player: Player;
-  academiaId: string;
+// Simulación de tipos para el ejemplo
+interface Player {
+  id: string;
+  name: string;
+}
+
+interface TrainingSession {
+  id: string;
+  jugadorId: string;
+  fecha: string;
+  ejercicios: Array<{
+    id: string;
+    tipo: string;
+    area: string;
+    ejercicio: string;
+    tiempoCantidad: string;
+    intensidad: number;
+  }>;
 }
 
 interface AnalysisNode {
@@ -18,243 +29,75 @@ interface AnalysisNode {
   children?: AnalysisNode[];
 }
 
+interface PlanningAccordionProps {
+  player: Player;
+  academiaId: string;
+}
+
 const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaId }) => {
-  const [loading, setLoading] = useState(true);
-  const [analysisTree, setAnalysisTree] = useState<AnalysisNode[]>([]);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [analysisTree, setAnalysisTree] = useState<AnalysisNode[]>([
+    // Datos de ejemplo para demostración
+    {
+      name: 'Canasto',
+      planificado: 40,
+      realizado: 35,
+      diferencia: 5,
+      children: [
+        {
+          name: 'Juego de base',
+          planificado: 25,
+          realizado: 20,
+          diferencia: 5,
+          children: [
+            {
+              name: 'Estático',
+              planificado: 15,
+              realizado: 12,
+              diferencia: 3
+            },
+            {
+              name: 'Dinámico',
+              planificado: 10,
+              realizado: 8,
+              diferencia: 2
+            }
+          ]
+        },
+        {
+          name: 'Juego de red',
+          planificado: 15,
+          realizado: 15,
+          diferencia: 0,
+          esDistribucionLibre: true
+        }
+      ]
+    },
+    {
+      name: 'Peloteo',
+      planificado: 60,
+      realizado: 65,
+      diferencia: -5,
+      children: [
+        {
+          name: 'Puntos',
+          planificado: 30,
+          realizado: 40,
+          diferencia: -10,
+          esDistribucionLibre: true
+        },
+        {
+          name: 'Primeras pelotas',
+          planificado: 30,
+          realizado: 25,
+          diferencia: 5
+        }
+      ]
+    }
+  ]);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['Canasto', 'Peloteo']));
   const [error, setError] = useState<string>('');
   const [rangoAnalisis, setRangoAnalisis] = useState(30);
-
-  useEffect(() => {
-    loadPlanningAnalysis();
-  }, [player.id, academiaId]);
-
-  const parseTimeToMinutes = (tiempoCantidad: string): number => {
-    const cleanTime = tiempoCantidad.trim().toLowerCase();
-    
-    const pureNumber = parseFloat(cleanTime);
-    if (!isNaN(pureNumber) && cleanTime === pureNumber.toString()) {
-      return pureNumber;
-    }
-    
-    const minuteMatch = cleanTime.match(/(\d+\.?\d*)\s*(m|min|mins|minuto|minutos)/);
-    if (minuteMatch) {
-      return parseFloat(minuteMatch[1]);
-    }
-    
-    const hourMatch = cleanTime.match(/(\d+\.?\d*)\s*(h|hr|hrs|hora|horas)/);
-    if (hourMatch) {
-      return parseFloat(hourMatch[1]) * 60;
-    }
-    
-    return 0;
-  };
-
-  const loadPlanningAnalysis = async () => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      // Obtener plan del jugador
-      const plan = await getTrainingPlan(academiaId, player.id);
-      if (!plan || !plan.planificacion) {
-        setError('No hay plan configurado');
-        setLoading(false);
-        return;
-      }
-
-      // Verificar si el plan tiene porcentajes asignados
-      const tienePorcentajes = Object.values(plan.planificacion).some(
-        tipo => tipo && tipo.porcentajeTotal > 0
-      );
-      
-      if (!tienePorcentajes) {
-        setError('El plan no tiene porcentajes asignados');
-        setLoading(false);
-        return;
-      }
-
-      // Obtener sesiones históricas
-      const sessions = await getSessions(academiaId);
-      const playerSessions = sessions.filter(s => s.jugadorId === player.id);
-      
-      // Filtrar sesiones por rango de análisis
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - (plan.rangoAnalisis || 30));
-      const recentSessions = playerSessions.filter(s => 
-        new Date(s.fecha) >= cutoffDate
-      );
-      
-      setRangoAnalisis(plan.rangoAnalisis || 30);
-      
-      if (recentSessions.length === 0) {
-        setError(`No hay sesiones en los últimos ${plan.rangoAnalisis || 30} días`);
-        setLoading(false);
-        return;
-      }
-
-      // Construir árbol de análisis
-      const tree = buildAnalysisTree(plan, recentSessions);
-      setAnalysisTree(tree);
-      
-    } catch (error) {
-      console.error('Error cargando análisis:', error);
-      setError('Error al cargar el análisis');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const buildAnalysisTree = (plan: TrainingPlan, sessions: TrainingSession[]): AnalysisNode[] => {
-    // Calcular tiempo total
-    let totalMinutes = 0;
-    const exerciseMinutes: Record<string, Record<string, Record<string, number>>> = {};
-    
-    sessions.forEach(session => {
-      session.ejercicios.forEach(ex => {
-        const minutes = parseTimeToMinutes(ex.tiempoCantidad);
-        totalMinutes += minutes;
-        
-        // Obtener keys desde el mapeo
-        const tipoKey = Object.entries(NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP)
-          .find(([_, value]) => value === ex.tipo)?.[0] || ex.tipo;
-        const areaKey = Object.entries(NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP)
-          .find(([_, value]) => value === ex.area)?.[0] || ex.area;
-        
-        if (!exerciseMinutes[tipoKey]) exerciseMinutes[tipoKey] = {};
-        if (!exerciseMinutes[tipoKey][areaKey]) exerciseMinutes[tipoKey][areaKey] = {};
-        if (!exerciseMinutes[tipoKey][areaKey][ex.ejercicio]) {
-          exerciseMinutes[tipoKey][areaKey][ex.ejercicio] = 0;
-        }
-        
-        exerciseMinutes[tipoKey][areaKey][ex.ejercicio] += minutes;
-      });
-    });
-    
-    if (totalMinutes === 0) return [];
-    
-    const tree: AnalysisNode[] = [];
-    
-    // Construir árbol jerárquico
-    Object.entries(plan.planificacion || {}).forEach(([tipo, tipoConfig]) => {
-      if (!tipoConfig || tipoConfig.porcentajeTotal === 0) return;
-      
-      const tipoRealizado = Object.values(exerciseMinutes[tipo] || {}).reduce((sum, areas) => 
-        sum + Object.values(areas).reduce((areaSum, mins) => areaSum + mins, 0), 0
-      ) / totalMinutes * 100;
-      
-      const tipoNode: AnalysisNode = {
-        name: tipo,
-        planificado: tipoConfig.porcentajeTotal,
-        realizado: tipoRealizado,
-        diferencia: tipoConfig.porcentajeTotal - tipoRealizado,
-        children: []
-      };
-      
-      // Verificar si hay áreas detalladas
-      const hasAreaDetails = tipoConfig.areas && Object.values(tipoConfig.areas).some(area => 
-        area && area.porcentajeDelTotal > 0
-      );
-      
-      if (!hasAreaDetails) {
-        tipoNode.esDistribucionLibre = true;
-      } else {
-        // Procesar áreas
-        Object.entries(tipoConfig.areas || {}).forEach(([area, areaConfig]) => {
-          if (!areaConfig || areaConfig.porcentajeDelTotal === 0) return;
-          
-          const areaRealizado = Object.values(exerciseMinutes[tipo]?.[area] || {}).reduce(
-            (sum, mins) => sum + mins, 0
-          ) / totalMinutes * 100;
-          
-          const areaNode: AnalysisNode = {
-            name: area,
-            planificado: areaConfig.porcentajeDelTotal,
-            realizado: areaRealizado,
-            diferencia: areaConfig.porcentajeDelTotal - areaRealizado,
-            children: []
-          };
-          
-          // Verificar si hay ejercicios detallados
-          const hasExerciseDetails = areaConfig.ejercicios && Object.values(areaConfig.ejercicios).some(ej => 
-            ej && ej.porcentajeDelTotal > 0
-          );
-          
-          if (!hasExerciseDetails) {
-            areaNode.esDistribucionLibre = true;
-          } else {
-            // Procesar ejercicios
-            Object.entries(areaConfig.ejercicios || {}).forEach(([ejercicio, ejConfig]) => {
-              if (!ejConfig || ejConfig.porcentajeDelTotal === 0) return;
-              
-              const ejRealizado = (exerciseMinutes[tipo]?.[area]?.[ejercicio] || 0) / totalMinutes * 100;
-              
-              const ejercicioNode: AnalysisNode = {
-                name: ejercicio,
-                planificado: ejConfig.porcentajeDelTotal,
-                realizado: ejRealizado,
-                diferencia: ejConfig.porcentajeDelTotal - ejRealizado
-              };
-              
-              areaNode.children!.push(ejercicioNode);
-            });
-            
-            // Agregar "Otros ejercicios" si hay porcentaje sin asignar
-            const totalEjerciciosAsignados = Object.values(areaConfig.ejercicios || {})
-              .reduce((sum, ej) => sum + (ej?.porcentajeDelTotal || 0), 0);
-            const areaSinAsignar = areaConfig.porcentajeDelTotal - totalEjerciciosAsignados;
-            
-            if (areaSinAsignar > 0.01) {
-              const ejerciciosEspecificados = Object.keys(areaConfig.ejercicios || {})
-                .filter(ej => areaConfig.ejercicios![ej].porcentajeDelTotal > 0);
-              
-              const otrosEjerciciosRealizado = Object.entries(exerciseMinutes[tipo]?.[area] || {})
-                .filter(([ej]) => !ejerciciosEspecificados.includes(ej))
-                .reduce((sum, [_, mins]) => sum + mins, 0) / totalMinutes * 100;
-              
-              areaNode.children!.push({
-                name: 'Otros ejercicios',
-                planificado: areaSinAsignar,
-                realizado: otrosEjerciciosRealizado,
-                diferencia: areaSinAsignar - otrosEjerciciosRealizado,
-                esDistribucionLibre: true
-              });
-            }
-          }
-          
-          tipoNode.children!.push(areaNode);
-        });
-        
-        // Agregar "Otras áreas" si hay porcentaje sin asignar
-        const totalAreasAsignadas = Object.values(tipoConfig.areas || {})
-          .reduce((sum, area) => sum + (area?.porcentajeDelTotal || 0), 0);
-        const tipoSinAsignar = tipoConfig.porcentajeTotal - totalAreasAsignadas;
-        
-        if (tipoSinAsignar > 0.01) {
-          const areasEspecificadas = Object.keys(tipoConfig.areas || {})
-            .filter(area => tipoConfig.areas[area].porcentajeDelTotal > 0);
-          
-          const otrasAreasRealizado = Object.entries(exerciseMinutes[tipo] || {})
-            .filter(([area]) => !areasEspecificadas.includes(area))
-            .reduce((sum, [_, areaExs]) => 
-              sum + Object.values(areaExs).reduce((areaSum, mins) => areaSum + mins, 0), 0
-            ) / totalMinutes * 100;
-          
-          tipoNode.children!.push({
-            name: 'Otras áreas',
-            planificado: tipoSinAsignar,
-            realizado: otrasAreasRealizado,
-            diferencia: tipoSinAsignar - otrasAreasRealizado,
-            esDistribucionLibre: true
-          });
-        }
-      }
-      
-      tree.push(tipoNode);
-    });
-    
-    return tree;
-  };
 
   const toggleNode = (nodePath: string) => {
     setExpandedNodes(prev => {
@@ -268,94 +111,142 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
     });
   };
 
-  const getStatusIcon = (diferencia: number): string => {
-    const threshold = 5; // 5% de margen
-    if (Math.abs(diferencia) <= threshold) return '✅';
-    if (diferencia > 0) return '🔻'; // Falta entrenar
-    return '🔺'; // Se entrena de más
-  };
-
-  const getStatusColor = (diferencia: number): string => {
+  const getStatusConfig = (diferencia: number) => {
     const threshold = 5;
-    if (Math.abs(diferencia) <= threshold) return 'text-green-600 dark:text-green-400';
-    if (diferencia > 0) return 'text-red-600 dark:text-red-400';
-    return 'text-orange-600 dark:text-orange-400';
-  };
-
-  const getProgressBarColor = (diferencia: number): string => {
-    const threshold = 5;
-    if (Math.abs(diferencia) <= threshold) return 'bg-green-500';
-    if (diferencia > 0) return 'bg-red-500';
-    return 'bg-orange-500';
+    if (Math.abs(diferencia) <= threshold) {
+      return {
+        icon: '✅',
+        color: 'text-green-400',
+        bgColor: 'bg-green-500',
+        borderColor: 'border-green-500/20',
+        label: 'OK'
+      };
+    }
+    if (diferencia > 0) {
+      return {
+        icon: '⚠️',
+        color: 'text-red-400',
+        bgColor: 'bg-red-500',
+        borderColor: 'border-red-500/20',
+        label: 'Falta'
+      };
+    }
+    return {
+      icon: '📈',
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-500',
+      borderColor: 'border-orange-500/20',
+      label: 'Exceso'
+    };
   };
 
   const renderNode = (node: AnalysisNode, level: number = 0, path: string = ''): React.ReactNode => {
     const nodePath = path ? `${path}/${node.name}` : node.name;
     const isExpanded = expandedNodes.has(nodePath);
     const hasChildren = node.children && node.children.length > 0;
-    
+    const status = getStatusConfig(node.diferencia);
+    const progressPercentage = Math.min(100, (node.realizado / node.planificado) * 100);
     
     return (
-      <div key={nodePath} className={`${level > 0 ? 'ml-6' : ''}`}>
+      <div key={nodePath} className={`${level > 0 ? 'ml-4 sm:ml-6' : ''}`}>
         <div 
           className={`
-            flex items-center justify-between p-3 rounded-lg mb-2
-            ${level === 0 ? 'bg-app-surface-alt' : 'bg-app-surface'} 
-            ${hasChildren ? 'cursor-pointer hover:opacity-90' : ''}
-            transition-all duration-200
+            group relative overflow-hidden
+            ${level === 0 ? 'bg-gray-900/60 border border-gray-800' : 'bg-gray-900/40 border border-gray-800/50'} 
+            rounded-xl mb-3 transition-all duration-300
+            ${hasChildren ? 'cursor-pointer hover:border-green-500/30' : 'hover:bg-gray-900/50'}
+            shadow-lg ${level === 0 ? 'shadow-green-500/5' : ''}
           `}
           onClick={() => hasChildren && toggleNode(nodePath)}
         >
-          <div className="flex items-center gap-3 flex-1">
-            {hasChildren && (
-              <span className="text-app-secondary text-sm">
-                {isExpanded ? '▼' : '▶'}
-              </span>
-            )}
-            
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className={`font-medium ${level === 0 ? 'text-lg' : 'text-base'}`}>
-                  {node.name}
-                </span>
-                {node.esDistribucionLibre && (
-                  <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded">
-                    Distribución libre
+          {/* Efecto de hover sutil */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+          
+          <div className="relative p-4 sm:p-5">
+            <div className="flex items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+                {hasChildren && (
+                  <span className={`
+                    text-gray-500 text-sm transition-transform duration-300
+                    ${isExpanded ? 'rotate-90' : ''}
+                  `}>
+                    ▶
                   </span>
                 )}
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <h4 className={`
+                      font-semibold truncate
+                      ${level === 0 ? 'text-lg sm:text-xl text-white' : 'text-base sm:text-lg text-gray-200'}
+                    `}>
+                      {node.name}
+                    </h4>
+                    {node.esDistribucionLibre && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full border border-yellow-500/30">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Distribución libre
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Barra de progreso mejorada */}
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-700 ease-out ${status.bgColor} relative`}
+                          style={{ width: `${progressPercentage}%` }}
+                        >
+                          {/* Efecto de brillo animado */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+                        </div>
+                      </div>
+                      {/* Marcador del objetivo */}
+                      <div 
+                        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-gray-600"
+                        style={{ left: `${node.planificado}%` }}
+                      />
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                      <span className="text-gray-400">
+                        Plan: <span className="text-gray-300 font-medium">{node.planificado.toFixed(1)}%</span>
+                      </span>
+                      <span className="text-gray-600">•</span>
+                      <span className="text-gray-400">
+                        Real: <span className="text-gray-300 font-medium">{node.realizado.toFixed(1)}%</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              {/* Barra de progreso visual */}
-              <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(node.diferencia)}`}
-                  style={{ width: `${Math.min(100, (node.realizado / node.planificado) * 100)}%` }}
-                />
-              </div>
-              
-              <div className="mt-1 text-sm text-app-secondary">
-                <span>Plan: {node.planificado.toFixed(1)}%</span>
-                <span className="mx-2">|</span>
-                <span>Real: {node.realizado.toFixed(1)}%</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className={`flex items-center gap-2 ${getStatusColor(node.diferencia)}`}>
-            <span className="text-2xl">{getStatusIcon(node.diferencia)}</span>
-            <div className="text-right">
-              <div className="font-bold">
-                {node.diferencia > 0 ? '-' : '+'}{Math.abs(node.diferencia).toFixed(1)}%
-              </div>
-              <div className="text-xs">
-                {node.diferencia > 0 ? 'Falta' : node.diferencia < 0 ? 'Exceso' : 'OK'}
+              {/* Estado mejorado */}
+              <div className={`
+                flex flex-col items-center justify-center p-3 rounded-lg
+                bg-gray-800/50 border ${status.borderColor}
+                min-w-[80px] sm:min-w-[90px]
+              `}>
+                <span className="text-2xl mb-1">{status.icon}</span>
+                <div className={`text-center ${status.color}`}>
+                  <div className="font-bold text-sm sm:text-base">
+                    {node.diferencia > 0 ? '+' : ''}{Math.abs(node.diferencia).toFixed(1)}%
+                  </div>
+                  <div className="text-xs opacity-80">
+                    {status.label}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
         
+        {/* Hijos con animación */}
         {isExpanded && hasChildren && (
-          <div className="transition-all duration-300 ease-out">
+          <div className="animate-in slide-in-from-top-2 duration-300">
             {node.children!.map(child => renderNode(child, level + 1, nodePath))}
           </div>
         )}
@@ -365,55 +256,94 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-accent mx-auto"></div>
-        <p className="mt-4 text-app-secondary">Analizando planificación...</p>
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+          <div className="absolute inset-0 rounded-full animate-ping h-12 w-12 border border-green-500 opacity-20"></div>
+        </div>
+        <p className="mt-4 text-gray-400 animate-pulse">Analizando planificación...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-lg">
-        <p className="text-red-700 dark:text-red-300">{error}</p>
+      <div className="bg-red-500/10 border border-red-500/30 p-4 sm:p-6 rounded-xl backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">❌</span>
+          <p className="text-red-400">{error}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-semibold text-app-accent">
-          Análisis de Planificación
-        </h3>
-        <span className="text-sm text-app-secondary">
-          Últimos {rangoAnalisis} días
-        </span>
+    <div className="space-y-6">
+      {/* Header mejorado */}
+      <div className="bg-gradient-to-r from-gray-900/80 to-gray-900/60 p-4 sm:p-6 rounded-xl border border-gray-800">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+              Análisis de Planificación
+            </h3>
+            <p className="text-sm text-gray-400 mt-1">
+              Comparación entre lo planificado y lo ejecutado
+            </p>
+          </div>
+          <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-2 rounded-lg">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-medium text-gray-300">
+              Últimos {rangoAnalisis} días
+            </span>
+          </div>
+        </div>
       </div>
       
+      {/* Árbol de análisis */}
       {analysisTree.length === 0 ? (
-        <p className="text-app-secondary">No hay datos para mostrar</p>
+        <div className="text-center py-8 text-gray-400">
+          <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <p>No hay datos para mostrar</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {analysisTree.map(node => renderNode(node))}
         </div>
       )}
       
-      {/* Leyenda */}
-      <div className="mt-6 p-4 bg-app-surface-alt rounded-lg">
-        <h4 className="font-medium mb-2">Leyenda:</h4>
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">✅</span>
-            <span>Dentro del plan (±5%)</span>
+      {/* Leyenda mejorada */}
+      <div className="bg-gray-900/50 backdrop-blur-sm p-4 sm:p-6 rounded-xl border border-gray-800">
+        <h4 className="font-semibold text-gray-200 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Guía de interpretación
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
+            <span className="text-2xl">✅</span>
+            <div>
+              <span className="text-green-400 font-medium">Dentro del plan</span>
+              <p className="text-xs text-gray-500">Diferencia ±5%</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🔻</span>
-            <span className="text-red-600 dark:text-red-400">Falta entrenar</span>
+          <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <span className="text-red-400 font-medium">Falta entrenar</span>
+              <p className="text-xs text-gray-500">Por debajo del plan</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🔺</span>
-            <span className="text-orange-600 dark:text-orange-400">Entrenado de más</span>
+          <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
+            <span className="text-2xl">📈</span>
+            <div>
+              <span className="text-orange-400 font-medium">Entrenado de más</span>
+              <p className="text-xs text-gray-500">Por encima del plan</p>
+            </div>
           </div>
         </div>
       </div>

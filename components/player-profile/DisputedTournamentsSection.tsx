@@ -104,7 +104,6 @@ const DisputedTournamentsSection: React.FC<DisputedTournamentsSectionProps> = ({
               </h3>
               <TournamentPerformanceChart 
                 tournaments={playerDisputedTournaments}
-                showRadar={true}
               />
             </div>
           </>

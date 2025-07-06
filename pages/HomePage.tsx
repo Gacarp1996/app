@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useAcademia } from '../contexts/AcademiaContext';
-import { db } from '../firebase/firebase-config';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { useAcademia } from "@/contexts/AcademiaContext";
+import { db } from "@/firebase/firebase-config";
+import { collection, getDocs, query } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+
 
 const HomePage: React.FC = () => {
   const { academiaActual } = useAcademia();
@@ -49,17 +50,18 @@ const HomePage: React.FC = () => {
     );
   }
 
+  const newLocal = "absolute inset-0 bg-gradient-to-br from-green-500/0 to-cyan-500/0 group-hover:from-green-500/10 group-hover:to-cyan-500/10 transition-all duration-300 rounded-2xl";
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       {/* Efectos de fondo animados sutiles */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
+      <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
       <div className="absolute top-1/4 left-1/4 w-64 h-64 sm:w-96 sm:h-96 lg:w-[500px] lg:h-[500px] bg-green-500/10 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 sm:w-96 sm:h-96 lg:w-[500px] lg:h-[500px] bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       
-      <div className="relative z-10 max-w-6xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+      <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
         {/* Header principal con estilo neón */}
-        <header className="py-8 lg:py-16 text-center">
-          <div className="max-w-4xl mx-auto">
+        <header className="py-8 lg:py-16 text-center px-4 sm:px-6 lg:px-8">
+          <div className="max-w-5xl mx-auto">
             {hasPlayers ? (
               <>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4 lg:mb-6">
@@ -83,13 +85,13 @@ const HomePage: React.FC = () => {
         </header>
 
         {/* Acciones Principales con diseño mejorado */}
-        <section className="mt-8 lg:mt-16 grid md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl lg:max-w-4xl mx-auto">
+        <section className="mt-8 lg:mt-16 grid md:grid-cols-2 gap-6 lg:gap-8 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link
             to="/start-training"
             className="group relative overflow-hidden bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-2xl shadow-2xl shadow-green-500/10 transition-all duration-300 hover:shadow-green-500/20 transform hover:-translate-y-1"
           >
             <div className="relative bg-gray-900/95 backdrop-blur-xl rounded-2xl p-8 lg:p-10 xl:p-12 flex flex-col items-center justify-center h-full">
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 to-cyan-500/0 group-hover:from-green-500/10 group-hover:to-cyan-500/10 transition-all duration-300 rounded-2xl"></div>
+              <div className={newLocal}></div>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="relative w-16 h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24 mb-4 lg:mb-6 text-green-400 group-hover:scale-110 transition-transform duration-300">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
               </svg>
@@ -122,11 +124,11 @@ const HomePage: React.FC = () => {
         </section>
 
         {/* Guía Rápida con diseño mejorado */}
-        <section className="mt-16 lg:mt-24 max-w-5xl lg:max-w-6xl mx-auto">
+        <section className="mt-16 lg:mt-24 px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl lg:text-4xl xl:text-5xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-8 lg:mb-12 text-center">
             Guía Rápida
           </h2>
-          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+          <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6 lg:gap-8">
             {/* Paso 1 */}
             <div className="group relative overflow-hidden bg-gray-900/50 backdrop-blur-sm p-[1px] rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:shadow-green-500/10">
               <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 via-transparent to-transparent group-hover:from-green-500/10 transition-all duration-300"></div>
@@ -181,25 +183,27 @@ const HomePage: React.FC = () => {
         </section>
 
         {/* Información adicional para desktop */}
-        <section className="hidden lg:block mt-20 max-w-4xl mx-auto">
-          <div className="bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-xl">
-            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-8">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-white mb-2">
-                    {academiaActual?.nombre || 'Academia'}
-                  </h3>
-                  <p className="text-gray-400">
-                    {academiaActual?.tipo === 'grupo-entrenamiento' 
-                      ? 'Grupo de entrenamiento personal' 
-                      : 'Academia de tenis'}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 mb-1">ID de acceso</p>
-                  <p className="text-2xl font-mono font-bold text-green-400">
-                    {academiaActual?.id || '------'}
-                  </p>
+        <section className="hidden lg:block mt-20 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-xl">
+              <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold text-white mb-2">
+                      {academiaActual?.nombre || 'Academia'}
+                    </h3>
+                    <p className="text-gray-400">
+                      {academiaActual?.tipo === 'grupo-entrenamiento' 
+                        ? 'Grupo de entrenamiento personal' 
+                        : 'Academia de tenis'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500 mb-1">ID de acceso</p>
+                    <p className="text-2xl font-mono font-bold text-green-400">
+                      {academiaActual?.id || '------'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

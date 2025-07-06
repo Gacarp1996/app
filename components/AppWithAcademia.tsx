@@ -10,7 +10,7 @@ import { getSessions } from '../Database/FirebaseSessions';
 import { getTournaments } from '../Database/FirebaseTournaments';
 import { getDisputedTournaments } from '../Database/FirebaseDisputedTournaments'; // NUEVO IMPORT
 import GlobalHeader from './shared/GlobalHeader';
-import HomePage from '../pages/HomePage'; // Esta importación ya la tenías, ¡perfecto!
+
 import PlayersListPage from '../pages/PlayersListPage';
 import StartTrainingPage from '../pages/StartTrainingPage';
 import TrainingSessionPage from '../pages/TrainingSessionPage';
@@ -20,6 +20,7 @@ import ObjectiveDetailPage from '../pages/ObjectiveDetailPage';
 import SessionDetailPage from '../pages/SessionDetailPage';
 import { Player, Objective, TrainingSession, Tournament, DisputedTournament } from '../types'; // ACTUALIZADO
 import AcademiaSettingsPage from '../pages/AcademiaSettingsPage';
+import HomePage from '@/pages/HomePage';
 
 
 const AppWithAcademia: React.FC = () => {

@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-import { DisputedTournament, RendimientoJugador, ConformidadGeneral } from '../../types';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { DisputedTournament, RendimientoJugador } from '../../types';
 
 interface TournamentPerformanceChartProps {
   tournaments: DisputedTournament[];
-  showRadar?: boolean;
 }
 
 // Mapeo de valores de texto a números para gráficos
@@ -14,14 +13,6 @@ const RENDIMIENTO_MAP: Record<RendimientoJugador, number> = {
   'Bueno': 3,
   'Muy bueno': 4,
   'Excelente': 5
-};
-
-const CONFORMIDAD_MAP: Record<ConformidadGeneral, number> = {
-  'Muy insatisfecho': 1,
-  'Insatisfecho': 2,
-  'Satisfecho': 3,
-  'Muy satisfecho': 4,
-  'Totalmente satisfecho': 5
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -35,9 +26,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <p className="text-sm" style={{ color: '#3b82f6' }}>
           Rendimiento: {tournament.rendimientoText} ({payload[0].value}/5)
         </p>
-        <p className="text-sm" style={{ color: '#10b981' }}>
-          Conformidad: {tournament.conformidadText} ({tournament.conformidad}/5)
-        </p>
         <p className="text-sm" style={{ color: '#f59e0b' }}>
           Dificultad: {tournament.dificultad}/5
         </p>
@@ -48,8 +36,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const TournamentPerformanceChart: React.FC<TournamentPerformanceChartProps> = ({ 
-  tournaments, 
-  showRadar = false 
+  tournaments
 }) => {
   // Preparar datos para el gráfico de líneas
   const lineChartData = useMemo(() => {
@@ -63,42 +50,9 @@ const TournamentPerformanceChart: React.FC<TournamentPerformanceChartProps> = ({
         nombreTorneo: t.nombreTorneo,
         rendimiento: RENDIMIENTO_MAP[t.rendimientoJugador],
         rendimientoText: t.rendimientoJugador,
-        conformidad: CONFORMIDAD_MAP[t.conformidadGeneral],
-        conformidadText: t.conformidadGeneral,
         dificultad: t.nivelDificultad,
         resultado: t.resultado
       }));
-  }, [tournaments]);
-
-  // Preparar datos para el gráfico de radar (promedios por dificultad)
-  const radarData = useMemo(() => {
-    const dificultades = [1, 2, 3, 4, 5];
-    return dificultades.map(dif => {
-      const tourneosEnDificultad = tournaments.filter(t => t.nivelDificultad === dif);
-      if (tourneosEnDificultad.length === 0) {
-        return {
-          dificultad: `Nivel ${dif}`,
-          rendimiento: 0,
-          conformidad: 0,
-          cantidad: 0
-        };
-      }
-      
-      const promRendimiento = tourneosEnDificultad.reduce(
-        (sum, t) => sum + RENDIMIENTO_MAP[t.rendimientoJugador], 0
-      ) / tourneosEnDificultad.length;
-      
-      const promConformidad = tourneosEnDificultad.reduce(
-        (sum, t) => sum + CONFORMIDAD_MAP[t.conformidadGeneral], 0
-      ) / tourneosEnDificultad.length;
-      
-      return {
-        dificultad: `Nivel ${dif}`,
-        rendimiento: parseFloat(promRendimiento.toFixed(1)),
-        conformidad: parseFloat(promConformidad.toFixed(1)),
-        cantidad: tourneosEnDificultad.length
-      };
-    });
   }, [tournaments]);
 
   // Calcular estadísticas generales
@@ -108,18 +62,23 @@ const TournamentPerformanceChart: React.FC<TournamentPerformanceChartProps> = ({
     const totalRendimiento = tournaments.reduce(
       (sum, t) => sum + RENDIMIENTO_MAP[t.rendimientoJugador], 0
     );
-    const totalConformidad = tournaments.reduce(
-      (sum, t) => sum + CONFORMIDAD_MAP[t.conformidadGeneral], 0
-    );
     const totalDificultad = tournaments.reduce(
       (sum, t) => sum + t.nivelDificultad, 0
     );
     
+    // Contar resultados por tipo
+    const resultadosCount = tournaments.reduce((acc, t) => {
+      if (t.resultado === 'Campeón') acc.campeonatos++;
+      else if (t.resultado === 'Finalista') acc.finales++;
+      else if (t.resultado === 'Semifinal') acc.semifinales++;
+      return acc;
+    }, { campeonatos: 0, finales: 0, semifinales: 0 });
+    
     return {
       promedioRendimiento: (totalRendimiento / tournaments.length).toFixed(1),
-      promedioConformidad: (totalConformidad / tournaments.length).toFixed(1),
       promedioDificultad: (totalDificultad / tournaments.length).toFixed(1),
-      totalTorneos: tournaments.length
+      totalTorneos: tournaments.length,
+      ...resultadosCount
     };
   }, [tournaments]);
 
@@ -147,12 +106,28 @@ const TournamentPerformanceChart: React.FC<TournamentPerformanceChartProps> = ({
             <p className="text-2xl font-bold text-blue-500">{stats.promedioRendimiento}/5</p>
           </div>
           <div className="bg-app-surface-alt p-4 rounded-lg text-center">
-            <p className="text-sm text-app-secondary">Conformidad Promedio</p>
-            <p className="text-2xl font-bold text-green-500">{stats.promedioConformidad}/5</p>
-          </div>
-          <div className="bg-app-surface-alt p-4 rounded-lg text-center">
             <p className="text-sm text-app-secondary">Dificultad Promedio</p>
             <p className="text-2xl font-bold text-yellow-500">{stats.promedioDificultad}/5</p>
+          </div>
+          <div className="bg-app-surface-alt p-4 rounded-lg text-center">
+            <p className="text-sm text-app-secondary">Logros</p>
+            <div className="flex items-center justify-center gap-2 mt-1">
+              {stats.campeonatos > 0 && (
+                <span className="text-lg font-bold text-yellow-400" title="Campeonatos">
+                  🏆 {stats.campeonatos}
+                </span>
+              )}
+              {stats.finales > 0 && (
+                <span className="text-lg font-bold text-gray-400" title="Finalista">
+                  🥈 {stats.finales}
+                </span>
+              )}
+              {stats.semifinales > 0 && (
+                <span className="text-lg font-bold text-orange-600" title="Semifinales">
+                  🥉 {stats.semifinales}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -189,14 +164,6 @@ const TournamentPerformanceChart: React.FC<TournamentPerformanceChartProps> = ({
             />
             <Line 
               type="monotone" 
-              dataKey="conformidad" 
-              stroke="#10b981" 
-              strokeWidth={2}
-              dot={{ fill: '#10b981', r: 6 }}
-              name="Conformidad"
-            />
-            <Line 
-              type="monotone" 
               dataKey="dificultad" 
               stroke="#f59e0b" 
               strokeWidth={2}
@@ -207,48 +174,6 @@ const TournamentPerformanceChart: React.FC<TournamentPerformanceChartProps> = ({
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Gráfico de radar por nivel de dificultad */}
-      {showRadar && (
-        <div className="bg-app-surface p-6 rounded-lg shadow">
-          <h3 className="text-xl font-semibold text-app-accent mb-4">
-            Rendimiento Promedio por Nivel de Dificultad
-          </h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <RadarChart data={radarData}>
-              <PolarGrid stroke="var(--color-border)" />
-              <PolarAngleAxis 
-                dataKey="dificultad"
-                tick={{ fill: 'var(--color-text-primary)' }}
-              />
-              <PolarRadiusAxis 
-                angle={90} 
-                domain={[0, 5]}
-                tick={{ fill: 'var(--color-text-secondary)' }}
-              />
-              <Tooltip />
-              <Radar 
-                name="Rendimiento" 
-                dataKey="rendimiento" 
-                stroke="#3b82f6" 
-                fill="#3b82f6" 
-                fillOpacity={0.3}
-              />
-              <Radar 
-                name="Conformidad" 
-                dataKey="conformidad" 
-                stroke="#10b981" 
-                fill="#10b981" 
-                fillOpacity={0.3}
-              />
-              <Legend />
-            </RadarChart>
-          </ResponsiveContainer>
-          <div className="mt-4 text-center text-sm text-app-secondary">
-            * Solo se muestran niveles con al menos un torneo disputado
-          </div>
-        </div>
-      )}
     </div>
   );
 };
