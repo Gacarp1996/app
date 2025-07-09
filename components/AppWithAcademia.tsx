@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-// El 'BrowserRouter' no es necesario aquí si ya está en un nivel superior de tu app.
-// Lo quito para evitar conflictos, pero mantengo 'Routes', 'Route', etc.
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { TrainingProvider } from '../contexts/TrainingContext';
 import { useAcademia } from '../contexts/AcademiaContext';
@@ -8,7 +6,7 @@ import { getPlayers } from "../Database/FirebasePlayers";
 import { getObjectives } from '../Database/FirebaseObjectives';
 import { getSessions } from '../Database/FirebaseSessions';
 import { getTournaments } from '../Database/FirebaseTournaments';
-import { getDisputedTournaments } from '../Database/FirebaseDisputedTournaments'; // NUEVO IMPORT
+import { getDisputedTournaments } from '../Database/FirebaseDisputedTournaments'; 
 import GlobalHeader from './shared/GlobalHeader';
 
 import PlayersListPage from '../pages/PlayersListPage';
@@ -18,7 +16,7 @@ import PlayerProfilePage from '../pages/PlayerProfilePage';
 import EditObjectivesPage from '../pages/EditObjectivesPage';
 import ObjectiveDetailPage from '../pages/ObjectiveDetailPage';
 import SessionDetailPage from '../pages/SessionDetailPage';
-import { Player, Objective, TrainingSession, Tournament, DisputedTournament } from '../types'; // ACTUALIZADO
+import { Player, Objective, TrainingSession, Tournament, DisputedTournament } from '../types'; 
 import AcademiaSettingsPage from '../pages/AcademiaSettingsPage';
 import HomePage from '@/pages/HomePage';
 
@@ -32,7 +30,7 @@ const AppWithAcademia: React.FC = () => {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [disputedTournaments, setDisputedTournaments] = useState<DisputedTournament[]>([]);
-  const [dataLoading, setDataLoading] = useState(true); // NUEVO ESTADO
+  const [dataLoading, setDataLoading] = useState(true); 
 
   useEffect(() => {
     if (!academiaActual) {
@@ -96,9 +94,7 @@ const AppWithAcademia: React.FC = () => {
       <main className="container mx-auto p-4 flex-grow">
         <TrainingProvider>
           <Routes>
-            {/* AQUÍ ESTÁ LA LÍNEA AÑADIDA:
-              Esta es la ruta para tu página de inicio. Ahora sí se va a renderizar.
-            */}
+            
             <Route path="/" element={<HomePage />} />
 
             <Route path="/players" element={

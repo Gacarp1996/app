@@ -1,22 +1,22 @@
-/* === RESET GLOBAL Y FONDO NEGRO === */
+/* === RESET GLOBAL Y FONDO MEJORADO === */
 html {
   margin: 0;
   padding: 0;
-  background-color: #000000;
+  background-color: #0f0f0f; /* Gris muy oscuro pero no negro puro */
   min-height: 100vh;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #000000;
+  background-color: #0f0f0f; /* Gris muy oscuro pero no negro puro */
   min-height: 100vh;
   overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
-  background-color: #000000;
+  background-color: #0f0f0f; /* Gris muy oscuro pero no negro puro */
 }
 
 * {
@@ -34,7 +34,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 input[type="number"] {
   -moz-appearance: textfield;
-  appearance: textfield; /* Agregado para evitar warning */
+  appearance: textfield;
   cursor: pointer;
 }
 
@@ -176,6 +176,57 @@ input[type="number"].planning-input.error {
 .planning-input-wrapper:hover .input-tooltip,
 .planning-input-wrapper input:focus ~ .input-tooltip {
   opacity: 1;
+}
+
+/* === MEJORAS DE VISIBILIDAD GLOBAL === */
+
+/* Mejorar visibilidad de contenedores con transparencia */
+[class*="bg-gray-900/50"],
+[class*="bg-gray-900\/50"] {
+  background-color: rgba(17, 24, 39, 0.85) !important;
+}
+
+[class*="bg-gray-800/50"],
+[class*="bg-gray-800\/50"] {
+  background-color: rgba(31, 41, 55, 0.85) !important;
+}
+
+/* Mejorar contraste de texto */
+.text-gray-400 {
+  color: #9ca3af !important;
+}
+
+.text-gray-500 {
+  color: #6b7280 !important;
+}
+
+/* Mejorar bordes */
+.border-gray-700 {
+  border-color: #374151 !important;
+}
+
+.border-gray-600 {
+  border-color: #4b5563 !important;
+}
+
+/* Mejorar inputs */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select,
+textarea {
+  background-color: rgba(31, 41, 55, 0.8) !important;
+  color: #f3f4f6 !important;
+  border-color: #4b5563 !important;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+  background-color: rgba(31, 41, 55, 0.95) !important;
+  border-color: #10b981 !important;
 }
 
 /* === MEJORAS PARA MÓVIL === */
