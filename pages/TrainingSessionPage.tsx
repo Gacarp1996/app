@@ -9,6 +9,7 @@ import ExerciseForm from '../components/training/ExerciseForm';
 import SurveySettings from '../components/training/SurveySettings';
 import SessionSummary from '../components/training/SessionSummary';
 import ObjectiveModal from '@/components/player-profile/ObjectiveModal';
+import ActiveSessionRecommendations from '../components/training/ActiveSessionRecommendations';
 
 interface TrainingSessionPageProps {
   allPlayers: Player[];
@@ -16,10 +17,12 @@ interface TrainingSessionPageProps {
   allTournaments: Tournament[];
   onDataChange: () => void;
   academiaId: string;
+  sessions?: any[]; // Sesiones existentes para recomendaciones
 }
 
 const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
   const navigate = useNavigate();
+  const { sessions = [], academiaId } = props; // Extraer sessions y academiaId de props
   const {
     // Estados
     isLoading,
@@ -186,6 +189,13 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
               activePlayerIds={activePlayerIds}
               onPlayerToggleActive={handlePlayerToggleActive}
               onToggleSelectAll={toggleSelectAllPlayers}
+            />
+
+            {/* Panel de recomendaciones de entrenamiento */}
+            <ActiveSessionRecommendations
+              participants={participants}
+              academiaId={academiaId}
+              sessions={sessions}
             />
             
             {/* Mostrar objetivos cuando hay un solo jugador seleccionado */}

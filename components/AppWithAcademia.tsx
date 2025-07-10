@@ -131,6 +131,7 @@ const AppWithAcademia: React.FC = () => {
                 allTournaments={tournaments || []} 
                 onDataChange={fetchData}
                 academiaId={academiaActual.id}
+                sessions={sessions || []}
               />
             } />
             <Route path="/session/:sessionId" element={
