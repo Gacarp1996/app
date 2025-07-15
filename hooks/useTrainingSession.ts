@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Player, Objective, TrainingSession, Tournament, LoggedExercise } from '../types';
+import { Player, Objective, TrainingSession, Tournament, LoggedExercise, SpecificExercise } from '../types';
 import { useTraining, SessionExercise } from '../contexts/TrainingContext';
 import { addSession } from '../Database/FirebaseSessions';
 import { addPostTrainingSurvey, checkSurveyExists } from '../Database/FirebaseSurveys';
+import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
 import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
 import { useExerciseOptions } from './useExerciseOptions';
 
@@ -36,19 +37,80 @@ export const useTrainingSession = ({
   const [currentTipoKey, setCurrentTipoKey] = useState<string>('');
   const [currentAreaKey, setCurrentAreaKey] = useState<string>('');
   const [currentEjercicioName, setCurrentEjercicioName] = useState<string>('');
+  const [currentEjercicioEspecifico, setCurrentEjercicioEspecifico] = useState<string>('');
   const [tiempoCantidad, setTiempoCantidad] = useState<string>('');
   const [intensidad, setIntensidad] = useState<number>(5);
   const [observaciones, setObservaciones] = useState('');
+  
+  // Estados para ejercicios específicos
+  const [specificExercises, setSpecificExercises] = useState<SpecificExercise[]>([]);
+  const [isAddSpecificExerciseModalOpen, setIsAddSpecificExerciseModalOpen] = useState(false);
+
+  // Cargar ejercicios específicos del localStorage
+  useEffect(() => {
+    const savedSpecificExercises = localStorage.getItem(`specificExercises_${academiaId}`);
+    if (savedSpecificExercises) {
+      try {
+        setSpecificExercises(JSON.parse(savedSpecificExercises));
+      } catch (error) {
+        console.error('Error loading specific exercises from localStorage:', error);
+      }
+    }
+  }, [academiaId]);
+
+  // Guardar ejercicios específicos en localStorage cuando cambien
+  useEffect(() => {
+    if (specificExercises.length > 0) {
+      localStorage.setItem(`specificExercises_${academiaId}`, JSON.stringify(specificExercises));
+    }
+  }, [specificExercises, academiaId]);
+
+  // Cargar ejercicios específicos desde localStorage
+  useEffect(() => {
+    const savedSpecificExercises = localStorage.getItem(`specificExercises_${academiaId}`);
+    if (savedSpecificExercises) {
+      try {
+        setSpecificExercises(JSON.parse(savedSpecificExercises));
+      } catch (error) {
+        console.error('Error loading specific exercises:', error);
+      }
+    }
+  }, [academiaId]);
+
+  // Guardar ejercicios específicos en localStorage cuando cambien
+  useEffect(() => {
+    if (specificExercises.length > 0) {
+      localStorage.setItem(`specificExercises_${academiaId}`, JSON.stringify(specificExercises));
+    }
+  }, [specificExercises, academiaId]);
   
   // Estados para las encuestas post-entrenamiento
   const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
   const [currentSurveyPlayerIndex, setCurrentSurveyPlayerIndex] = useState(0);
   const [pendingSurveyPlayers, setPendingSurveyPlayers] = useState<Player[]>([]);
   const [sessionIds, setSessionIds] = useState<Map<string, string>>(new Map());
+  const [pendingSessionsToSave, setPendingSessionsToSave] = useState<Omit<TrainingSession, 'id'>[]>([]);
   const [askForSurveys, setAskForSurveys] = useState(true);
+  const [enabledSurveyQuestions, setEnabledSurveyQuestions] = useState<string[]>(['cansancioFisico', 'concentracion', 'actitudMental', 'sensacionesTenisticas']);
+  
+  // Estados para los modales de confirmación de encuestas
+  const [isSurveyConfirmationModalOpen, setIsSurveyConfirmationModalOpen] = useState(false);
+  const [isSurveyExitConfirmModalOpen, setIsSurveyExitConfirmModalOpen] = useState(false);
 
   // Hook para las opciones de ejercicio
   const { availableTipoKeys, availableAreaKeys, availableEjercicioNames } = useExerciseOptions(currentTipoKey, currentAreaKey);
+  
+  // Ejercicios específicos disponibles para la selección actual
+  const availableSpecificExercises = useMemo(() => {
+    if (!currentTipoKey || !currentAreaKey || !currentEjercicioName) {
+      return [];
+    }
+    return specificExercises.filter(exercise => 
+      exercise.tipo === currentTipoKey && 
+      exercise.area === currentAreaKey && 
+      exercise.ejercicio === currentEjercicioName
+    );
+  }, [specificExercises, currentTipoKey, currentAreaKey, currentEjercicioName]);
 
   // Valores computados
   const playerNamesDisplay = useMemo(() => participants.map(p => p.name).join(', '), [participants]);
@@ -85,6 +147,23 @@ export const useTrainingSession = ({
     }
   }, [participants]);
 
+  // Cargar preguntas habilitadas de encuesta
+  useEffect(() => {
+    const loadEnabledQuestions = async () => {
+      try {
+        const questions = await getEnabledSurveyQuestions(academiaId);
+        setEnabledSurveyQuestions(questions);
+      } catch (error) {
+        console.error('Error cargando preguntas habilitadas:', error);
+        // Mantener preguntas por defecto en caso de error
+      }
+    };
+
+    if (academiaId) {
+      loadEnabledQuestions();
+    }
+  }, [academiaId]);
+
   // Handlers para jugadores
   const handlePlayerToggleActive = (playerId: string) => {
     const newSelection = new Set(activePlayerIds);
@@ -108,11 +187,40 @@ export const useTrainingSession = ({
     setCurrentTipoKey(value);
     setCurrentAreaKey('');
     setCurrentEjercicioName('');
+    setCurrentEjercicioEspecifico('');
   };
 
   const handleAreaChange = (value: string) => {
     setCurrentAreaKey(value);
     setCurrentEjercicioName('');
+    setCurrentEjercicioEspecifico('');
+  };
+
+  const handleEjercicioChange = (value: string) => {
+    setCurrentEjercicioName(value);
+    setCurrentEjercicioEspecifico('');
+  };
+
+  // Handlers para ejercicios específicos
+  const handleAddSpecificExercise = () => {
+    if (!currentTipoKey || !currentAreaKey || !currentEjercicioName) {
+      alert('Por favor, selecciona tipo, área y ejercicio antes de crear un ejercicio específico.');
+      return;
+    }
+    setIsAddSpecificExerciseModalOpen(true);
+  };
+
+  const handleSubmitSpecificExercise = (exerciseName: string) => {
+    const newSpecificExercise: SpecificExercise = {
+      id: crypto.randomUUID(),
+      name: exerciseName,
+      tipo: currentTipoKey,
+      area: currentAreaKey,
+      ejercicio: currentEjercicioName
+    };
+    
+    setSpecificExercises(prev => [...prev, newSpecificExercise]);
+    setCurrentEjercicioEspecifico(exerciseName);
   };
 
   const handleAddExerciseToSession = (e: React.FormEvent) => {
@@ -129,6 +237,7 @@ export const useTrainingSession = ({
           tipo: NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP[currentTipoKey],
           area: NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP[currentAreaKey],
           ejercicio: currentEjercicioName,
+          ejercicioEspecifico: currentEjercicioEspecifico || undefined,
           tiempoCantidad,
           intensidad,
           loggedForPlayerId: player.id,
@@ -138,6 +247,7 @@ export const useTrainingSession = ({
       }
     });
     setCurrentEjercicioName('');
+    setCurrentEjercicioEspecifico('');
     setTiempoCantidad('');
     setIntensidad(5);
   };
@@ -146,7 +256,7 @@ export const useTrainingSession = ({
   const handleFinishTraining = async () => {
     if (exercises.length === 0 && !window.confirm("No has registrado ningún ejercicio. ¿Deseas finalizar de todas formas?")) return;
     
-    const sessionIdsMap = new Map<string, string>();
+    // Preparar las sesiones pero NO guardarlas todavía
     const sessionsToSave: Omit<TrainingSession, 'id'>[] = participants.map(player => {
       const playerExercises = exercises.filter(ex => ex.loggedForPlayerId === player.id)
         .map(({ loggedForPlayerId, loggedForPlayerName, ...rest }) => rest as LoggedExercise);
@@ -159,58 +269,84 @@ export const useTrainingSession = ({
       };
     }).filter(session => session.ejercicios.length > 0 || (session.observaciones && session.observaciones.length > 0));
 
+    // Guardar las sesiones preparadas para usar después
+    setPendingSessionsToSave(sessionsToSave);
+
     if (sessionsToSave.length > 0) {
-      // Guardar las sesiones y almacenar los IDs generados
-      for (const session of sessionsToSave) {
-        try {
-          const sessionId = await addSession(academiaId, session);
-          if (sessionId) {
-            sessionIdsMap.set(session.jugadorId, sessionId);
-          }
-        } catch (error) {
-          console.error('Error guardando sesión:', error);
-        }
-      }
-      
-      setSessionIds(sessionIdsMap);
-      
-      // Preguntar si quieren hacer las encuestas
-      if (askForSurveys && sessionsToSave.length > 0) {
-        const wantsSurveys = window.confirm(
-          `Entrenamiento guardado para ${sessionsToSave.length} jugador(es).\n\n` +
-          `¿Deseas completar las encuestas post-entrenamiento?\n\n` +
-          `(Esto ayuda a monitorear el estado físico y mental de los jugadores)`
+      // Preguntar si quieren hacer las encuestas usando modal
+      if (askForSurveys) {
+        // Preparar jugadores para encuestas
+        const playersWithSessions = participants.filter(p => 
+          sessionsToSave.some(session => session.jugadorId === p.id)
         );
-        
-        if (wantsSurveys) {
-          // Preparar jugadores para encuestas
-          const playersWithSessions = participants.filter(p => sessionIdsMap.has(p.id));
-          setPendingSurveyPlayers(playersWithSessions);
-          setCurrentSurveyPlayerIndex(0);
-          setIsSurveyModalOpen(true);
-          return; // No navegar todavía, esperar a que terminen las encuestas
-        }
+        setPendingSurveyPlayers(playersWithSessions);
+        setCurrentSurveyPlayerIndex(0);
+        setIsSurveyConfirmationModalOpen(true);
+        return; // No guardar ni navegar todavía, esperar confirmación del usuario
+      } else {
+        // Si no se van a hacer encuestas, guardar directamente
+        await saveSessionsDirectly(sessionsToSave);
       }
-      
-      alert(`Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es).`);
-      onDataChange();
     } else {
       alert("Entrenamiento finalizado. No se guardaron datos nuevos.");
+      endSession();
+      navigate('/players');
     }
+  };
 
+  // Función helper para guardar sesiones directamente
+  const saveSessionsDirectly = async (sessionsToSave: Omit<TrainingSession, 'id'>[]) => {
+    const sessionIdsMap = new Map<string, string>();
+    
+    for (const session of sessionsToSave) {
+      try {
+        const sessionId = await addSession(academiaId, session);
+        if (sessionId) {
+          sessionIdsMap.set(session.jugadorId, sessionId);
+        }
+      } catch (error) {
+        console.error('Error guardando sesión:', error);
+      }
+    }
+    
+    setSessionIds(sessionIdsMap);
+    alert(`Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es).`);
+    onDataChange();
     endSession();
     navigate('/players');
   };
 
   // Handler para encuestas
   const handleSurveySubmit = async (playerId: string, responses: {
-    cansancioFisico: number;
-    concentracion: number;
-    actitudMental: number;
-    sensacionesTenisticas: number;
+    cansancioFisico?: number;
+    concentracion?: number;
+    actitudMental?: number;
+    sensacionesTenisticas?: number;
   }) => {
     try {
-      const sessionId = sessionIds.get(playerId);
+      let currentSessionIds = sessionIds;
+      
+      // Si es la primera encuesta, necesitamos guardar las sesiones primero
+      if (currentSessionIds.size === 0) {
+        const sessionIdsMap = new Map<string, string>();
+        
+        for (const session of pendingSessionsToSave) {
+          try {
+            const sessionId = await addSession(academiaId, session);
+            if (sessionId) {
+              sessionIdsMap.set(session.jugadorId, sessionId);
+            }
+          } catch (error) {
+            console.error('Error guardando sesión:', error);
+          }
+        }
+        
+        setSessionIds(sessionIdsMap);
+        currentSessionIds = sessionIdsMap;
+      }
+
+      // Ahora guardar la encuesta
+      const sessionId = currentSessionIds.get(playerId);
       if (!sessionId) {
         console.error('No se encontró sessionId para el jugador:', playerId);
         return;
@@ -221,11 +357,19 @@ export const useTrainingSession = ({
       if (surveyExists) {
         console.log('Ya existe una encuesta para este jugador/sesión hoy');
       } else {
+        // Filtrar solo las respuestas válidas (no undefined)
+        const validResponses: any = {};
+        Object.entries(responses).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            validResponses[key] = value;
+          }
+        });
+
         await addPostTrainingSurvey(academiaId, {
           jugadorId: playerId,
           sessionId: sessionId,
           fecha: surveyDate.toISOString(),
-          ...responses
+          ...validResponses
         });
       }
       
@@ -233,9 +377,10 @@ export const useTrainingSession = ({
       if (currentSurveyPlayerIndex < pendingSurveyPlayers.length - 1) {
         setCurrentSurveyPlayerIndex(prev => prev + 1);
       } else {
-        // Todas las encuestas completadas
+        // Todas las encuestas completadas - finalizar sesión completa
         setIsSurveyModalOpen(false);
-        alert(`¡Excelente! Encuestas guardadas para ${pendingSurveyPlayers.length} jugador(es).`);
+        
+        // Finalizar sesión sin mostrar alert
         onDataChange();
         endSession();
         navigate('/players');
@@ -247,14 +392,32 @@ export const useTrainingSession = ({
   };
 
   const handleCloseSurveyModal = () => {
-    if (window.confirm('¿Estás seguro de salir sin completar las encuestas?')) {
-      setIsSurveyModalOpen(false);
-      onDataChange();
-      endSession();
-      navigate('/players');
-    }
+    setIsSurveyExitConfirmModalOpen(true);
   };
 
+  // Handlers para los modales de confirmación de encuestas
+  const handleConfirmStartSurveys = () => {
+    setIsSurveyConfirmationModalOpen(false);
+    setIsSurveyModalOpen(true);
+  };
+
+  const handleDeclineSurveys = async () => {
+    setIsSurveyConfirmationModalOpen(false);
+    // Si declina las encuestas, guardar las sesiones directamente
+    await saveSessionsDirectly(pendingSessionsToSave);
+  };
+
+  const handleConfirmExitSurveys = async () => {
+    setIsSurveyExitConfirmModalOpen(false);
+    setIsSurveyModalOpen(false);
+    // Si sale de las encuestas, guardar las sesiones directamente
+    await saveSessionsDirectly(pendingSessionsToSave);
+  };
+
+  const handleCancelExitSurveys = () => {
+    setIsSurveyExitConfirmModalOpen(false);
+  };
+  
   return {
     // Estados
     isLoading,
@@ -267,12 +430,17 @@ export const useTrainingSession = ({
     currentSurveyPlayerIndex,
     pendingSurveyPlayers,
     askForSurveys,
+    isSurveyConfirmationModalOpen,
+    isSurveyExitConfirmModalOpen,
     observaciones,
+    isAddSpecificExerciseModalOpen,
+    enabledSurveyQuestions,
     
     // Estados del formulario
     currentTipoKey,
     currentAreaKey,
     currentEjercicioName,
+    currentEjercicioEspecifico,
     tiempoCantidad,
     intensidad,
     
@@ -280,6 +448,7 @@ export const useTrainingSession = ({
     availableTipoKeys,
     availableAreaKeys,
     availableEjercicioNames,
+    availableSpecificExercises,
     
     // Valores computados
     playerNamesDisplay,
@@ -291,9 +460,11 @@ export const useTrainingSession = ({
     setIsParticipantModalOpen,
     setAskForSurveys,
     setObservaciones,
+    setIsAddSpecificExerciseModalOpen,
     
     // Setters del formulario
     setCurrentEjercicioName,
+    setCurrentEjercicioEspecifico,
     setTiempoCantidad,
     setIntensidad,
     
@@ -304,10 +475,17 @@ export const useTrainingSession = ({
     handleRemoveParticipant,
     handleTipoChange,
     handleAreaChange,
+    handleEjercicioChange,
+    handleAddSpecificExercise,
+    handleSubmitSpecificExercise,
     handleAddExerciseToSession,
     handleFinishTraining,
     handleSurveySubmit,
     handleCloseSurveyModal,
+    handleConfirmStartSurveys,
+    handleDeclineSurveys,
+    handleConfirmExitSurveys,
+    handleCancelExitSurveys,
     
     // Props para componentes
     allPlayers,

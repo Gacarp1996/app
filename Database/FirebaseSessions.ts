@@ -4,8 +4,13 @@ import { TrainingSession } from "../types";
 
 export const addSession = async (academiaId: string, sessionData: Omit<TrainingSession, "id">) => {
   try {
+    // Filtrar campos undefined antes de enviar a Firebase
+    const cleanedSessionData = Object.fromEntries(
+      Object.entries(sessionData).filter(([key, value]) => value !== undefined)
+    );
+    
     const sessionsCollection = collection(db, "academias", academiaId, "sessions");
-    const docRef = await addDoc(sessionsCollection, sessionData);
+    const docRef = await addDoc(sessionsCollection, cleanedSessionData);
     console.log("Sesión agregada con ID:", docRef.id);
     return docRef.id;
   } catch (error) {

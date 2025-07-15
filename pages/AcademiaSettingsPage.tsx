@@ -1,5 +1,6 @@
-import { FC, useState } from 'react';
+import { FC, useState, useEffect } from 'react';
 import Modal from '../components/shared/Modal';
+import { AcademiaConfig, getAcademiaConfig, saveAcademiaConfig } from '../Database/FirebaseAcademiaConfig';
 
 // Importar componentes extraídos
 import { 
@@ -22,6 +23,11 @@ import {
 const AcademiaSettingsPage: FC = () => {
   // Estado para controlar el modal de configuración
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  
+  // Estados para configuración de encuestas
+  const [surveyConfig, setSurveyConfig] = useState<AcademiaConfig | null>(null);
+  const [loadingSurveyConfig, setLoadingSurveyConfig] = useState(false);
+  const [savingSurveyConfig, setSavingSurveyConfig] = useState(false);
 
   // Hook principal
   const {
@@ -72,6 +78,56 @@ const AcademiaSettingsPage: FC = () => {
     navigate,
     setProcessingAction
   );
+
+  // Cargar configuración de encuestas cuando se abra el modal - HOOK DEBE IR ANTES DE LOS RETURNS
+  useEffect(() => {
+    if (isConfigModalOpen && academiaActual && !surveyConfig && !loadingSurveyConfig) {
+      loadSurveyConfig();
+    }
+  }, [isConfigModalOpen, academiaActual, surveyConfig, loadingSurveyConfig]);
+
+  const loadSurveyConfig = async () => {
+    if (!academiaActual) return;
+    
+    setLoadingSurveyConfig(true);
+    try {
+      const config = await getAcademiaConfig(academiaActual.id);
+      setSurveyConfig(config);
+    } catch (error) {
+      console.error('Error cargando configuración de encuestas:', error);
+    } finally {
+      setLoadingSurveyConfig(false);
+    }
+  };
+
+  const handleSurveyConfigChange = (key: keyof AcademiaConfig['preguntasEncuesta'], checked: boolean) => {
+    if (!surveyConfig) return;
+    
+    setSurveyConfig(prev => ({
+      ...prev!,
+      preguntasEncuesta: {
+        ...prev!.preguntasEncuesta,
+        [key]: checked
+      }
+    }));
+  };
+
+  const handleSaveSurveyConfig = async () => {
+    if (!surveyConfig || !academiaActual) return;
+    
+    setSavingSurveyConfig(true);
+    try {
+      await saveAcademiaConfig(academiaActual.id, {
+        encuestasHabilitadas: surveyConfig.encuestasHabilitadas,
+        preguntasEncuesta: surveyConfig.preguntasEncuesta
+      });
+    } catch (error) {
+      console.error('Error guardando configuración:', error);
+    } finally {
+      setSavingSurveyConfig(false);
+      setIsConfigModalOpen(false);
+    }
+  };
 
   // Manejadores simples
   const handleChangeAcademia = () => {
@@ -250,12 +306,12 @@ const AcademiaSettingsPage: FC = () => {
             </div>
             <div className="grid grid-cols-2 gap-6">
               <div className="text-center">
-                <p className="text-4xl font-bold text-orange-400 mb-1">76%</p>
                 <p className="text-gray-400 text-sm">Con planificación</p>
+                <p className="text-white text-lg font-semibold">{users.length * 15}</p>
               </div>
               <div className="text-center">
-                <p className="text-4xl font-bold text-orange-400 mb-1">61%</p>
                 <p className="text-gray-400 text-sm">Con objetivos</p>
+                <p className="text-white text-lg font-semibold">{Math.floor(users.length * 3.2)}</p>
               </div>
             </div>
           </div>
@@ -327,6 +383,15 @@ const AcademiaSettingsPage: FC = () => {
     
     // Mostrar vista de Director para todos los usuarios por ahora
     return <DirectorView />;
+  };
+
+  const handleToggleSurveys = (enabled: boolean) => {
+    if (!surveyConfig) return;
+    
+    setSurveyConfig(prev => prev ? {
+      ...prev,
+      encuestasHabilitadas: enabled
+    } : null);
   };
 
   return (
@@ -493,84 +558,112 @@ const AcademiaSettingsPage: FC = () => {
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-white text-center">Configuración de encuestas post-entrenamiento</h3>
                     
-                    {/* Preguntas apiladas verticalmente - SIN COLUMNAS */}
-                    <div className="space-y-3">
-                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600 flex items-start space-x-3">
-                        <input 
-                          type="checkbox" 
-                          defaultChecked={true} 
-                          className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500 mt-1 flex-shrink-0" 
-                        />
-                        <span className="text-gray-300">¿Cómo te sentiste físicamente durante el entrenamiento?</span>
+                    {loadingSurveyConfig ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-400 mx-auto"></div>
+                        <p className="mt-2 text-gray-400">Cargando configuración...</p>
                       </div>
-                      
-                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600 flex items-start space-x-3">
-                        <input 
-                          type="checkbox" 
-                          defaultChecked={true} 
-                          className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500 mt-1 flex-shrink-0" 
-                        />
-                        <span className="text-gray-300">¿Qué tan desafiante fue el entrenamiento?</span>
-                      </div>
-                      
-                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600 flex items-start space-x-3">
-                        <input 
-                          type="checkbox" 
-                          defaultChecked={false} 
-                          className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500 mt-1 flex-shrink-0" 
-                        />
-                        <span className="text-gray-300">¿Cómo evalúas tu progreso técnico?</span>
-                      </div>
-                      
-                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600 flex items-start space-x-3">
-                        <input 
-                          type="checkbox" 
-                          defaultChecked={true} 
-                          className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500 mt-1 flex-shrink-0" 
-                        />
-                        <span className="text-gray-300">¿Qué tan motivado te sentís para el próximo entrenamiento?</span>
-                      </div>
-                      
-                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600 flex items-start space-x-3">
-                        <input 
-                          type="checkbox" 
-                          defaultChecked={false} 
-                          className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500 mt-1 flex-shrink-0" 
-                        />
-                        <span className="text-gray-300">¿Cómo calificarías la comunicación con tu entrenador?</span>
-                      </div>
-                    </div>
-
-                    {/* Información de escala */}
-                    <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
-                      <p className="text-sm text-blue-300">
-                        <strong>Escala de respuestas:</strong> Todas las preguntas utilizan una escala de 5 niveles:
-                        Pésimo (1 a 5) Cualitativo (Muy malo, Malo, Bueno, Muy bueno, Excelente)
-                      </p>
-                    </div>
-
-                    {/* Manejo de cambios apilado verticalmente */}
-                    <div className="space-y-4">
-                      <h4 className="font-semibold text-white text-center">Manejo de cambios en encuestas</h4>
-                      
-                      <div className="space-y-3">
-                        <label className="flex items-start space-x-3 p-4 bg-green-900/20 border border-green-700 rounded-lg cursor-pointer">
-                          <input type="radio" name="surveyChanges" defaultChecked={true} className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 focus:ring-green-500 mt-1 flex-shrink-0" />
-                          <div>
-                            <div className="text-green-300 font-medium">Conservar datos por 7 días</div>
-                            <div className="text-sm text-green-400">Podés revertir los cambios durante ese plazo. Luego se eliminan automáticamente.</div>
-                          </div>
-                        </label>
+                    ) : surveyConfig ? (
+                      <>
+                        {/* Habilitar/Deshabilitar encuestas */}
+                        <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600">
+                          <label className="flex items-center space-x-3 cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={surveyConfig.encuestasHabilitadas}
+                              onChange={(e) => handleToggleSurveys(e.target.checked)}
+                              className="w-5 h-5 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500" 
+                            />
+                            <div>
+                              <span className="text-white font-medium">Habilitar encuestas post-entrenamiento</span>
+                              <p className="text-sm text-gray-400">Los jugadores completarán encuestas al finalizar cada entrenamiento</p>
+                            </div>
+                          </label>
+                        </div>
                         
-                        <label className="flex items-start space-x-3 p-4 bg-gray-800 border border-gray-600 rounded-lg cursor-pointer">
-                          <input type="radio" name="surveyChanges" defaultChecked={false} className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 focus:ring-green-500 mt-1 flex-shrink-0" />
-                          <div>
-                            <div className="text-gray-300 font-medium">Eliminar datos inmediatamente</div>
-                            <div className="text-sm text-red-400">Al modificar esta configuración se eliminarán todos los registros anteriores de encuestas</div>
-                          </div>
-                        </label>
+                        {surveyConfig.encuestasHabilitadas && (
+                          <>
+                            <div className="space-y-3">
+                              <p className="text-gray-300 font-medium">Selecciona las preguntas a incluir:</p>
+                              
+                              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600 flex items-start space-x-3">
+                                <input 
+                                  type="checkbox" 
+                                  checked={surveyConfig.preguntasEncuesta.cansancioFisico}
+                                  onChange={(e) => handleSurveyConfigChange('cansancioFisico', e.target.checked)}
+                                  className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500 mt-1 flex-shrink-0" 
+                                />
+                                <div>
+                                  <span className="text-gray-300">Energía Física</span>
+                                  <p className="text-sm text-gray-500">¿Cómo te sentiste físicamente durante el entrenamiento?</p>
+                                </div>
+                              </div>
+                              
+                              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600 flex items-start space-x-3">
+                                <input 
+                                  type="checkbox" 
+                                  checked={surveyConfig.preguntasEncuesta.concentracion}
+                                  onChange={(e) => handleSurveyConfigChange('concentracion', e.target.checked)}
+                                  className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500 mt-1 flex-shrink-0" 
+                                />
+                                <div>
+                                  <span className="text-gray-300">Concentración</span>
+                                  <p className="text-sm text-gray-500">¿Qué tan concentrado te sentiste durante la práctica?</p>
+                                </div>
+                              </div>
+                              
+                              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600 flex items-start space-x-3">
+                                <input 
+                                  type="checkbox" 
+                                  checked={surveyConfig.preguntasEncuesta.actitudMental}
+                                  onChange={(e) => handleSurveyConfigChange('actitudMental', e.target.checked)}
+                                  className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500 mt-1 flex-shrink-0" 
+                                />
+                                <div>
+                                  <span className="text-gray-300">Actitud Mental</span>
+                                  <p className="text-sm text-gray-500">¿Cómo evalúas tu actitud mental durante el entrenamiento?</p>
+                                </div>
+                              </div>
+                              
+                              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-600 flex items-start space-x-3">
+                                <input 
+                                  type="checkbox" 
+                                  checked={surveyConfig.preguntasEncuesta.sensacionesTenisticas}
+                                  onChange={(e) => handleSurveyConfigChange('sensacionesTenisticas', e.target.checked)}
+                                  className="w-4 h-4 text-green-400 bg-gray-800 border-gray-600 rounded focus:ring-green-500 mt-1 flex-shrink-0" 
+                                />
+                                <div>
+                                  <span className="text-gray-300">Sensaciones Tenísticas</span>
+                                  <p className="text-sm text-gray-500">¿Cómo te sentiste técnicamente durante la práctica?</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Información de escala */}
+                            <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
+                              <p className="text-sm text-blue-300">
+                                <strong>Escala de respuestas:</strong> Todas las preguntas utilizan una escala de 1 a 5, donde 1 es la valoración más baja y 5 la más alta.
+                              </p>
+                            </div>
+
+                            {/* Botón para guardar */}
+                            <div className="flex justify-end pt-4">
+                              <button
+                                onClick={handleSaveSurveyConfig}
+                                disabled={savingSurveyConfig}
+                                className="px-6 py-3 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:from-gray-600 disabled:to-gray-600 text-black font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:transform-none shadow-lg shadow-green-500/25"
+                              >
+                                {savingSurveyConfig ? 'Guardando...' : 'Guardar Configuración'}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        Error cargando la configuración de encuestas
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

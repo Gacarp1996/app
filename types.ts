@@ -45,8 +45,17 @@ export interface LoggedExercise {
   tipo: TrainingType;
   area: TrainingArea; // This is the sub-category/area
   ejercicio: string;
+  ejercicioEspecifico?: string; // Nombre del ejercicio específico personalizado
   tiempoCantidad: string;
   intensidad: number; // 1-10
+}
+
+export interface SpecificExercise {
+  id: string;
+  name: string;
+  tipo: string;
+  area: string;
+  ejercicio: string;
 }
 
 export enum TrainingArea {
@@ -140,4 +149,20 @@ export interface TournamentPerformanceData {
   dificultad: number;
   resultado: string;
   nombreTorneo: string;
+}
+
+// ===== TIPOS PARA CONFIGURACIÓN DE ACADEMIA =====
+
+export interface AcademiaConfig {
+  id: string;
+  academiaId: string;
+  encuestasHabilitadas: boolean;
+  preguntasEncuesta: {
+    cansancioFisico: boolean;
+    concentracion: boolean;
+    actitudMental: boolean;
+    sensacionesTenisticas: boolean;
+  };
+  fechaCreacion: string;
+  fechaActualizacion: string;
 }

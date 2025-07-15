@@ -15,7 +15,7 @@ interface SurveyQuestion {
 const SURVEY_QUESTIONS: SurveyQuestion[] = [
   {
     key: 'cansancioFisico',
-    title: 'Cansancio Físico',
+    title: 'Energía Física',
     lowLabel: '1',
     highLabel: '5',
     lowDescription: 'Muy cansado',
@@ -26,7 +26,7 @@ const SURVEY_QUESTIONS: SurveyQuestion[] = [
     title: 'Concentración',
     lowLabel: '1',
     highLabel: '5',
-    lowDescription: 'Muy desconcentrado',
+    lowDescription: 'Desconcentrado',
     highDescription: 'Muy concentrado'
   },
   {
@@ -34,7 +34,7 @@ const SURVEY_QUESTIONS: SurveyQuestion[] = [
     title: 'Actitud Mental',
     lowLabel: '1',
     highLabel: '5',
-    lowDescription: 'Muy negativa',
+    lowDescription: 'Negativa',
     highDescription: 'Muy positiva'
   },
   {
@@ -42,7 +42,7 @@ const SURVEY_QUESTIONS: SurveyQuestion[] = [
     title: 'Sensaciones Tenísticas',
     lowLabel: '1',
     highLabel: '5',
-    lowDescription: 'Muy malas',
+    lowDescription: 'Malas',
     highDescription: 'Excelentes'
   }
 ];
@@ -52,18 +52,19 @@ interface PostTrainingSurveyModalProps {
   onClose: () => void;
   player: Player;
   onSubmit: (playerId: string, responses: {
-    cansancioFisico: number;
-    concentracion: number;
-    actitudMental: number;
-    sensacionesTenisticas: number;
+    cansancioFisico?: number;
+    concentracion?: number;
+    actitudMental?: number;
+    sensacionesTenisticas?: number;
   }) => void;
   currentIndex?: number;
   totalPlayers?: number;
+  enabledQuestions?: string[]; // Nueva prop para preguntas habilitadas
   initialValues?: {
-    cansancioFisico: number;
-    concentracion: number;
-    actitudMental: number;
-    sensacionesTenisticas: number;
+    cansancioFisico?: number;
+    concentracion?: number;
+    actitudMental?: number;
+    sensacionesTenisticas?: number;
   };
 }
 
@@ -74,8 +75,13 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
   onSubmit,
   currentIndex = 0,
   totalPlayers = 1,
+  enabledQuestions = ['cansancioFisico', 'concentracion', 'actitudMental', 'sensacionesTenisticas'], // Por defecto todas
   initialValues
 }) => {
+  
+  // Filtrar preguntas habilitadas
+  const filteredQuestions = SURVEY_QUESTIONS.filter(q => enabledQuestions.includes(q.key));
+  
   const [responses, setResponses] = useState<{
     cansancioFisico: number | null;
     concentracion: number | null;
@@ -90,30 +96,50 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
 
   useEffect(() => {
     if (initialValues) {
-      setResponses(initialValues);
+      setResponses({
+        cansancioFisico: initialValues.cansancioFisico ?? null,
+        concentracion: initialValues.concentracion ?? null,
+        actitudMental: initialValues.actitudMental ?? null,
+        sensacionesTenisticas: initialValues.sensacionesTenisticas ?? null
+      });
+    } else {
+      // Resetear todas las respuestas cuando cambia el jugador
+      setResponses({
+        cansancioFisico: null,
+        concentracion: null,
+        actitudMental: null,
+        sensacionesTenisticas: null
+      });
     }
-  }, [initialValues]);
+  }, [initialValues, player.id]); // Agregar player.id como dependencia
 
   const handleValueChange = (key: keyof typeof responses, value: number) => {
     setResponses(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = () => {
-    if (Object.values(responses).some(v => v === null)) {
-      alert('Por favor responde todas las preguntas');
+    // Validar solo las preguntas habilitadas
+    const requiredFields = enabledQuestions;
+    const missingFields = requiredFields.filter(field => responses[field as keyof typeof responses] === null);
+    
+    if (missingFields.length > 0) {
+      alert('Por favor responde todas las preguntas habilitadas');
       return;
     }
 
-    onSubmit(player.id, responses as any);
-    setResponses({
-      cansancioFisico: null,
-      concentracion: null,
-      actitudMental: null,
-      sensacionesTenisticas: null
+    // Crear respuestas solo con las preguntas habilitadas y con valores válidos
+    const validResponses: any = {};
+    enabledQuestions.forEach(field => {
+      const value = responses[field as keyof typeof responses];
+      if (value !== null) {
+        validResponses[field] = value;
+      }
     });
+
+    onSubmit(player.id, validResponses);
   };
 
-  const isComplete = Object.values(responses).every(v => v !== null);
+  const isComplete = enabledQuestions.every(field => responses[field as keyof typeof responses] !== null);
 
   return (
     <Modal 
@@ -147,7 +173,7 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
           ¿Cómo se sintió <span className="text-green-400 font-semibold">{player.name}</span> durante el entrenamiento?
         </p>
 
-        {SURVEY_QUESTIONS.map((question) => (
+        {filteredQuestions.map((question) => (
           <div key={question.key} className="space-y-3 p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
             <h3 className="font-semibold text-green-400 text-lg">{question.title}</h3>
             
@@ -180,7 +206,7 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
             disabled={!isComplete}
             className="flex-1 py-3 px-4 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-green-500/25"
           >
-            Guardar Respuestas
+            {currentIndex < totalPlayers - 1 ? 'Guardar y Continuar' : 'Guardar y Finalizar'}
           </button>
           <button
             onClick={onClose}

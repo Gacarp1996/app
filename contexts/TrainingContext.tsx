@@ -8,6 +8,7 @@ export interface SessionExercise {
   tipo: any;
   area: any;
   ejercicio: string;
+  ejercicioEspecifico?: string;
   tiempoCantidad: string;
   intensidad: number;
   loggedForPlayerId: string;

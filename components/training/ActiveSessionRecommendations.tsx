@@ -1,5 +1,5 @@
 // components/training/ActiveSessionRecommendations.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Player } from '../../types';
 import { useTrainingRecommendations } from '../../hooks/useTrainingRecommendations';
 
@@ -17,11 +17,13 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'individual' | 'group'>('individual');
+  const [userHasInteractedWithTabs, setUserHasInteractedWithTabs] = useState(false);
 
   const {
     recommendations,
     loading: recommendationsLoading,
     getRecommendationsForPlayer,
+    getRecommendationsForPlayers,
     clearRecommendations
   } = useTrainingRecommendations({
     players: participants,
@@ -35,35 +37,27 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     if (participants.length > 0 && !selectedPlayerId) {
       setSelectedPlayerId(participants[0].id);
     }
-    // Si hay múltiples jugadores, empezar con vista grupal
-    if (participants.length > 1) {
-      setActiveTab('group');
-    } else {
-      setActiveTab('individual');
+    // Solo establecer tab inicial automáticamente si el usuario no ha interactuado manualmente
+    if (!userHasInteractedWithTabs) {
+      if (participants.length > 1) {
+        setActiveTab('group');
+      } else {
+        setActiveTab('individual');
+      }
     }
-  }, [participants, selectedPlayerId]);
+  }, [participants.length, selectedPlayerId, userHasInteractedWithTabs]);
 
   // Cargar recomendaciones cuando cambien los participantes
+  const participantIds = useMemo(() => participants.map(p => p.id).sort().join(','), [participants]);
+  
   useEffect(() => {
     if (participants.length > 0 && academiaId) {
       console.log('🔄 Cargando recomendaciones para:', participants.map(p => p.name));
       
-      // Limpiar solo si realmente cambiaron los participantes
-      const currentPlayerIds = Object.keys(recommendations);
-      const newPlayerIds = participants.map(p => p.id);
-      const playersChanged = currentPlayerIds.length !== newPlayerIds.length || 
-                            !currentPlayerIds.every(id => newPlayerIds.includes(id));
-      
-      if (playersChanged) {
-        clearRecommendations();
-      }
-      
-      // Cargar recomendaciones para todos los jugadores
-      participants.forEach(player => {
-        getRecommendationsForPlayer(player.id);
-      });
+      // Usar la función que ya maneja todo el ciclo de carga
+      getRecommendationsForPlayers(participants.map(p => p.id));
     }
-  }, [participants.map(p => p.id).sort().join(','), academiaId, getRecommendationsForPlayer, clearRecommendations]);
+  }, [participantIds, academiaId]); // Solo participant IDs y academiaId
 
   // Verificar si el jugador seleccionado aún está en la lista de participantes
   useEffect(() => {
@@ -117,9 +111,14 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
           };
         }
 
-        areaNeeds[key].count++;
+        // Solo contar el jugador una vez por área (evitar duplicados)
+        if (!areaNeeds[key].players.includes(player.name)) {
+          areaNeeds[key].count++;
+          areaNeeds[key].players.push(player.name);
+        }
+        
         areaNeeds[key].totalDifference += Math.abs(rec.difference);
-        areaNeeds[key].players.push(player.name);
+        
         // Si la mayoría necesita más de esta área, entonces needsMore = true
         if (rec.difference > 0) areaNeeds[key].needsMore = true;
       });
@@ -142,15 +141,22 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       }
     });
 
-    // Ordenar por prioridad y número de jugadores
+    // Ordenar por prioridad y déficit más grande (donde la realidad está más por debajo del plan)
     const sortedNeeds = Object.entries(areaNeeds)
       .sort(([, a], [, b]) => {
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
-        if (priorityDiff !== 0) return priorityDiff;
+        // Ordenar por magnitud absoluta del desequilibrio (más importante primero)
+        const absA = Math.abs(a.needsMore ? a.avgDifference : -a.avgDifference);
+        const absB = Math.abs(b.needsMore ? b.avgDifference : -b.avgDifference);
+        
+        if (absB !== absA) {
+          return absB - absA; // Mayor desequilibrio primero
+        }
+        
+        // En caso de empate, priorizar por más jugadores afectados
         return b.count - a.count;
       })
-      .slice(0, 5); // Top 5 recomendaciones grupales
+      .filter(([, need]) => Math.abs(need.avgDifference) >= 5) // Solo diferencias significativas
+      .slice(0, 3); // Solo las 3 recomendaciones más importantes
 
     return {
       totalPlayers: participants.length,
@@ -262,7 +268,10 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
             {participants.length > 1 && (
               <div className="flex mb-4 bg-gray-800/50 rounded-lg p-1">
                 <button
-                  onClick={() => setActiveTab('group')}
+                  onClick={() => {
+                    setActiveTab('group');
+                    setUserHasInteractedWithTabs(true);
+                  }}
                   className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all ${
                     activeTab === 'group'
                       ? 'bg-green-500/20 text-green-400 border border-green-500/30'
@@ -277,7 +286,10 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                   </div>
                 </button>
                 <button
-                  onClick={() => setActiveTab('individual')}
+                  onClick={() => {
+                    setActiveTab('individual');
+                    setUserHasInteractedWithTabs(true);
+                  }}
                   className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all ${
                     activeTab === 'individual'
                       ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
@@ -373,7 +385,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                               </h5>
                               
                               <div className="space-y-2">
-                                {groupRecs.groupRecommendations.slice(0, 3).map((rec, index) => (
+                                {groupRecs.groupRecommendations.map((rec, index) => (
                                   <div key={index} className={`border rounded-lg p-3 ${getPriorityColor(rec.priority)}`}>
                                     <div className="flex items-start gap-3">
                                       <div className="flex-shrink-0 mt-0.5">
@@ -437,7 +449,12 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                         </label>
                         <select
                           value={selectedPlayerId}
-                          onChange={(e) => setSelectedPlayerId(e.target.value)}
+                          onChange={(e) => {
+                            setSelectedPlayerId(e.target.value);
+                            // Mantener la vista individual activa al cambiar de jugador
+                            setActiveTab('individual');
+                            setUserHasInteractedWithTabs(true);
+                          }}
                           className="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                         >
                           {participants.map(player => (
@@ -509,7 +526,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                             </h5>
                             
                             <div className="space-y-2 max-h-64 overflow-y-auto">
-                              {selectedPlayerRecs.recommendations.slice(0, 3).map((rec, index) => (
+                              {selectedPlayerRecs.recommendations.map((rec, index) => (
                                 <div key={index} className={`border rounded-lg p-3 ${getPriorityColor(rec.priority)}`}>
                                   <div className="flex items-start gap-3">
                                     <div className="flex-shrink-0 mt-0.5">
@@ -536,14 +553,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                   </div>
                                 </div>
                               ))}
-                              
-                              {selectedPlayerRecs.recommendations.length > 3 && (
-                                <div className="text-center py-2">
-                                  <span className="text-xs text-gray-500">
-                                    +{selectedPlayerRecs.recommendations.length - 3} recomendación(es) más
-                                  </span>
-                                </div>
-                              )}
                             </div>
                           </div>
                         )}

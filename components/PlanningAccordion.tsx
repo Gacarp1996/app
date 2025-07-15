@@ -1,33 +1,6 @@
-import React, { useState, useEffect } from 'react';
-
-// Simulación de tipos para el ejemplo
-interface Player {
-  id: string;
-  name: string;
-}
-
-interface TrainingSession {
-  id: string;
-  jugadorId: string;
-  fecha: string;
-  ejercicios: Array<{
-    id: string;
-    tipo: string;
-    area: string;
-    ejercicio: string;
-    tiempoCantidad: string;
-    intensidad: number;
-  }>;
-}
-
-interface AnalysisNode {
-  name: string;
-  planificado: number;
-  realizado: number;
-  diferencia: number;
-  esDistribucionLibre?: boolean;
-  children?: AnalysisNode[];
-}
+import React, { useState } from 'react';
+import { Player } from '../types';
+import { usePlanningAnalysis, AnalysisNode } from '../hooks/usePlanningAnalysis';
 
 interface PlanningAccordionProps {
   player: Player;
@@ -35,69 +8,19 @@ interface PlanningAccordionProps {
 }
 
 const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaId }) => {
-  const [loading, setLoading] = useState(false);
-  const [analysisTree, setAnalysisTree] = useState<AnalysisNode[]>([
-    // Datos de ejemplo para demostración
-    {
-      name: 'Canasto',
-      planificado: 40,
-      realizado: 35,
-      diferencia: 5,
-      children: [
-        {
-          name: 'Juego de base',
-          planificado: 25,
-          realizado: 20,
-          diferencia: 5,
-          children: [
-            {
-              name: 'Estático',
-              planificado: 15,
-              realizado: 12,
-              diferencia: 3
-            },
-            {
-              name: 'Dinámico',
-              planificado: 10,
-              realizado: 8,
-              diferencia: 2
-            }
-          ]
-        },
-        {
-          name: 'Juego de red',
-          planificado: 15,
-          realizado: 15,
-          diferencia: 0,
-          esDistribucionLibre: true
-        }
-      ]
-    },
-    {
-      name: 'Peloteo',
-      planificado: 60,
-      realizado: 65,
-      diferencia: -5,
-      children: [
-        {
-          name: 'Puntos',
-          planificado: 30,
-          realizado: 40,
-          diferencia: -10,
-          esDistribucionLibre: true
-        },
-        {
-          name: 'Primeras pelotas',
-          planificado: 30,
-          realizado: 25,
-          diferencia: 5
-        }
-      ]
-    }
-  ]);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['Canasto', 'Peloteo']));
-  const [error, setError] = useState<string>('');
   const [rangoAnalisis, setRangoAnalisis] = useState(30);
+  const { 
+    loading, 
+    error, 
+    analysisTree, 
+    trainingPlan 
+  } = usePlanningAnalysis({ 
+    player, 
+    academiaId, 
+    rangoAnalisis 
+  });
+  
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['Canasto', 'Peloteo']));
 
   const toggleNode = (nodePath: string) => {
     setExpandedNodes(prev => {
@@ -163,11 +86,11 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
           
           <div className="relative p-4 sm:p-5">
-            <div className="flex items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
                 {hasChildren && (
                   <span className={`
-                    text-gray-500 text-sm transition-transform duration-300
+                    text-gray-500 text-sm transition-transform duration-300 flex-shrink-0 mt-1 sm:mt-0
                     ${isExpanded ? 'rotate-90' : ''}
                   `}>
                     ▶
@@ -183,7 +106,7 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
                       {node.name}
                     </h4>
                     {node.esDistribucionLibre && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full border border-yellow-500/30">
+                      <span className="inline-flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full border border-yellow-500/30 flex-shrink-0">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -207,7 +130,7 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
                       {/* Marcador del objetivo */}
                       <div 
                         className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-gray-600"
-                        style={{ left: `${node.planificado}%` }}
+                        style={{ left: `${Math.min(100, node.planificado)}%` }}
                       />
                     </div>
                     
@@ -228,14 +151,16 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
               <div className={`
                 flex flex-col items-center justify-center p-3 rounded-lg
                 bg-gray-800/50 border ${status.borderColor}
-                min-w-[80px] sm:min-w-[90px]
+                min-w-[90px] sm:min-w-[100px] min-h-[70px] flex-shrink-0
               `}>
-                <span className="text-2xl mb-1">{status.icon}</span>
+                <div className="flex items-center justify-center w-8 h-8 mb-2">
+                  <span className="text-xl">{status.icon}</span>
+                </div>
                 <div className={`text-center ${status.color}`}>
-                  <div className="font-bold text-sm sm:text-base">
+                  <div className="font-bold text-sm leading-tight">
                     {node.diferencia > 0 ? '+' : ''}{Math.abs(node.diferencia).toFixed(1)}%
                   </div>
-                  <div className="text-xs opacity-80">
+                  <div className="text-xs opacity-80 mt-1">
                     {status.label}
                   </div>
                 </div>
@@ -261,7 +186,7 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
           <div className="absolute inset-0 rounded-full animate-ping h-12 w-12 border border-green-500 opacity-20"></div>
         </div>
-        <p className="mt-4 text-gray-400 animate-pulse">Analizando planificación...</p>
+        <p className="mt-4 text-gray-400 animate-pulse">Analizando planificación de {player.name}...</p>
       </div>
     );
   }
@@ -271,7 +196,28 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
       <div className="bg-red-500/10 border border-red-500/30 p-4 sm:p-6 rounded-xl backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <span className="text-2xl">❌</span>
-          <p className="text-red-400">{error}</p>
+          <div>
+            <p className="text-red-400 font-medium">{error}</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Asegúrate de que {player.name} tenga un plan de entrenamiento creado.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!trainingPlan) {
+    return (
+      <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 sm:p-6 rounded-xl backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">⚠️</span>
+          <div>
+            <p className="text-yellow-400 font-medium">No hay plan de entrenamiento</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Crea un plan de entrenamiento para {player.name} para poder ver el análisis.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -283,20 +229,29 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
       <div className="bg-gradient-to-r from-gray-900/80 to-gray-900/60 p-4 sm:p-6 rounded-xl border border-gray-800">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
-              Análisis de Planificación
+            <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+              Análisis de Planificación - {player.name}
             </h3>
             <p className="text-sm text-gray-400 mt-1">
               Comparación entre lo planificado y lo ejecutado
             </p>
           </div>
-          <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-2 rounded-lg">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span className="text-sm font-medium text-gray-300">
-              Últimos {rangoAnalisis} días
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-2 rounded-lg">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <select 
+                value={rangoAnalisis} 
+                onChange={(e) => setRangoAnalisis(Number(e.target.value))}
+                className="bg-transparent text-sm font-medium text-gray-300 focus:outline-none"
+              >
+                <option value={7}>Últimos 7 días</option>
+                <option value={14}>Últimos 14 días</option>
+                <option value={30}>Últimos 30 días</option>
+                <option value={60}>Últimos 60 días</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -307,7 +262,10 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
           <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          <p>No hay datos para mostrar</p>
+          <p className="text-lg font-medium mb-2">No hay datos de entrenamiento</p>
+          <p className="text-sm">
+            {player.name} no tiene sesiones de entrenamiento registradas en los últimos {rangoAnalisis} días.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -317,32 +275,56 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
       
       {/* Leyenda mejorada */}
       <div className="bg-gray-900/50 backdrop-blur-sm p-4 sm:p-6 rounded-xl border border-gray-800">
-        <h4 className="font-semibold text-gray-200 mb-4 flex items-center gap-2">
-          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <h4 className="font-semibold text-gray-200 mb-6 flex items-center gap-2">
+          <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Guía de interpretación
+          <span className="text-base">Guía de interpretación</span>
         </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
-            <span className="text-2xl">✅</span>
-            <div>
-              <span className="text-green-400 font-medium">Dentro del plan</span>
-              <p className="text-xs text-gray-500">Diferencia ±5%</p>
+        
+        <div className="space-y-3">
+          {/* Estado: Dentro del plan */}
+          <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 h-16">
+            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-green-500/10 rounded-lg border border-green-500/20">
+              <span className="text-sm">✅</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h5 className="text-green-400 font-medium text-sm leading-tight">
+                Dentro del plan
+              </h5>
+              <p className="text-xs text-gray-500 leading-tight">
+                Diferencia ±5%
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
-            <span className="text-2xl">⚠️</span>
-            <div>
-              <span className="text-red-400 font-medium">Falta entrenar</span>
-              <p className="text-xs text-gray-500">Por debajo del plan</p>
+
+          {/* Estado: Falta entrenar */}
+          <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 h-16">
+            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-red-500/10 rounded-lg border border-red-500/20">
+              <span className="text-sm">⚠️</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h5 className="text-red-400 font-medium text-sm leading-tight">
+                Falta entrenar
+              </h5>
+              <p className="text-xs text-gray-500 leading-tight">
+                Por debajo del plan
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
-            <span className="text-2xl">📈</span>
-            <div>
-              <span className="text-orange-400 font-medium">Entrenado de más</span>
-              <p className="text-xs text-gray-500">Por encima del plan</p>
+
+          {/* Estado: Entrenado de más */}
+          <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 h-16">
+            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-orange-500/10 rounded-lg border border-orange-500/20">
+              <span className="text-sm">📈</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h5 className="text-orange-400 font-medium text-sm leading-tight">
+                Entrenado de más
+              </h5>
+              <p className="text-xs text-gray-500 leading-tight">
+                Por encima del plan
+              </p>
             </div>
           </div>
         </div>

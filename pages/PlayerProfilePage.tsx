@@ -365,8 +365,8 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
         {/* Modal de Análisis de Planificación */}
         {isPlanningAnalysisOpen && player && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-gray-900/95 backdrop-blur-xl rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-800">
-              <div className="p-6 border-b border-gray-700">
+            <div className="bg-gray-900/95 backdrop-blur-xl rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-gray-800">
+              <div className="p-6 border-b border-gray-700 flex-shrink-0">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold text-green-400">
                     {player.name} - Análisis de Planificación
@@ -382,11 +382,13 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
                 </div>
               </div>
               
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                <PlanningAccordion 
-                  player={player} 
-                  academiaId={academiaId} 
-                />
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-6">
+                  <PlanningAccordion 
+                    player={player} 
+                    academiaId={academiaId} 
+                  />
+                </div>
               </div>
             </div>
           </div>

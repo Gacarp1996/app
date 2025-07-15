@@ -32,6 +32,11 @@ const SessionSummary: React.FC<SessionSummaryProps> = ({
                   <p className="text-sm lg:text-base text-gray-300 mt-1">
                     {ex.tipo.toString()} - {ex.area.toString()} - {ex.ejercicio}
                   </p>
+                  {ex.ejercicioEspecifico && (
+                    <p className="text-sm text-purple-400 mt-1 font-medium">
+                      📋 {ex.ejercicioEspecifico}
+                    </p>
+                  )}
                   <p className="text-xs lg:text-sm text-gray-500 mt-1">
                     Tiempo: {ex.tiempoCantidad} min | Intensidad: {ex.intensidad}/10
                   </p>

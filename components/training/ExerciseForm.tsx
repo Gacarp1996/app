@@ -1,37 +1,46 @@
 import React from 'react';
+import { SpecificExercise } from '@/types';
 
 interface ExerciseFormProps {
   currentTipoKey: string;
   currentAreaKey: string;
   currentEjercicioName: string;
+  currentEjercicioEspecifico: string;
   tiempoCantidad: string;
   intensidad: number;
   availableTipoKeys: string[];
   availableAreaKeys: string[];
   availableEjercicioNames: string[];
+  availableSpecificExercises: SpecificExercise[];
   onTipoChange: (value: string) => void;
   onAreaChange: (value: string) => void;
   onEjercicioChange: (value: string) => void;
+  onEjercicioEspecificoChange: (value: string) => void;
   onTiempoCantidadChange: (value: string) => void;
   onIntensidadChange: (value: number) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onAddSpecificExercise: () => void;
 }
 
 const ExerciseForm: React.FC<ExerciseFormProps> = ({
   currentTipoKey,
   currentAreaKey,
   currentEjercicioName,
+  currentEjercicioEspecifico,
   tiempoCantidad,
   intensidad,
   availableTipoKeys,
   availableAreaKeys,
   availableEjercicioNames,
+  availableSpecificExercises,
   onTipoChange,
   onAreaChange,
   onEjercicioChange,
+  onEjercicioEspecificoChange,
   onTiempoCantidadChange,
   onIntensidadChange,
-  onSubmit
+  onSubmit,
+  onAddSpecificExercise
 }) => {
   return (
     <form onSubmit={onSubmit} className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg space-y-6">
@@ -74,6 +83,41 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
           </select>
         </div>
       </div>
+
+      {/* Sección de ejercicios específicos */}
+      {currentEjercicioName && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="block text-sm lg:text-base font-medium text-gray-400">Ejercicio Específico (Opcional)</label>
+            <button
+              type="button"
+              onClick={onAddSpecificExercise}
+              className="px-4 py-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30 text-purple-400 font-semibold rounded-lg transition-all duration-200 border border-purple-500/30 hover:border-purple-500/50 text-sm"
+            >
+              + Agregar Ejercicio Específico
+            </button>
+          </div>
+          
+          {availableSpecificExercises.length > 0 && (
+            <select 
+              value={currentEjercicioEspecifico} 
+              onChange={e => onEjercicioEspecificoChange(e.target.value)} 
+              className="w-full p-3 lg:p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
+            >
+              <option value="">Selecciona ejercicio específico</option>
+              {availableSpecificExercises.map(exercise => (
+                <option key={exercise.id} value={exercise.name}>{exercise.name}</option>
+              ))}
+            </select>
+          )}
+          
+          {availableSpecificExercises.length === 0 && (
+            <div className="text-sm text-gray-500 italic p-3 bg-gray-800/30 rounded-lg border border-gray-700/50">
+              No hay ejercicios específicos creados para esta combinación. Haz clic en "Agregar Ejercicio Específico" para crear uno.
+            </div>
+          )}
+        </div>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
         <div>

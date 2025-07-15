@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Player, Objective, Tournament } from '../types';
 import { useTrainingSession } from '../hooks/useTrainingSession';
 import PostTrainingSurveyModal from '../components/training/PostTrainingSurveyModal';
+import SurveyConfirmationModal from '../components/training/SurveyConfirmationModal';
+import SurveyExitConfirmModal from '../components/training/SurveyExitConfirmModal';
 import ManageParticipantsModal from '../components/training/ManageParticipantsModal';
+import AddSpecificExerciseModal from '../components/training/AddSpecificExerciseModal';
 import PlayerSelector from '../components/training/PlayerSelector';
 import ExerciseForm from '../components/training/ExerciseForm';
 import SurveySettings from '../components/training/SurveySettings';
@@ -35,12 +38,17 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     currentSurveyPlayerIndex,
     pendingSurveyPlayers,
     askForSurveys,
+    isSurveyConfirmationModalOpen,
+    isSurveyExitConfirmModalOpen,
     observaciones,
+    isAddSpecificExerciseModalOpen,
+    enabledSurveyQuestions,
     
     // Estados del formulario
     currentTipoKey,
     currentAreaKey,
     currentEjercicioName,
+    currentEjercicioEspecifico,
     tiempoCantidad,
     intensidad,
     
@@ -48,6 +56,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     availableTipoKeys,
     availableAreaKeys,
     availableEjercicioNames,
+    availableSpecificExercises,
     
     // Valores computados
     playerNamesDisplay,
@@ -59,7 +68,9 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     setIsParticipantModalOpen,
     setAskForSurveys,
     setObservaciones,
+    setIsAddSpecificExerciseModalOpen,
     setCurrentEjercicioName,
+    setCurrentEjercicioEspecifico,
     setTiempoCantidad,
     setIntensidad,
     
@@ -70,10 +81,17 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     handleRemoveParticipant,
     handleTipoChange,
     handleAreaChange,
+    handleEjercicioChange,
+    handleAddSpecificExercise,
+    handleSubmitSpecificExercise,
     handleAddExerciseToSession,
     handleFinishTraining,
     handleSurveySubmit,
     handleCloseSurveyModal,
+    handleConfirmStartSurveys,
+    handleDeclineSurveys,
+    handleConfirmExitSurveys,
+    handleCancelExitSurveys,
     
     // Props para componentes
     allPlayers,
@@ -135,6 +153,16 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
           onAddParticipant={handleAddParticipant} 
         />
         
+        {/* Modal para agregar ejercicios específicos */}
+        <AddSpecificExerciseModal
+          isOpen={isAddSpecificExerciseModalOpen}
+          onClose={() => setIsAddSpecificExerciseModalOpen(false)}
+          onSubmit={handleSubmitSpecificExercise}
+          currentTipo={currentTipoKey}
+          currentArea={currentAreaKey}
+          currentEjercicio={currentEjercicioName}
+        />
+        
         {/* Modal de encuestas post-entrenamiento */}
         {isSurveyModalOpen && pendingSurveyPlayers[currentSurveyPlayerIndex] && (
           <PostTrainingSurveyModal
@@ -144,8 +172,26 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
             onSubmit={handleSurveySubmit}
             currentIndex={currentSurveyPlayerIndex}
             totalPlayers={pendingSurveyPlayers.length}
+            enabledQuestions={enabledSurveyQuestions}
           />
         )}
+        {/* Modal de confirmación de encuesta */}
+        <SurveyConfirmationModal
+          isOpen={isSurveyConfirmationModalOpen}
+          onClose={handleDeclineSurveys}
+          onConfirm={handleConfirmStartSurveys}
+          playersCount={pendingSurveyPlayers.length}
+        />
+        
+        {/* Modal de confirmación de salida de encuesta */}
+        <SurveyExitConfirmModal
+          isOpen={isSurveyExitConfirmModalOpen}
+          onClose={handleCancelExitSurveys}
+          onConfirmExit={handleConfirmExitSurveys}
+          completedSurveys={currentSurveyPlayerIndex}
+          totalSurveys={pendingSurveyPlayers.length}
+          currentPlayerName={pendingSurveyPlayers[currentSurveyPlayerIndex]?.name}
+        />
 
         {/* Header mejorado */}
         <div className="mb-6 lg:mb-10">
@@ -212,17 +258,21 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
               currentTipoKey={currentTipoKey}
               currentAreaKey={currentAreaKey}
               currentEjercicioName={currentEjercicioName}
+              currentEjercicioEspecifico={currentEjercicioEspecifico}
               tiempoCantidad={tiempoCantidad}
               intensidad={intensidad}
               availableTipoKeys={availableTipoKeys}
               availableAreaKeys={availableAreaKeys}
               availableEjercicioNames={availableEjercicioNames}
+              availableSpecificExercises={availableSpecificExercises}
               onTipoChange={handleTipoChange}
               onAreaChange={handleAreaChange}
-              onEjercicioChange={setCurrentEjercicioName}
+              onEjercicioChange={handleEjercicioChange}
+              onEjercicioEspecificoChange={setCurrentEjercicioEspecifico}
               onTiempoCantidadChange={setTiempoCantidad}
               onIntensidadChange={setIntensidad}
               onSubmit={handleAddExerciseToSession}
+              onAddSpecificExercise={handleAddSpecificExercise}
             />
 
             {/* Observaciones de la sesión */}
