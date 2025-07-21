@@ -7,7 +7,7 @@ import { AcademiaProvider, useAcademia } from './contexts/AcademiaContext';
 import ProtectedRoute from './components/shared/protectedRoute';
 import LoginPage from './pages/LoginPage';
 import AcademiaSelectPage from './pages/AcademiaSelectPage';
-import AppWithAcademia from './components/AppWithAcademia';
+import AppWithAcademia from './components/shared/AppWithAcademia';
 
 // Componente que maneja la lógica de rutas después de la autenticación
 const AuthenticatedApp: React.FC = () => {

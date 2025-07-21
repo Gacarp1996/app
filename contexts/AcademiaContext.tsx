@@ -41,11 +41,59 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
     setAcademiaActualState(academia);
     
     if (academia && currentUser) {
-      const role = await getUserRoleInAcademia(academia.id, currentUser.uid);
+      console.log('🔍 Verificando rol para usuario:', currentUser.uid, 'en academia:', academia.id);
+      
+      let role = await getUserRoleInAcademia(academia.id, currentUser.uid);
+      console.log('🎭 Rol obtenido inicialmente:', role);
+      
+      // ✅ SI NO TIENE ROL, VERIFICAR SI ES EL CREADOR O ASIGNAR AUTOMÁTICAMENTE
+      if (!role) {
+        console.log('⚠️ Usuario sin rol detectado. Verificando si es creador...');
+        
+        // Verificar si es el creador de la academia
+        if (academia.creadorId === currentUser.uid) {
+          console.log('👑 Usuario es el creador, asignando rol según tipo de entidad...');
+          try {
+            const creatorRole: UserRole = academia.tipo === 'grupo-entrenamiento' ? 'groupCoach' : 'academyDirector';
+            await addUserToAcademia(
+              academia.id,
+              currentUser.uid,
+              currentUser.email || 'no-email-provided',
+              creatorRole,
+              currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario Anónimo'
+            );
+            role = creatorRole;
+            console.log(`✅ Rol de ${creatorRole} asignado exitosamente`);
+          } catch (error) {
+            console.error('❌ Error asignando rol de creador:', error);
+          }
+        } else {
+          // ACTUALIZADO: Rol por defecto según el tipo de academia
+          // Para academias normales: academyCoach
+          // Para grupos de entrenamiento: assistantCoach
+          const defaultRole: UserRole = academia.tipo === 'grupo-entrenamiento' ? 'assistantCoach' : 'academyCoach';
+          console.log(`👥 Usuario no es creador, asignando rol de ${defaultRole}...`);
+          try {
+            await addUserToAcademia(
+              academia.id,
+              currentUser.uid,
+              currentUser.email || 'no-email-provided',
+              defaultRole,
+              currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario Anónimo'
+            );
+            role = defaultRole;
+            console.log(`✅ Rol de ${defaultRole} asignado exitosamente`);
+          } catch (error) {
+            console.error(`❌ Error asignando rol de ${defaultRole}:`, error);
+          }
+        }
+      }
+      
       setRolActual(role);
-      console.log('Rol cargado para la academia:', role);
+      console.log('🎯 Rol final cargado para la academia:', role);
     } else {
       setRolActual(null);
+      console.log('🚫 No hay academia o usuario, rol establecido como null');
     }
   };
 
@@ -127,16 +175,32 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       
       let userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
 
-      if (!userRole && academiaData.creadorId !== currentUser.uid) {
-        // Asignamos 'entrenador' por defecto si no tiene rol y no es creador
-        await addUserToAcademia(
-          academiaId,
-          currentUser.uid,
-          currentUser.email || 'no-email-provided', // Evitamos undefined
-          'entrenador',
-          currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario Anónimo'
-        );
-        userRole = 'entrenador';
+      // ✅ MEJORAR LA LÓGICA DE ASIGNACIÓN DE ROLES
+      if (!userRole) {
+        if (academiaData.creadorId === currentUser.uid) {
+          // Si es el creador, asignar rol de academyDirector
+          await addUserToAcademia(
+            academiaId,
+            currentUser.uid,
+            currentUser.email || 'no-email-provided',
+            'academyDirector', // ACTUALIZADO
+            currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario Anónimo'
+          );
+          userRole = 'academyDirector';
+          console.log('🎯 Creador registrado como academyDirector');
+        } else {
+          // ACTUALIZADO: Rol por defecto según el tipo
+          const defaultRole: UserRole = academiaData.tipo === 'grupo-entrenamiento' ? 'groupCoach' : 'academyCoach';
+          await addUserToAcademia(
+            academiaId,
+            currentUser.uid,
+            currentUser.email || 'no-email-provided',
+            defaultRole,
+            currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario Anónimo'
+          );
+          userRole = defaultRole;
+          console.log(`🎯 Usuario registrado como ${defaultRole}`);
+        }
       }
 
       // CORRECCIÓN: Usamos Date.now() en lugar de serverTimestamp() para arrays
@@ -176,6 +240,7 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       
       const role = await getUserRoleInAcademia(academiaId, currentUser.uid);
       setRolActual(role);
+      console.log('🎯 Rol después de registrar acceso:', role);
 
     } catch (error) {
       console.error('Error registrando acceso:', error);

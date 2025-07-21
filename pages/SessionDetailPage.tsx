@@ -64,18 +64,31 @@ const SessionDetailPage: React.FC<SessionDetailPageProps> = ({ sessions, players
     navigate(`/training/${player.id}?edit=${sessionId}`);
   };
 
+  // CORREGIDO: Actualizado para aceptar respuestas opcionales
   const handleSurveySubmit = async (playerId: string, responses: {
-    cansancioFisico: number;
-    concentracion: number;
-    actitudMental: number;
-    sensacionesTenisticas: number;
+    cansancioFisico?: number;
+    concentracion?: number;
+    actitudMental?: number;
+    sensacionesTenisticas?: number;
   }) => {
     if (!academiaActual || !sessionId) return;
+    
+    // Validar que todas las respuestas estén presentes
+    if (!responses.cansancioFisico || !responses.concentracion || 
+        !responses.actitudMental || !responses.sensacionesTenisticas) {
+      alert('Por favor completa todas las preguntas de la encuesta');
+      return;
+    }
     
     try {
       if (isEditingSurvey && survey) {
         // Actualizar encuesta existente
-        await updateSurvey(academiaActual.id, survey.id, responses);
+        await updateSurvey(academiaActual.id, survey.id, {
+          cansancioFisico: responses.cansancioFisico,
+          concentracion: responses.concentracion,
+          actitudMental: responses.actitudMental,
+          sensacionesTenisticas: responses.sensacionesTenisticas
+        });
         alert('Encuesta actualizada exitosamente');
       } else {
         // Crear nueva encuesta
@@ -83,7 +96,10 @@ const SessionDetailPage: React.FC<SessionDetailPageProps> = ({ sessions, players
           jugadorId: playerId,
           sessionId: sessionId,
           fecha: new Date().toISOString(),
-          ...responses
+          cansancioFisico: responses.cansancioFisico,
+          concentracion: responses.concentracion,
+          actitudMental: responses.actitudMental,
+          sensacionesTenisticas: responses.sensacionesTenisticas
         });
         alert('Encuesta guardada exitosamente');
       }

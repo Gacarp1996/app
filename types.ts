@@ -32,22 +32,24 @@ export enum TrainingType {
   PELOTA_VIVA = "Pelota viva", // Live ball
 }
 
+
 export interface TrainingSession {
   id: string;
-  jugadorId: string; // This session is for this specific player
-  fecha: string; // ISO date string
+  jugadorId: string; 
+  entrenadorId: string; 
+  fecha: string; 
   ejercicios: LoggedExercise[];
-   observaciones?: string;
+  observaciones?: string;
 }
 
 export interface LoggedExercise {
   id: string;
   tipo: TrainingType;
-  area: TrainingArea; // This is the sub-category/area
+  area: TrainingArea; 
   ejercicio: string;
-  ejercicioEspecifico?: string; // Nombre del ejercicio específico personalizado
+  ejercicioEspecifico?: string;
   tiempoCantidad: string;
-  intensidad: number; // 1-10
+  intensidad: number; 
 }
 
 export interface SpecificExercise {
@@ -60,7 +62,7 @@ export interface SpecificExercise {
 
 export enum TrainingArea {
   FONDO = "Fondo",
-  RED = "Red", // "Juego de red" maps to this
+  RED = "Red", 
   PRIMERAS_PELOTAS = "Primeras Pelotas",
   PUNTOS = "Puntos",
 }
@@ -107,7 +109,7 @@ export interface SurveyDataPoint {
   sensacionesTenisticas: number;
 }
 
-// Agregar al final del archivo types.ts
+
 
 // Tipos para Academia
 export type TipoEntidad = 'academia' | 'grupo-entrenamiento';
@@ -122,7 +124,7 @@ export interface Academia {
   limiteJugadores?: number;
 }
 
-// ===== NUEVAS ADICIONES PARA TORNEOS DISPUTADOS =====
+
 
 // Tipos para valoraciones de torneos disputados
 export type RendimientoJugador = 'Muy malo' | 'Malo' | 'Bueno' | 'Muy bueno' | 'Excelente';

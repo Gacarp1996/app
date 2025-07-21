@@ -1,25 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { TrainingProvider } from '../contexts/TrainingContext';
-import { useAcademia } from '../contexts/AcademiaContext';
-import { getPlayers } from "../Database/FirebasePlayers";
-import { getObjectives } from '../Database/FirebaseObjectives';
-import { getSessions } from '../Database/FirebaseSessions';
-import { getTournaments } from '../Database/FirebaseTournaments';
-import { getDisputedTournaments } from '../Database/FirebaseDisputedTournaments'; 
-import GlobalHeader from './shared/GlobalHeader';
+import { TrainingProvider } from '../../contexts/TrainingContext';
+import { useAcademia } from '../../contexts/AcademiaContext';
+import { getPlayers } from "../../Database/FirebasePlayers";
+import { getObjectives } from '../../Database/FirebaseObjectives';
+import { getSessions } from '../../Database/FirebaseSessions';
+import { getTournaments } from '../../Database/FirebaseTournaments';
+import { getDisputedTournaments } from '../../Database/FirebaseDisputedTournaments'; 
+import GlobalHeader from './GlobalHeader';
 
-import PlayersListPage from '../pages/PlayersListPage';
-import StartTrainingPage from '../pages/StartTrainingPage';
-import TrainingSessionPage from '../pages/TrainingSessionPage';
-import PlayerProfilePage from '../pages/PlayerProfilePage';
-import EditObjectivesPage from '../pages/EditObjectivesPage';
-import ObjectiveDetailPage from '../pages/ObjectiveDetailPage';
-import SessionDetailPage from '../pages/SessionDetailPage';
-import { Player, Objective, TrainingSession, Tournament, DisputedTournament } from '../types'; 
-import AcademiaSettingsPage from '../pages/AcademiaSettingsPage';
+import PlayersListPage from '../../pages/PlayersListPage';
+import StartTrainingPage from '../../pages/StartTrainingPage';
+import TrainingSessionPage from '../../pages/TrainingSessionPage';
+import PlayerProfilePage from '../../pages/PlayerProfilePage';
+import EditObjectivesPage from '../../pages/EditObjectivesPage';
+import ObjectiveDetailPage from '../../pages/ObjectiveDetailPage';
+import SessionDetailPage from '../../pages/SessionDetailPage';
+import { Player, Objective, TrainingSession, Tournament, DisputedTournament } from '../../types'; 
+import AcademiaSettingsPage from '../../pages/AcademiaSettingsPage';
 import HomePage from '@/pages/HomePage';
-
 
 const AppWithAcademia: React.FC = () => {
   const { academiaActual } = useAcademia();

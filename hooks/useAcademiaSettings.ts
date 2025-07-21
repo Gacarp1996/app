@@ -62,8 +62,15 @@ export const useAcademiaSettings = () => {
     setLoading(true);
     try {
       const academiaUsers = await getAcademiaUsers(academiaActual.id);
+      // ACTUALIZADO: Nuevo orden de roles
       const sortedUsers = academiaUsers.sort((a, b) => {
-        const roleOrder = { director: 0, subdirector: 1, entrenador: 2 };
+        const roleOrder: Record<UserRole, number> = { 
+          academyDirector: 0, 
+          academySubdirector: 1, 
+          academyCoach: 2,
+          groupCoach: 3,
+          assistantCoach: 4
+        };
         return roleOrder[a.role] - roleOrder[b.role];
       });
       setUsers(sortedUsers);
@@ -114,7 +121,8 @@ export const useUserManagement = (
     const userToRemove = users.find(u => u.userId === userId);
     if (!userToRemove) return;
     
-    if (userToRemove.role === 'director') {
+    // ACTUALIZADO: Verificar si es academyDirector
+    if (userToRemove.role === 'academyDirector') {
       const directorCount = await countDirectors(academiaActual.id);
       if (directorCount <= 1) {
         alert('No puedes eliminar al último director de la academia.');

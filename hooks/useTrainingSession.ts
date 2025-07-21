@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Player, Objective, TrainingSession, Tournament, LoggedExercise, SpecificExercise } from '../types';
 import { useTraining, SessionExercise } from '../contexts/TrainingContext';
+import { useAuth } from '../contexts/AuthContext'; // ← AGREGAR ESTE IMPORT
 import { addSession } from '../Database/FirebaseSessions';
 import { addPostTrainingSurvey, checkSurveyExists } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
@@ -24,6 +25,7 @@ export const useTrainingSession = ({
   academiaId
 }: UseTrainingSessionProps) => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth(); // ← AGREGAR ESTA LÍNEA
   const { participants, setParticipants, exercises, addExercise, endSession, loadSession } = useTraining();
 
   // Estados
@@ -256,6 +258,12 @@ export const useTrainingSession = ({
   const handleFinishTraining = async () => {
     if (exercises.length === 0 && !window.confirm("No has registrado ningún ejercicio. ¿Deseas finalizar de todas formas?")) return;
     
+    // ✅ VALIDAR QUE EXISTE EL ENTRENADOR
+    if (!currentUser?.uid) {
+      alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+      return;
+    }
+    
     // Preparar las sesiones pero NO guardarlas todavía
     const sessionsToSave: Omit<TrainingSession, 'id'>[] = participants.map(player => {
       const playerExercises = exercises.filter(ex => ex.loggedForPlayerId === player.id)
@@ -263,6 +271,7 @@ export const useTrainingSession = ({
       
       return { 
         jugadorId: player.id, 
+        entrenadorId: currentUser.uid, // ← AGREGAR ESTA LÍNEA CRÍTICA
         fecha: new Date().toISOString(), 
         ejercicios: playerExercises,
         observaciones: observaciones.trim()
@@ -296,11 +305,23 @@ export const useTrainingSession = ({
 
   // Función helper para guardar sesiones directamente
   const saveSessionsDirectly = async (sessionsToSave: Omit<TrainingSession, 'id'>[]) => {
+    // ✅ VALIDAR QUE EXISTE EL ENTRENADOR ANTES DE GUARDAR
+    if (!currentUser?.uid) {
+      alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+      return;
+    }
+
     const sessionIdsMap = new Map<string, string>();
     
     for (const session of sessionsToSave) {
       try {
-        const sessionId = await addSession(academiaId, session);
+        // ✅ ASEGURAR QUE EL entrenadorId ESTÉ PRESENTE
+        const sessionWithTrainer = {
+          ...session,
+          entrenadorId: currentUser.uid
+        };
+        
+        const sessionId = await addSession(academiaId, sessionWithTrainer);
         if (sessionId) {
           sessionIdsMap.set(session.jugadorId, sessionId);
         }
@@ -324,6 +345,12 @@ export const useTrainingSession = ({
     sensacionesTenisticas?: number;
   }) => {
     try {
+      // ✅ VALIDAR QUE EXISTE EL ENTRENADOR
+      if (!currentUser?.uid) {
+        alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+        return;
+      }
+
       let currentSessionIds = sessionIds;
       
       // Si es la primera encuesta, necesitamos guardar las sesiones primero
@@ -332,7 +359,13 @@ export const useTrainingSession = ({
         
         for (const session of pendingSessionsToSave) {
           try {
-            const sessionId = await addSession(academiaId, session);
+            // ✅ ASEGURAR QUE EL entrenadorId ESTÉ PRESENTE
+            const sessionWithTrainer = {
+              ...session,
+              entrenadorId: currentUser.uid
+            };
+            
+            const sessionId = await addSession(academiaId, sessionWithTrainer);
             if (sessionId) {
               sessionIdsMap.set(session.jugadorId, sessionId);
             }

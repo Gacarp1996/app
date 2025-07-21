@@ -11,16 +11,39 @@ export const UserCard: React.FC<{
   onRemoveUser: () => void;
   processingAction: boolean;
 }> = ({ user, isCurrentUser, canManageUsers, onChangeRole, onRemoveUser, processingAction }) => {
+  // ACTUALIZADO: Colores para los nuevos roles
   const getRoleBadgeColor = (role: UserRole) => {
     switch (role) {
-      case 'director':
+      case 'academyDirector':
         return 'bg-red-500/20 text-red-400 border-red-500/30';
-      case 'subdirector':
-        return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-      case 'entrenador':
+      case 'academySubdirector':
+        return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'academyCoach':
         return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'groupCoach':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'assistantCoach':
+        return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
       default:
         return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    }
+  };
+
+  // ACTUALIZADO: Nombres de visualización para los nuevos roles
+  const getRoleDisplayName = (role: UserRole) => {
+    switch (role) {
+      case 'academyDirector':
+        return 'Director de Academia';
+      case 'academySubdirector':
+        return 'Subdirector de Academia';
+      case 'academyCoach':
+        return 'Entrenador de Academia';
+      case 'groupCoach':
+        return 'Entrenador de Grupo';
+      case 'assistantCoach':
+        return 'Entrenador Asistente';
+      default:
+        return role;
     }
   };
 
@@ -30,7 +53,7 @@ export const UserCard: React.FC<{
         <div>
           <p className="font-medium text-white">{user.userEmail}</p>
           <span className={`inline-block px-2 py-1 rounded-full text-xs border ${getRoleBadgeColor(user.role)}`}>
-            {user.role}
+            {getRoleDisplayName(user.role)}
           </span>
         </div>
         {isCurrentUser && (
@@ -89,8 +112,20 @@ export const UserProfileSection: React.FC<{
   userEmail?: string;
   currentRole?: string;
 }> = ({ userEmail, currentRole }) => {
+  // ACTUALIZADO: Nombres de visualización para los nuevos roles
   const getRoleDisplayName = (role?: string) => {
     switch (role) {
+      case 'academyDirector':
+        return 'Director de Academia';
+      case 'academySubdirector':
+        return 'Subdirector de Academia';
+      case 'academyCoach':
+        return 'Entrenador de Academia';
+      case 'groupCoach':
+        return 'Entrenador de Grupo';
+      case 'assistantCoach':
+        return 'Entrenador Asistente';
+      // Para compatibilidad con roles legacy
       case 'director':
         return 'Director';
       case 'subdirector':
@@ -102,14 +137,22 @@ export const UserProfileSection: React.FC<{
     }
   };
 
+  // ACTUALIZADO: Colores para los nuevos roles
   const getRoleBadgeColor = (role?: string) => {
     switch (role) {
-      case 'director':
+      case 'academyDirector':
+      case 'director': // compatibilidad
         return 'bg-red-500/20 text-red-400 border border-red-500/30';
-      case 'subdirector':
-        return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
-      case 'entrenador':
+      case 'academySubdirector':
+      case 'subdirector': // compatibilidad
+        return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
+      case 'academyCoach':
+      case 'entrenador': // compatibilidad
         return 'bg-green-500/20 text-green-400 border border-green-500/30';
+      case 'groupCoach':
+        return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
+      case 'assistantCoach':
+        return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
       default:
         return 'bg-gray-500/20 text-gray-400 border border-gray-500/30';
     }

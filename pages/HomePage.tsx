@@ -181,34 +181,6 @@ const HomePage: React.FC = () => {
             </div>
           </div>
         </section>
-
-        {/* Información adicional para desktop */}
-        <section className="hidden lg:block mt-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-xl">
-              <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-8">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-white mb-2">
-                      {academiaActual?.nombre || 'Academia'}
-                    </h3>
-                    <p className="text-gray-400">
-                      {academiaActual?.tipo === 'grupo-entrenamiento' 
-                        ? 'Grupo de entrenamiento personal' 
-                        : 'Academia de tenis'}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-500 mb-1">ID de acceso</p>
-                    <p className="text-2xl font-mono font-bold text-green-400">
-                      {academiaActual?.id || '------'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );

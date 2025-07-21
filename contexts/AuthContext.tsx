@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '../firebase/firebase-config'; // ← USAR LA MISMA INSTANCIA
 
 interface AuthContextType {
   currentUser: User | null;
@@ -11,16 +12,24 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const auth = getAuth();
 
   useEffect(() => {
+    console.log('🔧 Inicializando AuthContext con Firebase Auth');
+    
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log('👤 Estado de autenticación cambió:', user ? `Usuario: ${user.uid}` : 'Sin usuario');
       setCurrentUser(user);
+      setLoading(false);
+    }, (error) => {
+      console.error('❌ Error en onAuthStateChanged:', error);
       setLoading(false);
     });
 
-    return unsubscribe;
-  }, [auth]);
+    return () => {
+      console.log('🔄 Limpiando suscripción de AuthContext');
+      unsubscribe();
+    };
+  }, []); // ← Sin dependencias, solo se ejecuta una vez
 
   return (
     <AuthContext.Provider value={{ currentUser, loading }}>
