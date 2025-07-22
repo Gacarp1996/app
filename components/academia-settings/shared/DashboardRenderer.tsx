@@ -13,12 +13,19 @@ export const DashboardRenderer: React.FC<DashboardRendererProps> = ({ userRole }
   switch (userRole) {
     case 'academyDirector':
       return <DashboardDirectorView />;
+    
     case 'academySubdirector':
       return <DashboardSubdirectorView />;
+    
     case 'academyCoach':
+      return <DashboardAcademyCoachView />;
+    
+    // ✅ CAMBIO: groupCoach y assistantCoach NO tienen dashboard
+    // Simplemente no renderizamos nada especial - van directo al HomePage normal
     case 'groupCoach':
     case 'assistantCoach':
-      return <DashboardAcademyCoachView />;
+      return null;
+    
     default:
       return (
         <div className="min-h-screen bg-black flex items-center justify-center">

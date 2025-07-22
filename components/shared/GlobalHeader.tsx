@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAcademia } from '../../contexts/AcademiaContext';
+import { useConfigModal } from '../../contexts/ConfigModalContext'; // ✅ NUEVO IMPORT
 import { getAuth, signOut } from 'firebase/auth';
 
 const GlobalHeader: React.FC = () => {
   const { currentUser } = useAuth();
   const { academiaActual, limpiarAcademiaActual } = useAcademia();
+  const { openConfigModal } = useConfigModal(); // ✅ USAR CONTEXT
   const navigate = useNavigate();
   const location = useLocation();
   const auth = getAuth();
@@ -14,6 +16,10 @@ const GlobalHeader: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // ✅ NUEVO: Determinar si mostrar link de Academia/Configuración
+  const isAcademia = academiaActual?.tipo === 'academia' || !academiaActual?.tipo; // Fallback para academias legacy
+  const configLinkText = isAcademia ? 'Academia' : 'Grupo';
 
   // Cerrar dropdown cuando se hace clic fuera
   useEffect(() => {
@@ -60,18 +66,11 @@ const GlobalHeader: React.FC = () => {
     closeDropdown();
   };
 
+  // ✅ NUEVA FUNCIÓN: Solo abre el modal, no navega
   const handleOpenConfig = () => {
-    console.log('Intentando abrir configuración...');
-    // Si estamos en la página de academia-settings, usar la función global
-    if (location.pathname === '/academia-settings' && (window as any).openAcademiaConfig) {
-      console.log('Función encontrada, abriendo modal...');
-      (window as any).openAcademiaConfig();
-    } else {
-      // Si estamos en otra página, navegar a academia-settings con parámetro para abrir modal
-      console.log('Navegando a academia-settings...');
-      navigate('/academia-settings?openConfig=true');
-    }
-    closeDropdown();
+    console.log('🔧 Abriendo configuración desde GlobalHeader...');
+    openConfigModal(); // Solo abre el modal global
+    closeDropdown(); // Cerrar dropdown si está abierto
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -138,16 +137,19 @@ const GlobalHeader: React.FC = () => {
                 >
                   Entrenar
                 </Link>
-                <Link 
-                  to="/academia-settings" 
-                  className={`font-medium transition-all duration-200 ${
-                    isActive('/academia-settings') 
-                      ? 'text-green-400 text-shadow-neon' 
-                      : 'text-gray-400 hover:text-green-400 hover:text-shadow-neon-sm'
-                  }`}
-                >
-                  Academia
-                </Link>
+                {/* ✅ MOSTRAR SOLO PARA ACADEMIAS NORMALES */}
+                {isAcademia && (
+                  <Link 
+                    to="/academia-settings" 
+                    className={`font-medium transition-all duration-200 ${
+                      isActive('/academia-settings') 
+                        ? 'text-green-400 text-shadow-neon' 
+                        : 'text-gray-400 hover:text-green-400 hover:text-shadow-neon-sm'
+                    }`}
+                  >
+                    {configLinkText}
+                  </Link>
+                )}
               </nav>
             )}
 
@@ -180,7 +182,7 @@ const GlobalHeader: React.FC = () => {
 
                       {/* Opciones del menú */}
                       <div className="py-1">
-                        {/* Configuración - Ahora aparece en todas las páginas */}
+                        {/* ✅ CONFIGURACIÓN: Ahora solo abre modal */}
                         <button
                           onClick={handleOpenConfig}
                           className="w-full flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-green-400 transition-colors"
@@ -202,7 +204,7 @@ const GlobalHeader: React.FC = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                               d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                           </svg>
-                          Cambiar Academia
+                          Cambiar {isAcademia ? 'Academia' : 'Grupo'}
                         </button>
 
                         <div className="border-t border-gray-800 my-1"></div>
@@ -300,25 +302,28 @@ const GlobalHeader: React.FC = () => {
                 </div>
               </Link>
 
-              <Link
-                to="/academia-settings"
-                onClick={closeMobileMenu}
-                className={`block px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  isActive('/academia-settings') 
-                    ? 'bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400 border border-green-500/30' 
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-green-400'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15l-.75 18H5.25L4.5 3z" />
-                  </svg>
-                  <span>Academia</span>
-                </div>
-              </Link>
+              {/* ✅ MOSTRAR SOLO PARA ACADEMIAS EN MÓVIL TAMBIÉN */}
+              {isAcademia && (
+                <Link
+                  to="/academia-settings"
+                  onClick={closeMobileMenu}
+                  className={`block px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    isActive('/academia-settings') 
+                      ? 'bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400 border border-green-500/30' 
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-green-400'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15l-.75 18H5.25L4.5 3z" />
+                    </svg>
+                    <span>{configLinkText}</span>
+                  </div>
+                </Link>
+              )}
 
               <div className="border-t border-gray-800 my-2 pt-2">
-                {/* Configuración en móvil - Ahora aparece en todas las páginas */}
+                {/* ✅ CONFIGURACIÓN EN MÓVIL: Solo abre modal */}
                 <button
                   onClick={() => {
                     handleOpenConfig();
@@ -349,7 +354,7 @@ const GlobalHeader: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                         d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                     </svg>
-                    <span>Cambiar Academia</span>
+                    <span>Cambiar {isAcademia ? 'Academia' : 'Grupo'}</span>
                   </div>
                 </button>
 

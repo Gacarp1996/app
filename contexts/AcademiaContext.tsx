@@ -30,6 +30,17 @@ interface AcademiaContextType {
 
 const AcademiaContext = createContext<AcademiaContextType | undefined>(undefined);
 
+// ✅ FUNCIÓN HELPER PARA DETERMINAR TIPO DE ENTIDAD
+const getEntityType = (academiaData: Academia | null): TipoEntidad => {
+  // Si tiene tipo definido, usarlo
+  if (academiaData?.tipo) {
+    return academiaData.tipo;
+  }
+  
+  // Fallback: asumir que es academia para compatibilidad
+  return 'academia';
+};
+
 export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [academiaActual, setAcademiaActualState] = useState<Academia | null>(null);
   const [rolActual, setRolActual] = useState<UserRole | null>(null);
@@ -41,6 +52,14 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
     setAcademiaActualState(academia);
     
     if (academia && currentUser) {
+      console.log('🔍 Debug academia actual:', {
+        academiaId: academia.id,
+        nombre: academia.nombre,
+        tipo: academia.tipo,
+        creadorId: academia.creadorId,
+        userId: currentUser.uid
+      });
+      
       console.log('🔍 Verificando rol para usuario:', currentUser.uid, 'en academia:', academia.id);
       
       let role = await getUserRoleInAcademia(academia.id, currentUser.uid);
@@ -50,11 +69,14 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (!role) {
         console.log('⚠️ Usuario sin rol detectado. Verificando si es creador...');
         
+        // ✅ USAR FUNCIÓN HELPER PARA TIPO
+        const entityType = getEntityType(academia);
+        
         // Verificar si es el creador de la academia
         if (academia.creadorId === currentUser.uid) {
           console.log('👑 Usuario es el creador, asignando rol según tipo de entidad...');
           try {
-            const creatorRole: UserRole = academia.tipo === 'grupo-entrenamiento' ? 'groupCoach' : 'academyDirector';
+            const creatorRole: UserRole = entityType === 'grupo-entrenamiento' ? 'groupCoach' : 'academyDirector';
             await addUserToAcademia(
               academia.id,
               currentUser.uid,
@@ -71,7 +93,7 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
           // ACTUALIZADO: Rol por defecto según el tipo de academia
           // Para academias normales: academyCoach
           // Para grupos de entrenamiento: assistantCoach
-          const defaultRole: UserRole = academia.tipo === 'grupo-entrenamiento' ? 'assistantCoach' : 'academyCoach';
+          const defaultRole: UserRole = entityType === 'grupo-entrenamiento' ? 'assistantCoach' : 'academyCoach';
           console.log(`👥 Usuario no es creador, asignando rol de ${defaultRole}...`);
           try {
             await addUserToAcademia(
@@ -138,7 +160,7 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
                     ...academia,
                     id: academiaData.id || academia.academiaId,
                     nombre: academiaData.nombre,
-                    tipo: academiaData.tipo,
+                    tipo: getEntityType(academiaData), // ✅ USAR FUNCIÓN HELPER
                     role: role,
                     // Convertir Timestamp de Firestore a número si es necesario
                     ultimoAcceso: academia.ultimoAcceso?.toMillis ? 
@@ -163,6 +185,14 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!currentUser) return;
 
     try {
+      // ✅ AGREGAR DEBUG ANTES DE LA OPERACIÓN QUE FALLA
+      console.log('🔍 Debug registrarAccesoAcademia:', {
+        academiaId,
+        nombre,
+        userId: currentUser.uid,
+        userEmail: currentUser.email
+      });
+
       const academiaDocRef = doc(db, 'academias', academiaId);
       const academiaDoc = await getDoc(academiaDocRef);
       const academiaData = academiaDoc.exists() ? academiaDoc.data() as Academia : null;
@@ -173,24 +203,29 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
         return;
       }
       
+      // ✅ USAR FUNCIÓN HELPER PARA TIPO
+      const entityType = getEntityType(academiaData);
+      console.log('🔍 Tipo de entidad detectado:', entityType);
+      
       let userRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
 
       // ✅ MEJORAR LA LÓGICA DE ASIGNACIÓN DE ROLES
       if (!userRole) {
         if (academiaData.creadorId === currentUser.uid) {
-          // Si es el creador, asignar rol de academyDirector
+          // Si es el creador, asignar rol según el tipo de entidad
+          const creatorRole: UserRole = entityType === 'grupo-entrenamiento' ? 'groupCoach' : 'academyDirector';
           await addUserToAcademia(
             academiaId,
             currentUser.uid,
             currentUser.email || 'no-email-provided',
-            'academyDirector', // ACTUALIZADO
+            creatorRole,
             currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario Anónimo'
           );
-          userRole = 'academyDirector';
-          console.log('🎯 Creador registrado como academyDirector');
+          userRole = creatorRole;
+          console.log(`🎯 Creador registrado como ${creatorRole}`);
         } else {
           // ACTUALIZADO: Rol por defecto según el tipo
-          const defaultRole: UserRole = academiaData.tipo === 'grupo-entrenamiento' ? 'groupCoach' : 'academyCoach';
+          const defaultRole: UserRole = entityType === 'grupo-entrenamiento' ? 'assistantCoach' : 'academyCoach';
           await addUserToAcademia(
             academiaId,
             currentUser.uid,
@@ -210,6 +245,8 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
         ultimoAcceso: Date.now() // Timestamp en millisegundos
       };
 
+      console.log('🔍 Datos a escribir:', nuevoAcceso);
+
       const userRef = doc(db, 'userAcademias', currentUser.uid);
       const userDoc = await getDoc(userRef);
 
@@ -220,19 +257,22 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
         academiasActualizadas = academiasPrevias.filter((a: UserAcademia) => a.academiaId !== academiaId);
         academiasActualizadas.unshift(nuevoAcceso);
 
+        // ✅ AGREGAR TRY-CATCH ESPECÍFICO PARA LA OPERACIÓN QUE FALLA
+        console.log('🔍 Actualizando documento existente...');
         await updateDoc(userRef, { 
           academias: academiasActualizadas,
-          // Opcionalmente, puedes usar serverTimestamp() aquí fuera del array
           ultimaActualizacion: serverTimestamp()
         });
+        console.log('✅ Documento actualizado exitosamente');
       } else {
         academiasActualizadas = [nuevoAcceso];
+        console.log('🔍 Creando nuevo documento...');
         await setDoc(userRef, { 
           academias: academiasActualizadas,
-          // Opcionalmente, puedes usar serverTimestamp() aquí fuera del array
           fechaCreacion: serverTimestamp(),
           ultimaActualizacion: serverTimestamp()
         });
+        console.log('✅ Documento creado exitosamente');
       }
       
       // Actualizamos el estado local para reflejar el cambio inmediatamente
@@ -243,7 +283,12 @@ export const AcademiaProvider: React.FC<{ children: ReactNode }> = ({ children }
       console.log('🎯 Rol después de registrar acceso:', role);
 
     } catch (error) {
-      console.error('Error registrando acceso:', error);
+      console.error('❌ Error registrando acceso (línea ~223):', error);
+      // ✅ AGREGAR MÁS DETALLES DEL ERROR
+      if (error instanceof Error) {
+        console.error('❌ Mensaje del error:', error.message);
+        console.error('❌ Stack del error:', error.stack);
+      }
     }
   };
 

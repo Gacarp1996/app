@@ -1,5 +1,5 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Player, Objective, Tournament } from '../types';
 import { useTrainingSession } from '../hooks/useTrainingSession';
 import PostTrainingSurveyModal from '../components/training/PostTrainingSurveyModal';
@@ -18,14 +18,29 @@ interface TrainingSessionPageProps {
   allPlayers: Player[];
   allObjectives: Objective[];
   allTournaments: Tournament[];
-  onDataChange: () => void;
+  onDataChange: () => Promise<void>; // 
   academiaId: string;
-  sessions?: any[]; // Sesiones existentes para recomendaciones
+  sessions?: any[];
 }
 
 const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
   const navigate = useNavigate();
-  const { sessions = [], academiaId } = props; // Extraer sessions y academiaId de props
+  const [searchParams] = useSearchParams();
+  const { playerId } = useParams();
+  
+  // Detectar si estamos en modo edición
+  const editSessionId = searchParams.get('edit');
+  const isEditMode = !!editSessionId;
+  
+  // Estado para tracking de navegación
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
+  const { sessions = [], academiaId } = props;
+  
+  // Encontrar la sesión original si estamos editando
+  const originalSession = isEditMode ? sessions.find(s => s.id === editSessionId) : null;
+  const originalPlayer = originalSession ? props.allPlayers.find(p => p.id === originalSession.jugadorId) : null;
+
   const {
     // Estados
     isLoading,
@@ -97,7 +112,34 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     allPlayers,
     allObjectives,
     allTournaments,
-  } = useTrainingSession(props);
+  } = useTrainingSession({
+    ...props,
+    editSessionId,
+    originalSession
+  });
+
+  // Detectar cambios para mostrar advertencia
+  useEffect(() => {
+    setHasUnsavedChanges(exercises.length > 0 || observaciones.trim().length > 0);
+  }, [exercises, observaciones]);
+
+  // Función para manejar navegación hacia atrás
+  const handleGoBack = () => {
+    if (hasUnsavedChanges) {
+      const confirmExit = window.confirm(
+        '¿Estás seguro de que quieres salir? Se perderán todos los cambios no guardados.'
+      );
+      if (!confirmExit) return;
+    }
+
+    if (isEditMode && originalPlayer) {
+      // Si estamos editando, volver al perfil del jugador
+      navigate(`/player/${originalPlayer.id}`);
+    } else {
+      // Si estamos creando nueva sesión, volver a start-training
+      navigate('/start-training');
+    }
+  };
 
   // Estados de carga y error
   if (isLoading) {
@@ -193,19 +235,62 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
           currentPlayerName={pendingSurveyPlayers[currentSurveyPlayerIndex]?.name}
         />
 
-        {/* Header mejorado */}
+        {/* Header mejorado con navegación */}
         <div className="mb-6 lg:mb-10">
           <div className="bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-xl shadow-2xl shadow-green-500/10">
             <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-4 sm:p-6 lg:p-8">
+              {/* Breadcrumb y botón volver */}
+              <div className="flex items-center gap-3 mb-4">
+                <button
+                  onClick={handleGoBack}
+                  className="flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all duration-200 group"
+                  title={isEditMode ? "Volver al perfil" : "Volver a inicio"}
+                >
+                  <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                  </svg>
+                  <span className="hidden sm:inline">
+                    {isEditMode ? "Volver al Perfil" : "Volver"}
+                  </span>
+                </button>
+                
+                {/* Breadcrumb */}
+                <nav className="flex items-center gap-2 text-sm text-gray-400">
+                  <span>Entrenamientos</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  <span className="text-green-400">
+                    {isEditMode ? "Editando Sesión" : "Nueva Sesión"}
+                  </span>
+                </nav>
+              </div>
+
+              {/* Título e información */}
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent truncate" title={playerNamesDisplay}>
-                    Entrenamiento en Curso
-                  </h1>
-                  <p className="text-sm sm:text-base lg:text-lg text-gray-400 mt-1 truncate" title={playerNamesDisplay}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+                      {isEditMode ? "Editando Entrenamiento" : "Entrenamiento en Curso"}
+                    </h1>
+                    {isEditMode && (
+                      <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full border border-blue-500/30">
+                        Modo Edición
+                      </span>
+                    )}
+                  </div>
+                  
+                  <p className="text-sm sm:text-base lg:text-lg text-gray-400 truncate" title={playerNamesDisplay}>
                     {playerNamesDisplay}
+                    {isEditMode && originalSession && (
+                      <span className="ml-2 text-yellow-400">
+                        • {new Date(originalSession.fecha).toLocaleDateString('es-ES')}
+                      </span>
+                    )}
                   </p>
                 </div>
+                
+                {/* Botones de acción */}
                 <div className="flex gap-2 lg:gap-3 flex-shrink-0">
                   <button 
                     onClick={() => setIsParticipantModalOpen(true)} 
@@ -224,6 +309,23 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
             </div>
           </div>
         </div>
+
+        {/* Advertencia en modo edición */}
+        {isEditMode && (
+          <div className="mb-6 bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-blue-300 font-medium">Modo Edición Activado</p>
+                <p className="text-blue-400 text-sm mt-1">
+                  Estás modificando un entrenamiento existente. Los cambios sobrescribirán la sesión original y se mantendrá la encuesta post-entrenamiento si existe.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Grid principal para desktop */}
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
@@ -287,11 +389,13 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
                 />
             </div>
 
-            {/* Configuración de encuestas */}
-            <SurveySettings
-              askForSurveys={askForSurveys}
-              onAskForSurveysChange={setAskForSurveys}
-            />
+            {/* Configuración de encuestas - Solo mostrar en modo creación */}
+            {!isEditMode && (
+              <SurveySettings
+                askForSurveys={askForSurveys}
+                onAskForSurveysChange={setAskForSurveys}
+              />
+            )}
           </div>
 
           {/* Columna lateral - Lista de ejercicios y resumen */}
@@ -301,19 +405,30 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
           />
         </div>
 
-        {/* Botón de finalizar - Fijo en móvil, normal en desktop */}
+        {/* Botón de finalizar con navegación mejorada */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-black/80 backdrop-blur-lg border-t border-gray-800 lg:relative lg:mt-8 lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:border-0">
-          <button 
-            onClick={handleFinishTraining} 
-            className="w-full px-6 py-4 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold text-lg lg:text-xl rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-red-500/25"
-          >
-            <span className="flex items-center justify-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z" />
-              </svg>
-              Finalizar y Guardar
-            </span>
-          </button>
+          <div className="flex gap-3">
+            {/* Botón cancelar para móvil */}
+            <button 
+              onClick={handleGoBack}
+              className="lg:hidden px-4 py-4 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-all duration-200 flex-shrink-0"
+            >
+              Cancelar
+            </button>
+            
+            {/* Botón finalizar */}
+            <button 
+              onClick={handleFinishTraining} 
+              className="flex-1 px-6 py-4 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold text-lg lg:text-xl rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-red-500/25"
+            >
+              <span className="flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z" />
+                </svg>
+                {isEditMode ? "Guardar Cambios" : "Finalizar y Guardar"}
+              </span>
+            </button>
+          </div>
         </div>
         
         {/* Espaciado extra en móvil para el botón fijo */}

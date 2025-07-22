@@ -15,7 +15,6 @@ import Modal from '../components/shared/Modal';
 // ✅ BIEN - Separa los imports
 import { LoadingSpinner, PermissionError, RoleChangeModal } from '../components/academia-settings';
 
-
 // Importar hooks personalizados
 import { 
   useAcademiaSettings, 
@@ -28,6 +27,26 @@ import {
   countDirectors,
   UserRole as UserRoleType
 } from '../Database/FirebaseRoles';
+
+// ✅ FIX TEMPORAL: Detectar tipo de entidad cuando no está definido
+const getEntityTypeFromRole = (userRole: UserRoleType | null, academiaActual: any) => {
+  // Si ya tiene tipo definido, usarlo
+  if (academiaActual?.tipo) {
+    return academiaActual.tipo;
+  }
+  
+  // Si no tiene tipo, inferirlo del rol del usuario
+  if (userRole && ['academyDirector', 'academySubdirector', 'academyCoach'].includes(userRole)) {
+    return 'academia';
+  }
+  
+  if (userRole && ['groupCoach', 'assistantCoach'].includes(userRole)) {
+    return 'grupo-entrenamiento';
+  }
+  
+  // Fallback: asumir que es academia (para compatibilidad con datos legacy)
+  return 'academia';
+};
 
 const AcademiaSettingsPage: FC = () => {
   const { currentUser } = useAuth();
@@ -60,6 +79,12 @@ const AcademiaSettingsPage: FC = () => {
     navigate: hookNavigate,
     eliminarAcademiaDeMisAcademias
   } = useAcademiaSettings();
+
+  // ✅ CORREGIDO: Determinar si es academia o grupo (DESPUÉS de los hooks)
+  const entityType = getEntityTypeFromRole(userRole || rolActual, academiaActual);
+  const isAcademia = entityType === 'academia';
+  const entityTypeText = isAcademia ? 'academia' : 'grupo';
+  const entityTypeCapitalized = isAcademia ? 'Academia' : 'Grupo';
 
   const {
     selectedUserId,
@@ -141,15 +166,17 @@ const AcademiaSettingsPage: FC = () => {
     const userToRemove = users.find(u => u.userId === userId);
     if (!userToRemove) return;
     
-    if (userToRemove.role === 'academyDirector') {
+    // ✅ CORREGIDO: Validación específica por tipo de entidad
+    if (isAcademia && userToRemove.role === 'academyDirector') {
       const directorCount = await countDirectors(academiaActual.id);
       if (directorCount <= 1) {
-        alert('No puedes eliminar al último director de la academia.');
+        alert(`No puedes eliminar al último director de la ${entityTypeText}.`);
         return;
       }
     }
     
-    if (window.confirm(`¿Estás seguro de eliminar a ${userToRemove.userEmail} de la academia?`)) {
+    // ✅ CORREGIDO: Mensaje dinámico
+    if (window.confirm(`¿Estás seguro de eliminar a ${userToRemove.userEmail} del ${entityTypeText}?`)) {
       setProcessingAction(userId);
       try {
         await removeUserFromAcademia(academiaActual.id, userId);
@@ -285,6 +312,16 @@ const AcademiaSettingsPage: FC = () => {
     );
   }
 
+  // ✅ NUEVO: Debug para verificar los valores
+  console.log('🔍 Debug AcademiaSettingsPage:', {
+    entityName: academiaActual?.nombre,
+    entityId: academiaActual?.id,
+    entityType: entityType,
+    originalType: academiaActual?.tipo,
+    userRole: userRole || rolActual,
+    isAcademia
+  });
+
   return (
     <>
       {/* Dashboard principal según el rol */}
@@ -292,22 +329,25 @@ const AcademiaSettingsPage: FC = () => {
       
       {/* Modal principal de configuración */}
       <MainConfigModal
-        isOpen={isMainConfigModalOpen}
-        onClose={() => setIsMainConfigModalOpen(false)}
-        academiaName={academiaActual.nombre}
-        academiaId={academiaActual.id}
-        users={users}
-        currentUserId={currentUser?.uid}
-        currentUserEmail={currentUser?.email}
-        currentUserRole={rolActual}
-        loadingUsers={loading}
-        processingAction={processingAction}
-        onRemoveUser={handleRemoveUser}
-        onChangeRole={openRoleModal}
-        onChangeAcademia={handleChangeAcademia}
-        onDeleteAcademia={openDeleteModal}
-        onOpenAdvancedConfig={handleOpenAdvancedConfig}
-      />
+       isOpen={isMainConfigModalOpen}
+       onClose={() => setIsMainConfigModalOpen(false)}
+       // ✅ PROPS ACTUALIZADAS CON FIX:
+       entityName={academiaActual.nombre}
+       entityId={academiaActual.id}
+       entityType={entityType} // ✅ USAR EL TIPO CORREGIDO
+       // Props que siguen igual:
+       users={users}
+       currentUserId={currentUser?.uid}
+       currentUserEmail={currentUser?.email}
+       currentUserRole={rolActual}
+       loadingUsers={loading}
+       processingAction={processingAction}
+       onRemoveUser={handleRemoveUser}
+       onChangeRole={openRoleModal}
+       onChangeAcademia={handleChangeAcademia}
+       onDeleteEntity={openDeleteModal}
+       onOpenAdvancedConfig={handleOpenAdvancedConfig}
+/>
 
       {/* Modal de configuración avanzada */}
       <AdvancedConfigModal
@@ -321,22 +361,26 @@ const AcademiaSettingsPage: FC = () => {
         onSaveSurveyConfig={handleSaveSurveyConfig}
       />
 
-      {/* Modal de cambio de rol */}
+      {/* ✅ CORREGIDO: Modal de cambio de rol dinámico */}
       <RoleChangeModal
         isOpen={isRoleModalOpen}
         onClose={closeRoleModal}
         user={users.find(u => u.userId === selectedUserId) || null}
         currentUserRole={rolActual}
-        academiaType="academia"
+        academiaType={entityType} // ✅ USAR EL TIPO CORREGIDO
         onConfirm={handlePromoteUser}
       />
 
-      {/* Modal de eliminación de academia */}
-      <Modal isOpen={isDeleteModalOpen} onClose={closeDeleteModal} title="Eliminar Academia">
+      {/* ✅ CORREGIDO: Modal de eliminación dinámico */}
+      <Modal 
+        isOpen={isDeleteModalOpen} 
+        onClose={closeDeleteModal} 
+        title={`Eliminar ${entityTypeCapitalized}`} // ✅ DINÁMICO
+      >
         <div className="p-6">
-          <h3 className="text-xl font-bold text-red-400 mb-4">Eliminar Academia</h3>
+          <h3 className="text-xl font-bold text-red-400 mb-4">Eliminar {entityTypeCapitalized}</h3>
           <p className="text-gray-300 mb-4">
-            Esta acción eliminará permanentemente la academia y todos sus datos. 
+            Esta acción eliminará permanentemente {isAcademia ? 'la academia' : 'el grupo'} y todos sus datos. 
             Escribe tu contraseña para confirmar:
           </p>
           <input
@@ -360,7 +404,7 @@ const AcademiaSettingsPage: FC = () => {
               onClick={handleDeleteAcademia}
               className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
             >
-              Eliminar
+              Eliminar {entityTypeCapitalized}
             </button>
           </div>
         </div>

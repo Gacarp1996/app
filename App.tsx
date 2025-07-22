@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AcademiaProvider, useAcademia } from './contexts/AcademiaContext';
+import { ConfigModalProvider } from './contexts/ConfigModalContext'; // ✅ NUEVO IMPORT
 import ProtectedRoute from './components/shared/protectedRoute';
 import LoginPage from './pages/LoginPage';
 import AcademiaSelectPage from './pages/AcademiaSelectPage';
@@ -63,7 +64,10 @@ const App: React.FC = () => {
       <HashRouter>
         <AuthProvider>
           <AcademiaProvider>
-            <AuthenticatedApp />
+            {/* ✅ AGREGAR ConfigModalProvider aquí */}
+            <ConfigModalProvider>
+              <AuthenticatedApp />
+            </ConfigModalProvider>
           </AcademiaProvider>
         </AuthProvider>
       </HashRouter>

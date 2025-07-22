@@ -2,6 +2,8 @@ import { db } from "../firebase/firebase-config";
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc, query, where } from "firebase/firestore";
 import { TrainingSession } from "../types";
 
+
+
 // ✅ FUNCIÓN HELPER PARA LIMPIAR DATOS UNDEFINED
 const cleanData = (obj: any): any => {
   if (obj === null || obj === undefined) {
@@ -284,3 +286,4 @@ export const getSessionById = async (academiaId: string, sessionId: string): Pro
     return null;
   }
 };
+
