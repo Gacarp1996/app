@@ -1,7 +1,8 @@
+import { TrainingSession } from '@/types';
 import React, { useMemo } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import { TrainingSession } from '../types';
+
 
 interface TrainingCalendarProps {
   sessions: TrainingSession[];
@@ -41,7 +42,7 @@ const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ sessions, onDateCli
 
   return (
     <div className="training-calendar-wrapper">
-      <style jsx global>{`
+      <style>{`
         .training-calendar-wrapper .react-calendar {
           width: 100%;
           max-width: 100%;

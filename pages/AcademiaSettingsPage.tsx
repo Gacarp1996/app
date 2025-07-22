@@ -2,6 +2,7 @@ import React from 'react';
 import Modal from '../components/shared/Modal';
 
 // Importar componentes extraídos
+<<<<<<< Updated upstream
 import { 
   UserCard,
   AcademiaInfoSection,
@@ -11,6 +12,15 @@ import {
   LoadingSpinner,
   PermissionError
 } from '../components/academia-settings';
+=======
+import { DashboardRenderer } from '../components/academia-settings/shared/DashboardRenderer';
+import { MainConfigModal } from '../components/academia-settings/sections/MainConfigModal';
+import { AdvancedConfigModal } from '../components/academia-settings/sections/AdvancedConfigModal';
+
+import Modal from '../components/shared/Modal';
+// ✅ BIEN - Separa los imports
+import { LoadingSpinner, PermissionError, RoleChangeModal } from '../components/academia-settings';
+>>>>>>> Stashed changes
 
 // Importar hooks personalizados
 import { 
@@ -19,8 +29,52 @@ import {
   useDeleteAcademia 
 } from '../hooks/useAcademiaSettings';
 
+<<<<<<< Updated upstream
 const AcademiaSettingsPage: React.FC = () => {
   // Hook principal
+=======
+// ✅ FIX TEMPORAL: Detectar tipo de entidad cuando no está definido
+const getEntityTypeFromRole = (userRole: UserRoleType | null, academiaActual: any) => {
+  // Si ya tiene tipo definido, usarlo
+  if (academiaActual?.tipo) {
+    return academiaActual.tipo;
+  }
+  
+  // Si no tiene tipo, inferirlo del rol del usuario
+  if (userRole && ['academyDirector', 'academySubdirector', 'academyCoach'].includes(userRole)) {
+    return 'academia';
+  }
+  
+  if (userRole && ['groupCoach', 'assistantCoach'].includes(userRole)) {
+    return 'grupo-entrenamiento';
+  }
+  
+  // Fallback: asumir que es academia (para compatibilidad con datos legacy)
+  return 'academia';
+};
+
+const AcademiaSettingsPage: FC = () => {
+  const { currentUser } = useAuth();
+  const { academiaActual } = useAcademia();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Estados principales
+  const [userRole, setUserRole] = useState<UserRoleType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [processingAction, setProcessingAction] = useState<string | boolean>(false);
+  
+  // Estados para modales
+  const [isMainConfigModalOpen, setIsMainConfigModalOpen] = useState(false);
+  const [isAdvancedConfigModalOpen, setIsAdvancedConfigModalOpen] = useState(false);
+  
+  // Estados para configuración de encuestas
+  const [surveyConfig, setSurveyConfig] = useState<AcademiaConfig | null>(null);
+  const [loadingSurveyConfig, setLoadingSurveyConfig] = useState(false);
+  const [savingSurveyConfig, setSavingSurveyConfig] = useState(false);
+
+  // Hooks personalizados
+>>>>>>> Stashed changes
   const {
     currentUser,
     academiaActual,
@@ -37,7 +91,16 @@ const AcademiaSettingsPage: React.FC = () => {
     eliminarAcademiaDeMisAcademias
   } = useAcademiaSettings();
 
+<<<<<<< Updated upstream
   // Hook para manejo de usuarios
+=======
+  // ✅ CORREGIDO: Determinar si es academia o grupo (DESPUÉS de los hooks)
+  const entityType = getEntityTypeFromRole(userRole || rolActual, academiaActual);
+  const isAcademia = entityType === 'academia';
+  const entityTypeText = isAcademia ? 'academia' : 'grupo';
+  const entityTypeCapitalized = isAcademia ? 'Academia' : 'Grupo';
+
+>>>>>>> Stashed changes
   const {
     selectedUserId,
     isRoleModalOpen,
@@ -70,7 +133,156 @@ const AcademiaSettingsPage: React.FC = () => {
     setProcessingAction
   );
 
+<<<<<<< Updated upstream
   // Manejadores simples
+=======
+  // Efectos
+  useEffect(() => {
+    (window as any).openAcademiaConfig = () => setIsMainConfigModalOpen(true);
+    return () => {
+      delete (window as any).openAcademiaConfig;
+    };
+  }, []);
+
+  // Efecto para abrir modal automáticamente si viene con parámetro
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('openConfig') === 'true') {
+      setIsMainConfigModalOpen(true);
+      // Limpiar el parámetro de la URL sin recargar la página
+      const newSearchParams = new URLSearchParams(location.search);
+      newSearchParams.delete('openConfig');
+      const newUrl = location.pathname + (newSearchParams.toString() ? '?' + newSearchParams.toString() : '');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [location]);
+
+  useEffect(() => {
+    if (isAdvancedConfigModalOpen && academiaActual && !surveyConfig && !loadingSurveyConfig) {
+      loadSurveyConfig();
+    }
+  }, [isAdvancedConfigModalOpen, academiaActual, surveyConfig, loadingSurveyConfig]);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (currentUser && academiaActual) {
+        setLoading(true);
+        try {
+          const role = await getUserRoleInAcademia(academiaActual.id, currentUser.uid);
+          setUserRole(role);
+        } catch (error) {
+          console.error('Error obteniendo rol del usuario:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    fetchUserRole();
+  }, [currentUser, academiaActual]);
+
+  // Handlers para gestión de usuarios
+  const handleRemoveUser = async (userId: string) => {
+    if (!academiaActual || !currentUser) return;
+    
+    const userToRemove = users.find(u => u.userId === userId);
+    if (!userToRemove) return;
+    
+    // ✅ CORREGIDO: Validación específica por tipo de entidad
+    if (isAcademia && userToRemove.role === 'academyDirector') {
+      const directorCount = await countDirectors(academiaActual.id);
+      if (directorCount <= 1) {
+        alert(`No puedes eliminar al último director de la ${entityTypeText}.`);
+        return;
+      }
+    }
+    
+    // ✅ CORREGIDO: Mensaje dinámico
+    if (window.confirm(`¿Estás seguro de eliminar a ${userToRemove.userEmail} del ${entityTypeText}?`)) {
+      setProcessingAction(userId);
+      try {
+        await removeUserFromAcademia(academiaActual.id, userId);
+        await loadUsers();
+        alert('Usuario eliminado exitosamente');
+      } catch (error) {
+        console.error('Error eliminando usuario:', error);
+        alert('Error al eliminar el usuario');
+      } finally {
+        setProcessingAction(false);
+      }
+    }
+  };
+
+  const handlePromoteUser = async (userId: string, newRole: UserRoleType) => {
+    if (!academiaActual) return;
+    
+    setProcessingAction(userId);
+    try {
+      await updateUserRole(academiaActual.id, userId, newRole);
+      await loadUsers();
+      alert('Rol actualizado exitosamente');
+    } catch (error) {
+      console.error('Error actualizando rol:', error);
+      alert('Error al actualizar el rol');
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  // Handlers para configuración de encuestas
+  const loadSurveyConfig = async () => {
+    if (!academiaActual) return;
+    
+    setLoadingSurveyConfig(true);
+    try {
+      const config = await getAcademiaConfig(academiaActual.id);
+      setSurveyConfig(config);
+    } catch (error) {
+      console.error('Error cargando configuración de encuestas:', error);
+    } finally {
+      setLoadingSurveyConfig(false);
+    }
+  };
+
+  const handleSurveyConfigChange = (key: keyof AcademiaConfig['preguntasEncuesta'], checked: boolean) => {
+    if (!surveyConfig) return;
+    
+    setSurveyConfig(prev => ({
+      ...prev!,
+      preguntasEncuesta: {
+        ...prev!.preguntasEncuesta,
+        [key]: checked
+      }
+    }));
+  };
+
+  const handleSaveSurveyConfig = async () => {
+    if (!surveyConfig || !academiaActual) return;
+    
+    setSavingSurveyConfig(true);
+    try {
+      await saveAcademiaConfig(academiaActual.id, {
+        encuestasHabilitadas: surveyConfig.encuestasHabilitadas,
+        preguntasEncuesta: surveyConfig.preguntasEncuesta
+      });
+    } catch (error) {
+      console.error('Error guardando configuración:', error);
+    } finally {
+      setSavingSurveyConfig(false);
+      setIsAdvancedConfigModalOpen(false);
+    }
+  };
+
+  const handleToggleSurveys = (enabled: boolean) => {
+    if (!surveyConfig) return;
+    
+    setSurveyConfig(prev => prev ? {
+      ...prev,
+      encuestasHabilitadas: enabled
+    } : null);
+  };
+
+  // Handlers de navegación
+>>>>>>> Stashed changes
   const handleChangeAcademia = () => {
     limpiarAcademiaActual();
     navigate('/select-academia');
@@ -112,7 +324,19 @@ const AcademiaSettingsPage: React.FC = () => {
     );
   }
 
+<<<<<<< Updated upstream
   const currentRole = rolActual;
+=======
+  // ✅ NUEVO: Debug para verificar los valores
+  console.log('🔍 Debug AcademiaSettingsPage:', {
+    entityName: academiaActual?.nombre,
+    entityId: academiaActual?.id,
+    entityType: entityType,
+    originalType: academiaActual?.tipo,
+    userRole: userRole || rolActual,
+    isAcademia
+  });
+>>>>>>> Stashed changes
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -121,14 +345,39 @@ const AcademiaSettingsPage: React.FC = () => {
       <div className="fixed top-20 left-20 w-64 h-64 lg:w-96 lg:h-96 bg-green-500/10 rounded-full blur-3xl"></div>
       <div className="fixed bottom-20 right-20 w-64 h-64 lg:w-96 lg:h-96 bg-cyan-500/10 rounded-full blur-3xl"></div>
       
+<<<<<<< Updated upstream
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-green-400 mb-8">Configuración de Academia</h1>
+=======
+      {/* Modal principal de configuración */}
+      <MainConfigModal
+       isOpen={isMainConfigModalOpen}
+       onClose={() => setIsMainConfigModalOpen(false)}
+       // ✅ PROPS ACTUALIZADAS CON FIX:
+       entityName={academiaActual.nombre}
+       entityId={academiaActual.id}
+       entityType={entityType} // ✅ USAR EL TIPO CORREGIDO
+       // Props que siguen igual:
+       users={users}
+       currentUserId={currentUser?.uid}
+       currentUserEmail={currentUser?.email}
+       currentUserRole={rolActual}
+       loadingUsers={loading}
+       processingAction={processingAction}
+       onRemoveUser={handleRemoveUser}
+       onChangeRole={openRoleModal}
+       onChangeAcademia={handleChangeAcademia}
+       onDeleteEntity={openDeleteModal}
+       onOpenAdvancedConfig={handleOpenAdvancedConfig}
+/>
+>>>>>>> Stashed changes
 
         <UserProfileSection 
           userEmail={currentUser?.email} 
           currentRole={currentRole} 
         />
 
+<<<<<<< Updated upstream
         <AcademiaInfoSection 
           academiaName={academiaActual.nombre} 
           academiaId={academiaActual.id} 
@@ -160,6 +409,53 @@ const AcademiaSettingsPage: React.FC = () => {
                 ))}
               </div>
             )}
+=======
+      {/* ✅ CORREGIDO: Modal de cambio de rol dinámico */}
+      <RoleChangeModal
+        isOpen={isRoleModalOpen}
+        onClose={closeRoleModal}
+        user={users.find(u => u.userId === selectedUserId) || null}
+        currentUserRole={rolActual}
+        academiaType={entityType} // ✅ USAR EL TIPO CORREGIDO
+        onConfirm={handlePromoteUser}
+      />
+
+      {/* ✅ CORREGIDO: Modal de eliminación dinámico */}
+      <Modal 
+        isOpen={isDeleteModalOpen} 
+        onClose={closeDeleteModal} 
+        title={`Eliminar ${entityTypeCapitalized}`} // ✅ DINÁMICO
+      >
+        <div className="p-6">
+          <h3 className="text-xl font-bold text-red-400 mb-4">Eliminar {entityTypeCapitalized}</h3>
+          <p className="text-gray-300 mb-4">
+            Esta acción eliminará permanentemente {isAcademia ? 'la academia' : 'el grupo'} y todos sus datos. 
+            Escribe tu contraseña para confirmar:
+          </p>
+          <input
+            type="password"
+            value={deletePassword}
+            onChange={(e) => setDeletePassword(e.target.value)}
+            placeholder="Tu contraseña"
+            className="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-white mb-4"
+          />
+          {deleteError && (
+            <p className="text-red-400 text-sm mb-4">{deleteError}</p>
+          )}
+          <div className="flex gap-3">
+            <button
+              onClick={closeDeleteModal}
+              className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDeleteAcademia}
+              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+            >
+              Eliminar {entityTypeCapitalized}
+            </button>
+>>>>>>> Stashed changes
           </div>
         )}
 

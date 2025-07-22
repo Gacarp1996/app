@@ -2,6 +2,37 @@ import { db } from "../firebase/firebase-config";
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
 import { TrainingSession } from "../types";
 
+<<<<<<< Updated upstream
+=======
+
+
+// ✅ FUNCIÓN HELPER PARA LIMPIAR DATOS UNDEFINED
+const cleanData = (obj: any): any => {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(cleanData).filter(item => item !== null && item !== undefined);
+  }
+  
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        const cleanedValue = cleanData(value);
+        if (cleanedValue !== undefined) {
+          cleaned[key] = cleanedValue;
+        }
+      }
+    }
+    return cleaned;
+  }
+  
+  return obj;
+};
+
+>>>>>>> Stashed changes
 export const addSession = async (academiaId: string, sessionData: Omit<TrainingSession, "id">) => {
   try {
     const sessionsCollection = collection(db, "academias", academiaId, "sessions");
@@ -84,3 +115,7 @@ export const getSessionById = async (academiaId: string, sessionId: string): Pro
     return null;
   }
 };
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes

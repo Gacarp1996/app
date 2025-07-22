@@ -1,4 +1,4 @@
-// components/player-profile/PlanningSection.tsx
+// components/player-profile/PlanningSection.tsx - Con selección automática
 import React from 'react';
 import { TrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { NEW_EXERCISE_HIERARCHY_CONST } from '../../constants';
@@ -60,6 +60,7 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                 type="number"
                 value={rangoAnalisis}
                 onChange={(e) => onRangoAnalisisChange(Number(e.target.value))}
+                onFocus={(e) => e.target.select()} // ✅ SELECCIÓN AUTOMÁTICA
                 min="7"
                 max="365"
                 className="w-full p-2 lg:p-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
@@ -158,6 +159,7 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                         type="number"
                         value={tipoPorcentaje}
                         onChange={(e) => onTipoPercentageChange(tipo, Number(e.target.value))}
+                        onFocus={(e) => e.target.select()} // ✅ SELECCIÓN AUTOMÁTICA
                         min="0"
                         max="100"
                         step="0.1"
@@ -206,6 +208,7 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                                   type="number"
                                   value={areaPorcentaje}
                                   onChange={(e) => onAreaPercentageChange(tipo, area, Number(e.target.value))}
+                                  onFocus={(e) => e.target.select()} // ✅ SELECCIÓN AUTOMÁTICA
                                   min="0"
                                   max={tipoPorcentaje}
                                   step="0.1"
@@ -239,6 +242,7 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                                         type="number"
                                         value={planificacion[tipo]?.areas[area]?.ejercicios?.[ejercicio]?.porcentajeDelTotal || 0}
                                         onChange={(e) => onEjercicioPercentageChange(tipo, area, ejercicio, Number(e.target.value))}
+                                        onFocus={(e) => e.target.select()} // ✅ SELECCIÓN AUTOMÁTICA
                                         min="0"
                                         max={areaPorcentaje}
                                         step="0.1"
