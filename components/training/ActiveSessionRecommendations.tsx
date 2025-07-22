@@ -9,6 +9,36 @@ interface ActiveSessionRecommendationsProps {
   sessions: any[]; // TrainingSession array
 }
 
+interface ConsolidatedRecommendation {
+  type: 'canasto_focus' | 'peloteo_focus' | 'critical_individual' | 'general';
+  title: string;
+  area: string;
+  category: string;
+  playersCount: number;
+  playerNames: string[];
+  priority: 'high' | 'medium' | 'low';
+  avgDifference: number;
+  percentage: number;
+  needsMore: boolean;
+  action: 'INCREMENTAR' | 'REDUCIR';
+  currentPercentage: number;
+  plannedPercentage: number;
+  details: Array<{
+    exercise: string;
+    playerName: string;
+    difference: number;
+    currentPercentage: number;
+    plannedPercentage: number;
+  }>;
+  hasSpecificExercises: boolean;
+  specificExercises: Array<{
+    name: string;
+    playerName: string;
+    difference: number;
+    action: 'INCREMENTAR' | 'REDUCIR';
+  }>;
+}
+
 const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> = ({
   participants,
   academiaId,
@@ -18,6 +48,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'individual' | 'group'>('individual');
   const [userHasInteractedWithTabs, setUserHasInteractedWithTabs] = useState(false);
+  const [expandedRecommendations, setExpandedRecommendations] = useState<Set<number>>(new Set());
 
   const {
     recommendations,
@@ -53,16 +84,13 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
   useEffect(() => {
     if (participants.length > 0 && academiaId) {
       console.log('🔄 Cargando recomendaciones para:', participants.map(p => p.name));
-      
-      // Usar la función que ya maneja todo el ciclo de carga
       getRecommendationsForPlayers(participants.map(p => p.id));
     }
-  }, [participantIds, academiaId]); // Solo participant IDs y academiaId
+  }, [participantIds, academiaId]);
 
   // Verificar si el jugador seleccionado aún está en la lista de participantes
   useEffect(() => {
     if (selectedPlayerId && !participants.some(p => p.id === selectedPlayerId)) {
-      // Si el jugador seleccionado fue removido, seleccionar el primero disponible
       if (participants.length > 0) {
         setSelectedPlayerId(participants[0].id);
       } else {
@@ -71,7 +99,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     }
   }, [participants, selectedPlayerId]);
 
-  // Función para generar recomendaciones grupales mejoradas
+  // Función para generar exactamente 3 recomendaciones consolidadas sin duplicaciones
   const generateGroupRecommendations = () => {
     if (participants.length === 0) return null;
 
@@ -86,109 +114,306 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       item.recs && (item.recs.isNewPlayer || !item.recs.hasActivePlan || item.recs.recommendations.length === 0)
     );
 
-    // Agregar áreas que necesitan todos los jugadores
-    const areaNeeds: Record<string, {
-      count: number;
-      totalDifference: number;
-      players: string[];
-      priority: 'high' | 'medium' | 'low';
-      avgDifference: number;
-      needsMore: boolean; // true si necesita más, false si necesita menos
-    }> = {};
+    if (playersWithRecs.length === 0) {
+      return {
+        totalPlayers: participants.length,
+        analyzedPlayers: 0,
+        playersWithoutData: playersWithoutRecs.length,
+        playersWithoutDataNames: playersWithoutRecs.map(p => p.player.name),
+        groupRecommendations: []
+      };
+    }
+
+    // Recopilar todas las recomendaciones de todos los jugadores
+    const allRecommendations: Array<{
+      rec: any;
+      playerName: string;
+      playerId: string;
+    }> = [];
 
     playersWithRecs.forEach(({ player, recs }) => {
       recs.recommendations.forEach(rec => {
-        const key = `${rec.category}.${rec.subcategory}`;
-        
-        if (!areaNeeds[key]) {
-          areaNeeds[key] = {
-            count: 0,
-            totalDifference: 0,
-            players: [],
-            priority: 'low',
-            avgDifference: 0,
-            needsMore: rec.difference > 0
-          };
-        }
-
-        // Solo contar el jugador una vez por área (evitar duplicados)
-        if (!areaNeeds[key].players.includes(player.name)) {
-          areaNeeds[key].count++;
-          areaNeeds[key].players.push(player.name);
-        }
-        
-        areaNeeds[key].totalDifference += Math.abs(rec.difference);
-        
-        // Si la mayoría necesita más de esta área, entonces needsMore = true
-        if (rec.difference > 0) areaNeeds[key].needsMore = true;
+        allRecommendations.push({
+          rec,
+          playerName: player.name,
+          playerId: player.id
+        });
       });
     });
 
-    // Calcular prioridades grupales
-    Object.keys(areaNeeds).forEach(key => {
-      const need = areaNeeds[key];
-      need.avgDifference = need.totalDifference / need.count;
+    // NUEVA LÓGICA: Consolidar recomendaciones por tipo+área para agrupar correctamente
+    const consolidatedAreas: Record<string, {
+      area: string;
+      category: string;
+      type: 'CANASTO' | 'PELOTEO' | 'CRITICAL';
+      players: Array<{
+        name: string;
+        id: string;
+        recommendation: any;
+      }>;
+      avgDifference: number;
+      priority: 'high' | 'medium' | 'low';
+      action: 'INCREMENTAR' | 'REDUCIR';
+      details: Array<{
+        exercise: string;
+        playerName: string;
+        difference: number;
+        currentPercentage: number;
+        plannedPercentage: number;
+      }>;
+    }> = {};
+
+    // Consolidar todas las recomendaciones por tipo+área (usando la nueva estructura jerárquica)
+    allRecommendations.forEach(item => {
+      // Extraer tipo y área de la estructura jerárquica de la recomendación
+      const subcategory = item.rec.subcategory || item.rec.category || 'Otra';
+      const category = item.rec.category || 'General';
       
-      // Prioridad basada en: cuántos jugadores lo necesitan + magnitud promedio
-      const playerPercentage = (need.count / participants.length) * 100;
+      // Crear clave única que combine tipo y área para evitar mezclar peloteo y canasto
+      const consolidationKey = `${category}-${subcategory}`;
       
-      if (playerPercentage >= 75 && need.avgDifference > 15) {
-        need.priority = 'high';
-      } else if (playerPercentage >= 50 && need.avgDifference > 10) {
-        need.priority = 'medium';
+      if (!consolidatedAreas[consolidationKey]) {
+        consolidatedAreas[consolidationKey] = {
+          area: subcategory,
+          category: category,
+          type: 'PELOTEO', // Por defecto, se determinará después
+          players: [],
+          avgDifference: 0,
+          priority: 'medium',
+          action: 'INCREMENTAR',
+          details: []
+        };
+      }
+
+      // Agregar jugador si no está ya en la lista para esta combinación tipo+área
+      if (!consolidatedAreas[consolidationKey].players.find(p => p.id === item.playerId)) {
+        consolidatedAreas[consolidationKey].players.push({
+          name: item.playerName,
+          id: item.playerId,
+          recommendation: item.rec
+        });
+      }
+
+      // Agregar detalles del ejercicio
+      consolidatedAreas[consolidationKey].details.push({
+        exercise: item.rec.exercise || 'General',
+        playerName: item.playerName,
+        difference: item.rec.difference,
+        currentPercentage: item.rec.currentPercentage,
+        plannedPercentage: item.rec.plannedPercentage
+      });
+    });
+
+    // Calcular estadísticas consolidadas para cada área
+    Object.values(consolidatedAreas).forEach(area => {
+      const totalDifference = area.details.reduce((sum, detail) => sum + Math.abs(detail.difference), 0);
+      area.avgDifference = Math.round(totalDifference / area.details.length);
+      
+      // Determinar acción basada en la mayoría de recomendaciones
+      const incrementCount = area.details.filter(d => d.difference < 0).length;
+      const reducirCount = area.details.filter(d => d.difference > 0).length;
+      area.action = incrementCount > reducirCount ? 'INCREMENTAR' : 'REDUCIR';
+      
+      // Determinar prioridad basada en la diferencia promedio Y cantidad de jugadores afectados
+      const playerImpact = area.players.length / participants.length; // Porcentaje de jugadores afectados
+      
+      if (area.avgDifference >= 20 || (area.avgDifference >= 15 && playerImpact >= 0.8)) {
+        area.priority = 'high';
+      } else if (area.avgDifference >= 10 || (area.avgDifference >= 8 && playerImpact >= 0.6)) {
+        area.priority = 'medium';
       } else {
-        need.priority = 'low';
+        area.priority = 'low';
+      }
+      
+      // Determinar tipo basado en la categoría (ahora diferenciamos Peloteo y Canasto)
+      if (area.category.toLowerCase().includes('canasto')) {
+        area.type = 'CANASTO';
+      } else if (area.priority === 'high') {
+        area.type = 'CRITICAL';
+      } else {
+        area.type = 'PELOTEO';
       }
     });
 
-    // Ordenar por prioridad y déficit más grande (donde la realidad está más por debajo del plan)
-    const sortedNeeds = Object.entries(areaNeeds)
-      .sort(([, a], [, b]) => {
-        // Ordenar por magnitud absoluta del desequilibrio (más importante primero)
-        const absA = Math.abs(a.needsMore ? a.avgDifference : -a.avgDifference);
-        const absB = Math.abs(b.needsMore ? b.avgDifference : -b.avgDifference);
+    // Ordenar áreas por IMPACTO GRUPAL: priorizar las que afectan a más jugadores primero
+    const sortedAreas = Object.values(consolidatedAreas)
+      .sort((a, b) => {
+        // 1. Priorizar por cantidad de jugadores afectados (más jugadores = más importante)
+        const aPlayerCount = a.players.length;
+        const bPlayerCount = b.players.length;
         
-        if (absB !== absA) {
-          return absB - absA; // Mayor desequilibrio primero
+        if (bPlayerCount !== aPlayerCount) {
+          return bPlayerCount - aPlayerCount; // Más jugadores primero
         }
         
-        // En caso de empate, priorizar por más jugadores afectados
-        return b.count - a.count;
-      })
-      .filter(([, need]) => Math.abs(need.avgDifference) >= 5) // Solo diferencias significativas
-      .slice(0, 3); // Solo las 3 recomendaciones más importantes
+        // 2. En caso de empate, usar diferencia promedio
+        if (b.avgDifference !== a.avgDifference) {
+          return b.avgDifference - a.avgDifference;
+        }
+        
+        // 3. En último caso, priorizar déficit sobre exceso
+        const aDeficit = a.action === 'INCREMENTAR' ? 1 : 0;
+        const bDeficit = b.action === 'INCREMENTAR' ? 1 : 0;
+        return bDeficit - aDeficit;
+      });
+
+    const finalRecommendations: ConsolidatedRecommendation[] = [];
+
+    // 1. PRIORIDAD MÁXIMA - La recomendación que afecta a MÁS jugadores (independiente del tipo)
+    const maxImpactArea = sortedAreas[0]; // Ya está ordenado por cantidad de jugadores
+    if (maxImpactArea) {
+      finalRecommendations.push({
+        type: maxImpactArea.type === 'CANASTO' ? 'canasto_focus' : 
+              maxImpactArea.type === 'CRITICAL' ? 'critical_individual' : 'peloteo_focus',
+        title: `${maxImpactArea.category.toUpperCase()} (${maxImpactArea.players.length}/${participants.length} jugadores)`,
+        area: maxImpactArea.area,
+        category: maxImpactArea.category,
+        playersCount: maxImpactArea.players.length,
+        playerNames: maxImpactArea.players.map(p => p.name),
+        priority: maxImpactArea.priority,
+        avgDifference: maxImpactArea.avgDifference,
+        percentage: Math.round((maxImpactArea.players.length / participants.length) * 100),
+        needsMore: maxImpactArea.action === 'INCREMENTAR',
+        action: maxImpactArea.action,
+        currentPercentage: Math.round(maxImpactArea.details.reduce((sum, d) => sum + d.currentPercentage, 0) / maxImpactArea.details.length),
+        plannedPercentage: Math.round(maxImpactArea.details.reduce((sum, d) => sum + d.plannedPercentage, 0) / maxImpactArea.details.length),
+        details: maxImpactArea.details,
+        hasSpecificExercises: true,
+        specificExercises: maxImpactArea.details.map(detail => ({
+          name: detail.exercise,
+          playerName: detail.playerName,
+          difference: detail.difference,
+          action: detail.difference < 0 ? 'INCREMENTAR' : 'REDUCIR'
+        }))
+      });
+    }
+
+    // 2. SEGUNDA PRIORIDAD - La siguiente recomendación con más jugadores afectados (diferente tipo si es posible)
+    const secondArea = sortedAreas.find(area => 
+      area !== maxImpactArea && 
+      (area.category !== maxImpactArea?.category || area.area !== maxImpactArea?.area)
+    ) || sortedAreas[1];
+    
+    if (secondArea) {
+      finalRecommendations.push({
+        type: secondArea.type === 'CANASTO' ? 'canasto_focus' : 
+              secondArea.type === 'CRITICAL' ? 'critical_individual' : 'peloteo_focus',
+        title: `${secondArea.category.toUpperCase()} (${secondArea.players.length}/${participants.length} jugadores)`,
+        area: secondArea.area,
+        category: secondArea.category,
+        playersCount: secondArea.players.length,
+        playerNames: secondArea.players.map(p => p.name),
+        priority: secondArea.priority,
+        avgDifference: secondArea.avgDifference,
+        percentage: Math.round((secondArea.players.length / participants.length) * 100),
+        needsMore: secondArea.action === 'INCREMENTAR',
+        action: secondArea.action,
+        currentPercentage: Math.round(secondArea.details.reduce((sum, d) => sum + d.currentPercentage, 0) / secondArea.details.length),
+        plannedPercentage: Math.round(secondArea.details.reduce((sum, d) => sum + d.plannedPercentage, 0) / secondArea.details.length),
+        details: secondArea.details,
+        hasSpecificExercises: true,
+        specificExercises: secondArea.details.map(detail => ({
+          name: detail.exercise,
+          playerName: detail.playerName,
+          difference: detail.difference,
+          action: detail.difference < 0 ? 'INCREMENTAR' : 'REDUCIR'
+        }))
+      });
+    }
+
+    // 3. TERCERA PRIORIDAD - Crítica individual o complementaria
+    const thirdArea = sortedAreas.find(area => 
+      area !== maxImpactArea && 
+      area !== secondArea &&
+      (area.priority === 'high' || area.players.length >= Math.ceil(participants.length * 0.3)) // Al menos 30% de jugadores
+    ) || sortedAreas.find(area => 
+      area !== maxImpactArea && area !== secondArea
+    );
+    
+    if (thirdArea) {
+      finalRecommendations.push({
+        type: thirdArea.type === 'CANASTO' ? 'canasto_focus' : 
+              thirdArea.type === 'CRITICAL' ? 'critical_individual' : 'peloteo_focus',
+        title: `${thirdArea.category.toUpperCase()} (${thirdArea.players.length}/${participants.length} jugadores)`,
+        area: thirdArea.area,
+        category: thirdArea.category,
+        playersCount: thirdArea.players.length,
+        playerNames: thirdArea.players.map(p => p.name),
+        priority: thirdArea.priority,
+        avgDifference: thirdArea.avgDifference,
+        percentage: Math.round((thirdArea.players.length / participants.length) * 100),
+        needsMore: thirdArea.action === 'INCREMENTAR',
+        action: thirdArea.action,
+        currentPercentage: Math.round(thirdArea.details.reduce((sum, d) => sum + d.currentPercentage, 0) / thirdArea.details.length),
+        plannedPercentage: Math.round(thirdArea.details.reduce((sum, d) => sum + d.plannedPercentage, 0) / thirdArea.details.length),
+        details: thirdArea.details,
+        hasSpecificExercises: true,
+        specificExercises: thirdArea.details.map(detail => ({
+          name: detail.exercise,
+          playerName: detail.playerName,
+          difference: detail.difference,
+          action: detail.difference < 0 ? 'INCREMENTAR' : 'REDUCIR'
+        }))
+      });
+    }
+
+    // Si no tenemos al menos 3 recomendaciones, completar con recomendaciones genéricas
+    while (finalRecommendations.length < 3) {
+      const missingTypes = ['CANASTO', 'PELOTEO', 'CRÍTICO'];
+      const existingTypes = finalRecommendations.map(rec => rec.title);
+      const nextType = missingTypes.find(type => !existingTypes.includes(type));
+      
+      if (nextType) {
+        finalRecommendations.push({
+          type: 'general',
+          title: nextType,
+          area: 'Desarrollo general',
+          category: nextType,
+          playersCount: participants.length,
+          playerNames: participants.map(p => p.name),
+          priority: 'medium',
+          avgDifference: 5,
+          percentage: 100,
+          needsMore: true,
+          action: 'INCREMENTAR',
+          currentPercentage: 0,
+          plannedPercentage: 20,
+          details: [],
+          hasSpecificExercises: false,
+          specificExercises: []
+        });
+      } else {
+        break;
+      }
+    }
 
     return {
       totalPlayers: participants.length,
       analyzedPlayers: playersWithRecs.length,
       playersWithoutData: playersWithoutRecs.length,
       playersWithoutDataNames: playersWithoutRecs.map(p => p.player.name),
-      groupRecommendations: sortedNeeds.map(([key, need]) => {
-        const [category, subcategory] = key.split('.');
-        return {
-          area: subcategory,
-          category,
-          playersCount: need.count,
-          playerNames: need.players.slice(0, 3), // Mostrar máximo 3 nombres
-          morePlayersCount: Math.max(0, need.players.length - 3),
-          priority: need.priority,
-          avgDifference: Math.round(need.avgDifference),
-          percentage: Math.round((need.count / participants.length) * 100),
-          needsMore: need.needsMore,
-          action: need.needsMore ? 'AUMENTAR' : 'REDUCIR'
-        };
-      })
+      groupRecommendations: finalRecommendations.slice(0, 3) // Asegurar máximo 3 recomendaciones
     };
   };
 
   const selectedPlayerRecs = selectedPlayerId ? recommendations[selectedPlayerId] : null;
   const groupRecs = generateGroupRecommendations();
 
+  const toggleRecommendationExpansion = (index: number) => {
+    const newExpanded = new Set(expandedRecommendations);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedRecommendations(newExpanded);
+  };
+
   const getPriorityColor = (priority: 'high' | 'medium' | 'low') => {
     switch (priority) {
-      case 'high': return 'text-red-400 bg-red-500/10 border-red-500/20';
-      case 'medium': return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
-      case 'low': return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+      case 'high': return 'text-red-400 bg-red-500/15 border-red-500/40';
+      case 'medium': return 'text-yellow-400 bg-yellow-500/15 border-yellow-500/40';
+      case 'low': return 'text-blue-400 bg-blue-500/15 border-blue-500/40';
     }
   };
 
@@ -318,7 +543,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
             {!recommendationsLoading && (
               <div className="space-y-4">
                 {activeTab === 'group' && participants.length > 1 ? (
-                  /* Vista grupal */
+                  /* Vista grupal consolidada */
                   <div className="space-y-4">
                     {(() => {
                       const groupRecs = generateGroupRecommendations();
@@ -377,57 +602,96 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                             )}
                           </div>
 
-                          {/* Recomendaciones grupales principales */}
+                          {/* Recomendaciones grupales consolidadas - EXACTAMENTE 3 SIN DUPLICACIONES */}
                           {groupRecs.groupRecommendations.length > 0 && (
                             <div className="space-y-3">
                               <h5 className="text-sm font-medium text-gray-400 uppercase tracking-wide">
-                                🎯 Enfoque Recomendado para Esta Sesión
+                                🎯 Plan de Entrenamiento Prioritario (3 Enfoques Únicos)
                               </h5>
                               
-                              <div className="space-y-2">
+                              <div className="space-y-3">
                                 {groupRecs.groupRecommendations.map((rec, index) => (
-                                  <div key={index} className={`border rounded-lg p-3 ${getPriorityColor(rec.priority)}`}>
-                                    <div className="flex items-start gap-3">
-                                      <div className="flex-shrink-0 mt-0.5">
-                                        {getPriorityIcon(rec.priority)}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-2">
-                                          <span className="font-medium text-sm">
-                                            {rec.action} {rec.area}
-                                          </span>
-                                          <span className="text-xs font-medium px-2 py-0.5 bg-black/20 rounded-full">
-                                            {rec.percentage}% del grupo
-                                          </span>
+                                  <div key={index} className={`border rounded-lg ${getPriorityColor(rec.priority)}`}>
+                                    {/* Header de la recomendación - siempre visible */}
+                                    <div 
+                                      className="p-3 cursor-pointer hover:bg-black/10 transition-colors"
+                                      onClick={() => toggleRecommendationExpansion(index)}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <div className="flex-shrink-0 mt-0.5">
+                                          {getPriorityIcon(rec.priority)}
                                         </div>
-                                        <p className="text-xs opacity-90 mb-2">
-                                          {rec.playersCount} de {groupRecs.totalPlayers} jugador{rec.playersCount > 1 ? 'es' : ''} necesita{rec.playersCount === 1 ? '' : 'n'} ajustar esta área
-                                        </p>
-                                        <div className="flex items-center gap-2 text-xs opacity-75">
-                                          <span>Afecta a: {rec.playerNames.join(', ')}</span>
-                                          {rec.morePlayersCount > 0 && (
-                                            <span>+{rec.morePlayersCount} más</span>
-                                          )}
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center justify-between gap-2 mb-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium text-sm">
+                                                {rec.title}: {rec.area}
+                                              </span>
+                                              <span className="text-xs opacity-75 font-medium">
+                                                {rec.needsMore ? 'FALTA' : 'SOBRA'} {rec.avgDifference}%
+                                              </span>
+                                            </div>
+                                            <svg 
+                                              className={`w-4 h-4 opacity-50 transition-transform ${expandedRecommendations.has(index) ? 'rotate-180' : ''}`} 
+                                              fill="none" 
+                                              viewBox="0 0 24 24" 
+                                              strokeWidth={2} 
+                                              stroke="currentColor"
+                                            >
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                          </div>
+                                          <p className="text-xs opacity-90 leading-relaxed mb-2">
+                                            {rec.action} {rec.area.toLowerCase()} - Afecta a {rec.playersCount} jugador{rec.playersCount > 1 ? 'es' : ''}
+                                          </p>
+                                          <div className="flex items-center gap-4 text-xs opacity-75">
+                                            <span>Jugadores: {rec.playerNames.slice(0, 2).join(', ')}{rec.playerNames.length > 2 && ` +${rec.playerNames.length - 2}`}</span>
+                                            <span>Actual: {rec.currentPercentage}%</span>
+                                            <span>Planificado: {rec.plannedPercentage}%</span>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
+
+                                    {/* Detalles expandibles */}
+                                    {expandedRecommendations.has(index) && rec.hasSpecificExercises && (
+                                      <div className="border-t border-current/20 p-3 bg-black/5">
+                                        <h6 className="text-xs font-medium mb-2 opacity-75">Ejercicios específicos a trabajar:</h6>
+                                        <div className="space-y-2">
+                                          {rec.specificExercises.map((exercise, exIndex) => (
+                                            <div key={exIndex} className="flex items-center justify-between text-xs bg-black/10 rounded p-2">
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-medium">{exercise.name}</span>
+                                                <span className="opacity-60">({exercise.playerName})</span>
+                                              </div>
+                                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                exercise.action === 'INCREMENTAR' 
+                                                  ? 'bg-green-500/20 text-green-400' 
+                                                  : 'bg-red-500/20 text-red-400'
+                                              }`}>
+                                                {exercise.action}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
                               
                               {/* Sugerencia práctica para el entrenador */}
-                              <div className="bg-gradient-to-r from-blue-500/5 to-purple-500/5 border border-blue-500/20 rounded-lg p-3">
+                              <div className="bg-gradient-to-r from-green-500/5 to-emerald-500/5 border border-green-500/20 rounded-lg p-3">
                                 <div className="flex items-start gap-3">
-                                  <svg className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                  <svg className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189 6.01 6.01 0 001.5.189v5.25M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
                                   </svg>
                                   <div>
-                                    <p className="text-blue-400 text-xs font-medium mb-1">💡 Sugerencia de Sesión:</p>
-                                    <p className="text-blue-300 text-xs leading-relaxed">
-                                      {groupRecs.groupRecommendations.length > 0 
-                                        ? `Enfócate en ${groupRecs.groupRecommendations[0].area.toLowerCase()} durante la primera parte de la sesión, ya que es lo que más jugadores necesitan ajustar.`
-                                        : 'El grupo está bien balanceado. Continúa con la planificación normal.'
-                                      }
+                                    <p className="text-green-400 text-xs font-medium mb-1">💡 Estructura Sugerida de Sesión:</p>
+                                    <p className="text-green-300 text-xs leading-relaxed">
+                                      {groupRecs.groupRecommendations.length >= 1 && `1. Comienza con ${groupRecs.groupRecommendations[0].area.toLowerCase()} (prioridad máxima)`}
+                                      {groupRecs.groupRecommendations.length >= 2 && ` • 2. Continúa con ${groupRecs.groupRecommendations[1].area.toLowerCase()}`}
+                                      {groupRecs.groupRecommendations.length >= 3 && ` • 3. ${groupRecs.groupRecommendations[2].type === 'critical_individual' ? `Atención individual a ${groupRecs.groupRecommendations[2].playerNames[0]} en ${groupRecs.groupRecommendations[2].area.toLowerCase()}` : `Complementa con ${groupRecs.groupRecommendations[2].area.toLowerCase()}`}`}
                                     </p>
                                   </div>
                                 </div>
@@ -439,7 +703,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                     })()}
                   </div>
                 ) : (
-                  /* Vista individual */
+                  /* Vista individual (sin cambios) */
                   <div className="space-y-4">
                     {/* Selector de jugador (solo si hay múltiples participantes) */}
                     {participants.length > 1 && (
@@ -451,7 +715,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                           value={selectedPlayerId}
                           onChange={(e) => {
                             setSelectedPlayerId(e.target.value);
-                            // Mantener la vista individual activa al cambiar de jugador
                             setActiveTab('individual');
                             setUserHasInteractedWithTabs(true);
                           }}
@@ -539,7 +802,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                           {rec.exercise && ` > ${rec.exercise}`}
                                         </span>
                                         <span className="text-xs opacity-75 font-medium">
-                                          {rec.difference > 0 ? 'FALTA' : 'SOBRA'} {Math.abs(rec.difference)}%
+                                          {rec.difference < 0 ? 'FALTA' : 'SOBRA'} {Math.abs(rec.difference)}%
                                         </span>
                                       </div>
                                       <p className="text-xs opacity-90 leading-relaxed mb-2">

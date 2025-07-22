@@ -258,6 +258,8 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
               intensityChartTitle={intensityChartTitle}
               onBreadcrumbClick={handleBreadcrumbClick}
               onPieSliceClick={handlePieSliceClick}
+              playerId={playerId}
+              allSessions={sessions}
             />
             
             <div className="border-t border-gray-800 pt-8 lg:pt-12">

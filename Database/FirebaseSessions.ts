@@ -4,10 +4,38 @@ import { TrainingSession } from "../types";
 
 export const addSession = async (academiaId: string, sessionData: Omit<TrainingSession, "id">) => {
   try {
-    // Filtrar campos undefined antes de enviar a Firebase
-    const cleanedSessionData = Object.fromEntries(
-      Object.entries(sessionData).filter(([key, value]) => value !== undefined)
-    );
+    // Función recursiva para limpiar objetos anidados
+    const cleanObject = (obj: any): any => {
+      if (obj === null || obj === undefined) {
+        return null;
+      }
+      
+      if (Array.isArray(obj)) {
+        return obj.map(item => cleanObject(item)).filter(item => item !== null && item !== undefined);
+      }
+      
+      if (typeof obj === 'object') {
+        const cleanedObj: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+          if (value !== undefined && value !== null) {
+            const cleanedValue = cleanObject(value);
+            if (cleanedValue !== null && cleanedValue !== undefined) {
+              cleanedObj[key] = cleanedValue;
+            }
+          }
+        }
+        return cleanedObj;
+      }
+      
+      return obj;
+    };
+    
+    const cleanedSessionData = cleanObject(sessionData);
+    
+    // Validar que el objeto tenga los campos requeridos
+    if (!cleanedSessionData.jugadorId || !cleanedSessionData.fecha) {
+      throw new Error("Faltan campos requeridos: jugadorId y fecha son obligatorios");
+    }
     
     const sessionsCollection = collection(db, "academias", academiaId, "sessions");
     const docRef = await addDoc(sessionsCollection, cleanedSessionData);
