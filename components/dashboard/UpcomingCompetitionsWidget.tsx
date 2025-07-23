@@ -44,7 +44,8 @@ export const UpcomingCompetitionsWidget: React.FC<UpcomingCompetitionsWidgetProp
   };
 
   const handlePlayerClick = (playerId: string) => {
-    navigate(`/player/${playerId}/tournaments`);
+    // Navegación corregida al perfil del jugador con la pestaña de torneos activa
+    navigate(`/player/${playerId}?tab=tournaments`);
   };
 
   const getDaysRemainingColor = (days: number) => {
@@ -81,7 +82,7 @@ export const UpcomingCompetitionsWidget: React.FC<UpcomingCompetitionsWidgetProp
 
   return (
     <div className="bg-gray-900/50 backdrop-blur-sm p-6 rounded-xl border border-gray-800">
-      {/* Header exactamente como WeeklySatisfactionWidget */}
+      {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-orange-500/20 rounded-lg">
           <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,30 +100,51 @@ export const UpcomingCompetitionsWidget: React.FC<UpcomingCompetitionsWidgetProp
       ) : (
         <div className="space-y-2 max-h-60 overflow-y-auto">
           {competitions.map((competition) => (
-            <div
+            <button
               key={`${competition.playerId}-${competition.tournamentId}`}
               onClick={() => handlePlayerClick(competition.playerId)}
-              className="flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer hover:bg-gray-800/50 transition-colors"
+              className="w-full flex justify-between items-center p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer border border-transparent hover:border-gray-700 group"
             >
-              <div className="flex-1 min-w-0">
-                <span className="text-sm text-gray-300">{competition.playerName}</span>
-                <p className="text-xs text-gray-500 mt-1 truncate">
-                  {competition.competitionName}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {competition.competitionDate.toLocaleDateString('es-ES', {
-                    day: 'numeric',
-                    month: 'short'
-                  })}
-                </p>
-              </div>
-              
-              <div className="text-right ml-2">
-                <div className={`text-sm font-medium ${getDaysRemainingColor(competition.daysRemaining)}`}>
-                  {getDaysRemainingText(competition.daysRemaining)}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {/* Avatar del jugador */}
+                <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-orange-400 text-sm font-medium">
+                    {competition.playerName?.charAt(0) || '?'}
+                  </span>
+                </div>
+                
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-300 group-hover:text-white transition-colors font-medium">
+                      {competition.playerName}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 truncate">
+                    {competition.competitionName}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {competition.competitionDate.toLocaleDateString('es-ES', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                  </p>
                 </div>
               </div>
-            </div>
+              
+              <div className="flex items-center gap-2 ml-3">
+                <div className="text-right">
+                  <div className={`text-sm font-medium ${getDaysRemainingColor(competition.daysRemaining)}`}>
+                    {getDaysRemainingText(competition.daysRemaining)}
+                  </div>
+                </div>
+                
+                {/* Icono de navegación */}
+                <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-300 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
           ))}
           
           {competitions.length > 5 && (

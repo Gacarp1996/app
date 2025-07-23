@@ -2,6 +2,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Player } from '../../types';
 import { useTrainingRecommendations } from '../../hooks/useTrainingRecommendations';
+import { usePlanningAnalysis } from '../../hooks/usePlanningAnalysis';
+import { useTraining } from '../../contexts/TrainingContext';
+import PlanningAccordion from '../PlanningAccordion';
+
 
 interface ActiveSessionRecommendationsProps {
   participants: Player[];
@@ -16,9 +20,10 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'individual' | 'group'>('individual');
+  const [activeTab, setActiveTab] = useState<'individual' | 'group' | 'planning'>('individual');
   const [userHasInteractedWithTabs, setUserHasInteractedWithTabs] = useState(false);
 
+  // Hook existente para recomendaciones
   const {
     recommendations,
     loading: recommendationsLoading,
@@ -31,6 +36,25 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     academiaId,
     analysisWindowDays: 7
   });
+
+  // NUEVO: Hook para análisis de planificación con ejercicios actuales
+  const { exercises } = useTraining();
+
+  // DEBUG: Log cuando cambian los ejercicios
+  useEffect(() => {
+    console.log('🔍 [DEBUG] ActiveSessionRecommendations - exercises changed:', {
+      totalExercises: exercises.length,
+      exercises: exercises.map(ex => ({
+        id: ex.id,
+        loggedForPlayerId: ex.loggedForPlayerId,
+        loggedForPlayerName: ex.loggedForPlayerName,
+        tipo: ex.tipo,
+        area: ex.area,
+        ejercicio: ex.ejercicio,
+        tiempoCantidad: ex.tiempoCantidad
+      }))
+    });
+  }, [exercises]);
 
   // Auto-seleccionar el primer jugador y determinar tab inicial
   useEffect(() => {
@@ -230,11 +254,11 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white">Recomendaciones de Entrenamiento</h3>
+              <h3 className="text-lg font-semibold text-white">Análisis y Recomendaciones</h3>
               <p className="text-sm text-gray-400">
                 {participants.length === 1 
-                  ? 'Basado en los últimos 7 días' 
-                  : `${participants.length} jugadores - Análisis individual y grupal`}
+                  ? 'Recomendaciones y análisis de planificación' 
+                  : `${participants.length} jugadores - Análisis completo`}
               </p>
             </div>
           </div>
@@ -249,6 +273,14 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                 </span>
               ) : null;
             })()}
+
+            {/* NUEVO: Indicador de ejercicios en sesión actual */}
+            {exercises.length > 0 && (
+              <span className="px-2 py-1 text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-full">
+                En vivo ({exercises.length})
+              </span>
+            )}
+            
             <svg 
               className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
               fill="none" 
@@ -264,9 +296,9 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
         {/* Contenido expandible */}
         {isExpanded && (
           <div className="p-4 border-t border-gray-800">
-            {/* Tabs para individual vs grupal (solo si hay múltiples jugadores) */}
-            {participants.length > 1 && (
-              <div className="flex mb-4 bg-gray-800/50 rounded-lg p-1">
+            {/* NUEVO: Tabs con análisis de planificación */}
+            <div className="flex mb-4 bg-gray-800/50 rounded-lg p-1">
+              {participants.length > 1 && (
                 <button
                   onClick={() => {
                     setActiveTab('group');
@@ -285,29 +317,53 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                     Plan Grupal
                   </div>
                 </button>
-                <button
-                  onClick={() => {
-                    setActiveTab('individual');
-                    setUserHasInteractedWithTabs(true);
-                  }}
-                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all ${
-                    activeTab === 'individual'
-                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                      : 'text-gray-400 hover:text-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                    </svg>
-                    Individual
-                  </div>
-                </button>
-              </div>
-            )}
+              )}
+              
+              <button
+                onClick={() => {
+                  setActiveTab('individual');
+                  setUserHasInteractedWithTabs(true);
+                }}
+                className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all ${
+                  activeTab === 'individual'
+                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                    : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                  Individual
+                </div>
+              </button>
+
+              {/* NUEVA TAB: Análisis de Planificación */}
+              <button
+                onClick={() => {
+                  setActiveTab('planning');
+                  setUserHasInteractedWithTabs(true);
+                }}
+                className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all ${
+                  activeTab === 'planning'
+                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                    : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Análisis Plan
+                  {exercises.length > 0 && (
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  )}
+                </div>
+              </button>
+            </div>
 
             {/* Estado de carga */}
-            {recommendationsLoading && (
+            {recommendationsLoading && activeTab !== 'planning' && (
               <div className="flex items-center justify-center py-6">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-400"></div>
                 <span className="ml-3 text-gray-400">Analizando historial...</span>
@@ -317,8 +373,86 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
             {/* Contenido según tab activo */}
             {!recommendationsLoading && (
               <div className="space-y-4">
-                {activeTab === 'group' && participants.length > 1 ? (
-                  /* Vista grupal */
+                {/* NUEVA PESTAÑA: Análisis de Planificación */}
+                {activeTab === 'planning' && participants.length === 1 ? (
+                  <div className="space-y-4">
+                    {/* DEBUG: Log detallado */}
+                    {(() => {
+                      const currentPlayer = participants[0];
+                      const playerExercises = exercises.filter(ex => ex.loggedForPlayerId === currentPlayer.id);
+                      
+                      console.log('🔍 [DEBUG] ActiveSessionRecommendations - Planning Tab:', {
+                        activeTab,
+                        participantsLength: participants.length,
+                        currentPlayer: currentPlayer.name,
+                        currentPlayerId: currentPlayer.id,
+                        totalExercises: exercises.length,
+                        playerExercises: playerExercises.length,
+                        playerExerciseDetails: playerExercises.map(ex => ({
+                          id: ex.id,
+                          tipo: ex.tipo,
+                          area: ex.area,
+                          ejercicio: ex.ejercicio,
+                          tiempoCantidad: ex.tiempoCantidad,
+                          loggedForPlayerId: ex.loggedForPlayerId,
+                          loggedForPlayerName: ex.loggedForPlayerName
+                        })),
+                        exercisesAsArray: exercises.slice() // Nueva referencia
+                      });
+                      
+                      return null; // No renderizar nada
+                    })()}
+                    
+                    {/* Solo mostrar para un jugador seleccionado */}
+                    <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <div>
+                          <p className="text-purple-400 font-medium mb-1">Análisis Plan vs Realidad</p>
+                          <p className="text-purple-300 text-sm">
+                            Comparación detallada entre lo planificado y lo ejecutado para {participants[0].name}
+                            {exercises.filter(ex => ex.loggedForPlayerId === participants[0].id).length > 0 && 
+                              <span className="ml-2 px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
+                                {exercises.filter(ex => ex.loggedForPlayerId === participants[0].id).length} ejercicio(s) en tiempo real
+                              </span>
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Componente de análisis de planificación con nueva referencia */}
+                    <PlanningAccordion
+                      key={`planning-${participants[0].id}-${exercises.length}`} // FORZAR RE-RENDER
+                      player={participants[0]}
+                      academiaId={academiaId}
+                      currentSessionExercises={exercises.slice()} // NUEVA REFERENCIA
+                      config={{
+                        defaultRange: 30,
+                        statusThreshold: 5
+                      }}
+                    />
+                  </div>
+                ) : activeTab === 'planning' && participants.length > 1 ? (
+                  /* Mensaje para múltiples jugadores en análisis de planificación */
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                      </svg>
+                      <div>
+                        <p className="text-yellow-400 text-sm font-medium mb-1">Análisis individual únicamente</p>
+                        <p className="text-yellow-300 text-xs leading-relaxed">
+                          El análisis de planificación detallado está disponible solo para sesiones con un jugador. 
+                          Para ver el análisis de planificación, selecciona un solo participante o usa la pestaña "Individual".
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : activeTab === 'group' && participants.length > 1 ? (
+                  /* Vista grupal - CÓDIGO ORIGINAL */
                   <div className="space-y-4">
                     {(() => {
                       const groupRecs = generateGroupRecommendations();
@@ -377,7 +511,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                             )}
                           </div>
 
-                          {/* Recomendaciones grupales principales */}
+                          {/* REST OF GROUP RECOMMENDATIONS CODE - keeping original */}
                           {groupRecs.groupRecommendations.length > 0 && (
                             <div className="space-y-3">
                               <h5 className="text-sm font-medium text-gray-400 uppercase tracking-wide">
@@ -439,7 +573,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                     })()}
                   </div>
                 ) : (
-                  /* Vista individual */
+                  /* Vista individual - CÓDIGO ORIGINAL - mantener todo igual */
                   <div className="space-y-4">
                     {/* Selector de jugador (solo si hay múltiples participantes) */}
                     {participants.length > 1 && (
@@ -466,7 +600,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                       </div>
                     )}
 
-                    {/* Contenido individual */}
+                    {/* Rest of individual content - keeping all original code */}
                     {selectedPlayerRecs ? (
                       <>
                         {/* Resumen */}

@@ -5,7 +5,7 @@ import { useTraining, SessionExercise } from '../contexts/TrainingContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { addSession, updateSession } from '../Database/FirebaseSessions';
-import { addPostTrainingSurvey, checkSurveyExists } from '../Database/FirebaseSurveys';
+import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
 import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
 import { useExerciseOptions } from './useExerciseOptions';
@@ -402,7 +402,7 @@ export const useTrainingSession = ({
     navigate('/players');
   };
 
-  // Handler para encuestas
+  // Handler para encuestas - OPCIÓN 3: SIN VERIFICACIÓN DE ENCUESTAS EXISTENTES
   const handleSurveySubmit = async (playerId: string, responses: {
     cansancioFisico?: number;
     concentracion?: number;
@@ -448,26 +448,23 @@ export const useTrainingSession = ({
         return;
       }
 
-      const surveyDate = new Date();
-      const surveyExists = await checkSurveyExists(academiaActual.id, playerId, surveyDate);
-      if (surveyExists) {
-        console.log('Ya existe una encuesta para este jugador/sesión hoy');
-      } else {
-        // Filtrar solo las respuestas válidas (no undefined)
-        const validResponses: any = {};
-        Object.entries(responses).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            validResponses[key] = value;
-          }
-        });
+      // OPCIÓN 3: Guardar encuesta directamente sin verificación
+      // Filtrar solo las respuestas válidas (no undefined)
+      const validResponses: any = {};
+      Object.entries(responses).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          validResponses[key] = value;
+        }
+      });
 
-        await addPostTrainingSurvey(academiaActual.id, {
-          jugadorId: playerId,
-          sessionId: sessionId,
-          fecha: surveyDate.toISOString(),
-          ...validResponses
-        });
-      }
+      await addPostTrainingSurvey(academiaActual.id, {
+        jugadorId: playerId,
+        sessionId: sessionId,
+        fecha: new Date().toISOString(),
+        ...validResponses
+      });
+      
+      console.log('Encuesta guardada exitosamente');
       
       // Avanzar al siguiente jugador
       if (currentSurveyPlayerIndex < pendingSurveyPlayers.length - 1) {
