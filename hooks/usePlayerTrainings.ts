@@ -154,7 +154,9 @@ export const usePlayerTrainings = ({
     if (skipExecution) return []; // AGREGAR skipExecution
     
     let title = "Progresión de Intensidad (General)";
-    const data = dateFilteredSessions.map(session => {
+    
+    // Primero calculamos la intensidad promedio de cada sesión
+    const sessionsWithAvg = dateFilteredSessions.map(session => {
         let relevantExercises = session.ejercicios;
         if(drillDownPath.length === 1) { 
           const type = drillDownPath[0] as TrainingType; 
@@ -170,14 +172,68 @@ export const usePlayerTrainings = ({
           ? relevantExercises.reduce((sum, ex) => sum + ex.intensidad, 0) / relevantExercises.length 
           : 0;
         return { ...session, avgIntensity: avg };
-    }).filter(s => s.avgIntensity > 0)
-      .map(s => ({ 
-        fecha: new Date(s.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }), 
-        intensidad: parseFloat(s.avgIntensity.toFixed(1)) 
-      }));
+    }).filter(s => s.avgIntensity > 0);
+
+    // Agrupar sesiones por día
+    const sessionsByDay = sessionsWithAvg.reduce((acc, session) => {
+      const dateKey = new Date(session.fecha).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: userTimeZone
+      });
+      
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+      acc[dateKey].push(session);
+      return acc;
+    }, {} as Record<string, typeof sessionsWithAvg>);
+
+    // Calcular promedios de intensidad por día
+    const dailyIntensityAverages = Object.entries(sessionsByDay).map(([dateKey, sessions]) => {
+      const totalIntensity = sessions.reduce((sum, session) => sum + session.avgIntensity, 0);
+      const avgDailyIntensity = totalIntensity / sessions.length;
+      
+      // Usar la fecha de la primera sesión del día para el formato de visualización
+      const displayDate = new Date(sessions[0].fecha).toLocaleDateString('es-ES', { 
+        day: '2-digit', 
+        month: 'short',
+        timeZone: userTimeZone
+      });
+      
+      return {
+        fecha: displayDate,
+        intensidad: parseFloat(avgDailyIntensity.toFixed(1)),
+        sessionsCount: sessions.length // Para mostrar en tooltip si se desea
+      };
+    });
+
+    // Ordenar por fecha cronológicamente
+    const sortedData = dailyIntensityAverages.sort((a, b) => {
+      // Encontrar las fechas originales para ordenar correctamente
+      const dateA = new Date(Object.entries(sessionsByDay).find(([_, sessions]) => 
+        new Date(sessions[0].fecha).toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: 'short',
+          timeZone: userTimeZone
+        }) === a.fecha
+      )![1][0].fecha);
+      
+      const dateB = new Date(Object.entries(sessionsByDay).find(([_, sessions]) => 
+        new Date(sessions[0].fecha).toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: 'short',
+          timeZone: userTimeZone
+        }) === b.fecha
+      )![1][0].fecha);
+      
+      return dateA.getTime() - dateB.getTime();
+    });
+
     setIntensityChartTitle(title);
-    return data.reverse();
-  }, [dateFilteredSessions, drillDownPath, skipExecution]); // AGREGAR skipExecution
+    return sortedData;
+  }, [dateFilteredSessions, drillDownPath, skipExecution, userTimeZone]); // AGREGAR userTimeZone
 
   // OPTIMIZACIÓN: Datos de radar con memoización
   const radarData = useMemo(() => {
@@ -207,21 +263,69 @@ export const usePlayerTrainings = ({
 
   // OPTIMIZACIÓN: Función memoizada para datos de gráficos individuales
   const prepareIndividualChartData = useCallback((metricKey: string) => {
-    if (!playerSurveys || playerSurveys.length === 0 || skipExecution) return []; // AGREGAR skipExecution
+    if (!playerSurveys || playerSurveys.length === 0 || skipExecution) return [];
 
-    const sortedSurveys = [...playerSurveys].sort((a, b) =>
-      new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-    );
+    // Agrupar encuestas por día
+    const surveysByDay = playerSurveys.reduce((acc, survey) => {
+      // Crear una clave única por día
+      const dateKey = new Date(survey.fecha).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: userTimeZone
+      });
+      
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+      acc[dateKey].push(survey);
+      return acc;
+    }, {} as Record<string, PostTrainingSurvey[]>);
 
-    return sortedSurveys.map(survey => ({
-      fecha: new Date(survey.fecha).toLocaleDateString('es-ES', { 
+    // Calcular promedios por día
+    const dailyAverages = Object.entries(surveysByDay).map(([dateKey, surveys]) => {
+      const sum = surveys.reduce((total, survey) => 
+        total + (survey[metricKey as keyof PostTrainingSurvey] as number), 0
+      );
+      const average = sum / surveys.length;
+      
+      // Tomar la fecha de la primera encuesta del día para el formato de visualización
+      const displayDate = new Date(surveys[0].fecha).toLocaleDateString('es-ES', { 
         day: '2-digit', 
         month: 'short',
         timeZone: userTimeZone
-      }),
-      value: survey[metricKey as keyof PostTrainingSurvey] as number
-    }));
-  }, [playerSurveys, userTimeZone, skipExecution]); // AGREGAR skipExecution
+      });
+      
+      return {
+        fecha: displayDate,
+        value: parseFloat(average.toFixed(1)),
+        // Información adicional para el tooltip (opcional)
+        surveysCount: surveys.length
+      };
+    });
+
+    // Ordenar por fecha (cronológicamente)
+    return dailyAverages.sort((a, b) => {
+      // Necesitamos parsear las fechas para ordenarlas correctamente
+      const dateA = new Date(surveysByDay[Object.keys(surveysByDay).find(key => 
+        new Date(surveysByDay[key][0].fecha).toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: 'short',
+          timeZone: userTimeZone
+        }) === a.fecha
+      )!][0].fecha);
+      
+      const dateB = new Date(surveysByDay[Object.keys(surveysByDay).find(key => 
+        new Date(surveysByDay[key][0].fecha).toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: 'short',
+          timeZone: userTimeZone
+        }) === b.fecha
+      )!][0].fecha);
+      
+      return dateA.getTime() - dateB.getTime();
+    });
+  }, [playerSurveys, userTimeZone, skipExecution]);
 
   // Handlers optimizados (solo activos cuando NO se salta la ejecución)
   const handlePieSliceClick = useCallback((dataPoint: ChartDataPoint) => {

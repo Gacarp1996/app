@@ -1,4 +1,4 @@
-
+// components/player-profile/PlanningSection.tsx - Con selección automática
 import React from 'react';
 import { TrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { NEW_EXERCISE_HIERARCHY_CONST } from '../../constants';
