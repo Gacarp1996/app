@@ -1,7 +1,7 @@
 // components/academia-settings/users/UserManagementSection.tsx
 import React from 'react';
 import { AcademiaUser, UserRole } from '../../../Database/FirebaseRoles';
-import { UserCard } from './UserCard'; // Import directo, no circular
+import { UserCard } from './UserCard';
 
 interface UserManagementSectionProps {
   users: AcademiaUser[];
@@ -54,7 +54,7 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
         <h2 className="text-xl font-bold text-white leading-tight">Gestión de Usuarios</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="space-y-3">
         {users.map((user) => (
           <UserCard
             key={user.userId}

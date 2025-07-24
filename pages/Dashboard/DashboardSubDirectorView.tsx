@@ -62,6 +62,10 @@ const useSubdirectorDashboardData = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // NUEVOS ESTADOS para el widget de entrenadores
+  const [todaySessions, setTodaySessions] = useState<TrainingSession[]>([]);
+  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
 
   useEffect(() => {
     if (academiaActual) {
@@ -85,6 +89,16 @@ const useSubdirectorDashboardData = () => {
 
       // Filtrar solo jugadores activos
       const activePlayers = players.filter(p => p.estado === 'activo');
+      
+      // Guardar jugadores para el widget
+      setAllPlayers(activePlayers);
+      
+      // Obtener sesiones de hoy
+      const today = new Date().toISOString().split('T')[0];
+      const todaySessionsFiltered = sessions.filter(session => 
+        session.fecha.startsWith(today)
+      );
+      setTodaySessions(todaySessionsFiltered);
 
       // Procesar datos para cada widget
       await Promise.all([
@@ -286,6 +300,8 @@ const useSubdirectorDashboardData = () => {
     playerStatus,
     todayTrainings,
     weeklySatisfaction,
+    todaySessions,    // NUEVO
+    allPlayers,       // NUEVO
     loading,
     error,
     refreshData: loadDashboardData
@@ -300,6 +316,8 @@ const DashboardSubdirectorView: React.FC = () => {
     playerStatus,
     todayTrainings,
     weeklySatisfaction,
+    todaySessions,    // NUEVO
+    allPlayers,       // NUEVO
     loading,
     error,
     refreshData
@@ -358,12 +376,16 @@ const DashboardSubdirectorView: React.FC = () => {
 
         {/* Grid principal - Primera fila */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <ActiveTrainersWidget activeTrainers={activeTrainers} />
+          <ActiveTrainersWidget 
+            activeTrainers={activeTrainers} 
+            todaySessions={todaySessions}
+            players={allPlayers}
+          />
           <PlayerStatusWidget playerStatus={playerStatus} />
           <TodayTrainingsWidget todayTrainings={todayTrainings} />
         </div>
 
-        {/* Segunda fila */}
+        {/* Segunda fila - NOTA: El subdirector tiene 2 columnas en lugar de 3 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <WeeklySatisfactionWidget weeklySatisfaction={weeklySatisfaction} />
           <PlanningResumeWidget playerStatus={playerStatus} />

@@ -33,11 +33,16 @@ const RoleChangeModal: React.FC<RoleChangeModalProps> = ({
       return [];
     } else {
       // Para academias normales:
-      // - Los directores pueden promover coaches a subdirectores
+      // - Los directores pueden cambiar roles entre subdirector y entrenador
       // - Los subdirectores NO pueden cambiar roles
-      if (currentUserRole === 'academyDirector' && user.role === 'academyCoach') {
-        // Solo se puede promover a subdirector
-        return ['academySubdirector'];
+      if (currentUserRole === 'academyDirector') {
+        if (user.role === 'academyCoach') {
+          // Puede promover a subdirector
+          return ['academySubdirector'];
+        } else if (user.role === 'academySubdirector') {
+          // Puede degradar a entrenador
+          return ['academyCoach'];
+        }
       }
       return [];
     }
@@ -172,6 +177,8 @@ const RoleChangeModal: React.FC<RoleChangeModalProps> = ({
                   <p className="text-sm font-medium text-gray-300">
                     {user.role === 'academyCoach' 
                       ? 'Puedes promover a este entrenador a subdirector:' 
+                      : user.role === 'academySubdirector'
+                      ? 'Puedes cambiar el rol de este subdirector:'
                       : 'Selecciona el nuevo rol:'}
                   </p>
                   
@@ -233,6 +240,15 @@ const RoleChangeModal: React.FC<RoleChangeModalProps> = ({
                   <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700 rounded-lg">
                     <p className="text-sm text-yellow-400">
                       <strong>Nota:</strong> Al promover a subdirector, este usuario podrá gestionar otros usuarios (excepto directores) y ayudar en la administración de la academia.
+                    </p>
+                  </div>
+                )}
+
+                {/* Advertencia para degradación a entrenador */}
+                {selectedRole === 'academyCoach' && user.role === 'academySubdirector' && (
+                  <div className="mt-4 p-3 bg-orange-900/20 border border-orange-700 rounded-lg">
+                    <p className="text-sm text-orange-400">
+                      <strong>Advertencia:</strong> Al cambiar a entrenador, este usuario perderá los permisos de gestión de usuarios y administración de la academia.
                     </p>
                   </div>
                 )}

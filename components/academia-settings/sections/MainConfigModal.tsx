@@ -303,6 +303,12 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
   onDeleteEntity,
   onOpenAdvancedConfig
 }) => {
+  // Debug
+  console.log('🔍 MainConfigModal props:', {
+    isOpen,
+    onOpenAdvancedConfig: typeof onOpenAdvancedConfig
+  });
+
   if (!isOpen) return null;
 
   // Determinar qué secciones mostrar según el rol y tipo de entidad
@@ -410,7 +416,18 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                       </div>
                     </div>
                     <button 
-                      onClick={onOpenAdvancedConfig}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔍 Configurar button clicked!');
+                        console.log('🔍 onOpenAdvancedConfig is:', typeof onOpenAdvancedConfig);
+                        if (typeof onOpenAdvancedConfig === 'function') {
+                          onOpenAdvancedConfig();
+                        } else {
+                          console.error('❌ onOpenAdvancedConfig is not a function!');
+                        }
+                      }}
+                      type="button"
                       className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105"
                     >
                       <span className="flex items-center gap-2">

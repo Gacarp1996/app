@@ -63,6 +63,12 @@ const AcademiaSettingsPage: FC = () => {
   const [isMainConfigModalOpen, setIsMainConfigModalOpen] = useState(false);
   const [isAdvancedConfigModalOpen, setIsAdvancedConfigModalOpen] = useState(false);
   
+  // Debug: log de estados
+  console.log('🔍 Modal states:', {
+    isMainConfigModalOpen,
+    isAdvancedConfigModalOpen
+  });
+  
   // Estados para configuración de encuestas
   const [surveyConfig, setSurveyConfig] = useState<AcademiaConfig | null>(null);
   const [loadingSurveyConfig, setLoadingSurveyConfig] = useState(false);
@@ -267,8 +273,13 @@ const AcademiaSettingsPage: FC = () => {
   };
 
   const handleOpenAdvancedConfig = () => {
+    console.log('🔍 handleOpenAdvancedConfig called');
     setIsMainConfigModalOpen(false);
-    setIsAdvancedConfigModalOpen(true);
+    // Pequeño delay para evitar conflictos de renderizado
+    setTimeout(() => {
+      console.log('🔍 Opening AdvancedConfigModal');
+      setIsAdvancedConfigModalOpen(true);
+    }, 100);
   };
 
   const handleCloseAdvancedConfig = () => {
@@ -329,25 +340,25 @@ const AcademiaSettingsPage: FC = () => {
       
       {/* Modal principal de configuración */}
       <MainConfigModal
-       isOpen={isMainConfigModalOpen}
-       onClose={() => setIsMainConfigModalOpen(false)}
-       // ✅ PROPS ACTUALIZADAS CON FIX:
-       entityName={academiaActual.nombre}
-       entityId={academiaActual.id}
-       entityType={entityType} // ✅ USAR EL TIPO CORREGIDO
-       // Props que siguen igual:
-       users={users}
-       currentUserId={currentUser?.uid}
-       currentUserEmail={currentUser?.email}
-       currentUserRole={rolActual}
-       loadingUsers={loading}
-       processingAction={processingAction}
-       onRemoveUser={handleRemoveUser}
-       onChangeRole={openRoleModal}
-       onChangeAcademia={handleChangeAcademia}
-       onDeleteEntity={openDeleteModal}
-       onOpenAdvancedConfig={handleOpenAdvancedConfig}
-/>
+        isOpen={isMainConfigModalOpen}
+        onClose={() => setIsMainConfigModalOpen(false)}
+        // ✅ PROPS ACTUALIZADAS CON FIX:
+        entityName={academiaActual.nombre}
+        entityId={academiaActual.id}
+        entityType={entityType} // ✅ USAR EL TIPO CORREGIDO
+        // Props que siguen igual:
+        users={users}
+        currentUserId={currentUser?.uid}
+        currentUserEmail={currentUser?.email}
+        currentUserRole={rolActual}
+        loadingUsers={loading}
+        processingAction={processingAction}
+        onRemoveUser={handleRemoveUser}
+        onChangeRole={openRoleModal}
+        onChangeAcademia={handleChangeAcademia}
+        onDeleteEntity={openDeleteModal}
+        onOpenAdvancedConfig={handleOpenAdvancedConfig}
+      />
 
       {/* Modal de configuración avanzada */}
       <AdvancedConfigModal
