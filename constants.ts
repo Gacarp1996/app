@@ -13,13 +13,13 @@ export const OBJECTIVE_ESTADOS: Record<ObjectiveEstado, string> = {
 // Existing hierarchical structure for exercises (used by charts, older data)
 export const EXERCISE_HIERARCHY: Record<TrainingType, Record<TrainingArea, string[] | undefined>> = {
   [TrainingType.CANASTO]: {
-    [TrainingArea.FONDO]: ["Desde el lugar", "Dinámico"],
+    [TrainingArea.JUEGO_DE_BASE]: ["Desde el lugar", "Dinámico"],
     [TrainingArea.RED]: ["Desde el lugar", "Dinámico"],
     [TrainingArea.PRIMERAS_PELOTAS]: ["Saque", "Saque + Devolución + 1"],
     [TrainingArea.PUNTOS]: undefined, // Puntos no aplica a Canasto
   },
   [TrainingType.PELOTA_VIVA]: {
-    [TrainingArea.FONDO]: ["Control", "Movilidad", "Jugadas"],
+    [TrainingArea.JUEGO_DE_BASE]: ["Control", "Movilidad", "Jugadas"],
     [TrainingArea.RED]: ["Volea", "Subida", "Smash"],
     [TrainingArea.PRIMERAS_PELOTAS]: ["Saque", "Saque y devolución", "Saque + 1", "Saque + 1 devolución + 1"],
     [TrainingArea.PUNTOS]: ["Libres", "Con pautas"],
@@ -48,7 +48,7 @@ export const NEW_EXERCISE_HIERARCHY_MAPPING = {
     "Peloteo": TrainingType.PELOTA_VIVA,
   } as Record<string, TrainingType>,
   AREA_MAP: {
-    "Juego de base": TrainingArea.FONDO,
+    "Juego de base": TrainingArea.JUEGO_DE_BASE,
     "Juego de red": TrainingArea.RED,
     "Primeras pelotas": TrainingArea.PRIMERAS_PELOTAS,
     "Puntos": TrainingArea.PUNTOS,
@@ -86,7 +86,7 @@ export const INITIAL_SESSIONS_DATA: TrainingSession[] = [
         jugadorId: '1',
         fecha: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
         ejercicios: [
-            {id: 'e1s1', tipo: TrainingType.CANASTO, area: TrainingArea.FONDO, ejercicio: 'Desde el lugar', tiempoCantidad: '20m', intensidad: 7},
+            {id: 'e1s1', tipo: TrainingType.CANASTO, area: TrainingArea.JUEGO_DE_BASE, ejercicio: 'Desde el lugar', tiempoCantidad: '20m', intensidad: 7},
             {id: 'e2s1', tipo: TrainingType.PELOTA_VIVA, area: TrainingArea.RED, ejercicio: 'Volea', tiempoCantidad: '15m', intensidad: 6},
         ]
     },
@@ -95,7 +95,7 @@ export const INITIAL_SESSIONS_DATA: TrainingSession[] = [
         jugadorId: '1',
         fecha: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
         ejercicios: [
-            {id: 'e1s2', tipo: TrainingType.CANASTO, area: TrainingArea.FONDO, ejercicio: 'Dinámico', tiempoCantidad: '25m', intensidad: 8},
+            {id: 'e1s2', tipo: TrainingType.CANASTO, area: TrainingArea.JUEGO_DE_BASE, ejercicio: 'Dinámico', tiempoCantidad: '25m', intensidad: 8},
             {id: 'e2s2', tipo: TrainingType.PELOTA_VIVA, area: TrainingArea.PRIMERAS_PELOTAS, ejercicio: 'Saque + 1', tiempoCantidad: '30 reps', intensidad: 7},
         ]
     },
@@ -104,7 +104,7 @@ export const INITIAL_SESSIONS_DATA: TrainingSession[] = [
         jugadorId: '2',
         fecha: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
         ejercicios: [
-            {id: 'e1s3', tipo: TrainingType.PELOTA_VIVA, area: TrainingArea.FONDO, ejercicio: 'Control', tiempoCantidad: '30m', intensidad: 6},
+            {id: 'e1s3', tipo: TrainingType.PELOTA_VIVA, area: TrainingArea.JUEGO_DE_BASE, ejercicio: 'Control', tiempoCantidad: '30m', intensidad: 6},
         ]
     }
 ];
