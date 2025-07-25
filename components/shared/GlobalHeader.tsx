@@ -1,17 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAcademia } from '../../contexts/AcademiaContext';
+import { useConfigModal } from '../../contexts/ConfigModalContext'; // ✅ NUEVO IMPORT
 import { getAuth, signOut } from 'firebase/auth';
 
 const GlobalHeader: React.FC = () => {
   const { currentUser } = useAuth();
-  const { academiaActual } = useAcademia();
+  const { academiaActual, limpiarAcademiaActual } = useAcademia();
+  const { openConfigModal } = useConfigModal(); // ✅ USAR CONTEXT
   const navigate = useNavigate();
   const location = useLocation();
   const auth = getAuth();
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // ✅ NUEVO: Determinar si mostrar link de Academia/Configuración
+  const isAcademia = academiaActual?.tipo === 'academia' || !academiaActual?.tipo; // Fallback para academias legacy
+  const configLinkText = isAcademia ? 'Academia' : 'Grupo';
+
+  // Cerrar dropdown cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -30,7 +50,40 @@ const GlobalHeader: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
+
+  const closeDropdown = () => {
+    setIsDropdownOpen(false);
+  };
+
+  const handleChangeAcademia = () => {
+    if (limpiarAcademiaActual) {
+      limpiarAcademiaActual();
+    }
+    navigate('/select-academia');
+    closeDropdown();
+  };
+
+  // ✅ NUEVA FUNCIÓN: Solo abre el modal, no navega
+  const handleOpenConfig = () => {
+    console.log('🔧 Abriendo configuración desde GlobalHeader...');
+    openConfigModal(); // Solo abre el modal global
+    closeDropdown(); // Cerrar dropdown si está abierto
+  };
+
   const isActive = (path: string) => location.pathname === path;
+
+  // Obtener email truncado para mostrar
+  const getUserDisplay = () => {
+    if (!currentUser?.email) return 'Usuario';
+    const email = currentUser.email;
+    if (email.length > 20) {
+      return email.substring(0, 17) + '...';
+    }
+    return email;
+  };
 
   return (
     <>
@@ -84,30 +137,93 @@ const GlobalHeader: React.FC = () => {
                 >
                   Entrenar
                 </Link>
-                <Link 
-                  to="/academia-settings" 
-                  className={`font-medium transition-all duration-200 ${
-                    isActive('/academia-settings') 
-                      ? 'text-green-400 text-shadow-neon' 
-                      : 'text-gray-400 hover:text-green-400 hover:text-shadow-neon-sm'
-                  }`}
-                >
-                  Academia
-                </Link>
+                {/* ✅ MOSTRAR SOLO PARA ACADEMIAS NORMALES */}
+                {isAcademia && (
+                  <Link 
+                    to="/academia-settings" 
+                    className={`font-medium transition-all duration-200 ${
+                      isActive('/academia-settings') 
+                        ? 'text-green-400 text-shadow-neon' 
+                        : 'text-gray-400 hover:text-green-400 hover:text-shadow-neon-sm'
+                    }`}
+                  >
+                    {configLinkText}
+                  </Link>
+                )}
               </nav>
             )}
 
             <div className="flex items-center space-x-2 sm:space-x-4">
               {currentUser && (
-                <button
-                  onClick={handleLogout}
-                  className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-800 border border-gray-600 text-gray-300 hover:border-red-500/50 hover:bg-red-950/50 hover:text-red-400 transition-all duration-200"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-                  </svg>
-                  <span>Salir</span>
-                </button>
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={toggleDropdown}
+                    className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-500/50 hover:bg-gray-700 hover:text-green-400 transition-all duration-200"
+                  >
+                    <span>{getUserDisplay()}</span>
+                    <svg 
+                      className={`w-4 h-4 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-700 rounded-lg shadow-xl shadow-black/50 overflow-hidden">
+                      {/* Email completo en el header del dropdown */}
+                      <div className="px-4 py-3 border-b border-gray-800">
+                        <p className="text-xs text-gray-400">Conectado como</p>
+                        <p className="text-sm text-gray-300 font-medium truncate">{currentUser.email}</p>
+                      </div>
+
+                      {/* Opciones del menú */}
+                      <div className="py-1">
+                        {/* ✅ CONFIGURACIÓN: Ahora solo abre modal */}
+                        <button
+                          onClick={handleOpenConfig}
+                          className="w-full flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-green-400 transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Configuración
+                        </button>
+
+                        {/* Cambiar Academia */}
+                        <button
+                          onClick={handleChangeAcademia}
+                          className="w-full flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-green-400 transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                          Cambiar {isAcademia ? 'Academia' : 'Grupo'}
+                        </button>
+
+                        <div className="border-t border-gray-800 my-1"></div>
+
+                        {/* Cerrar Sesión */}
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center px-4 py-2 text-sm text-red-400 hover:bg-red-950/50 hover:text-red-300 transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                          </svg>
+                          Cerrar Sesión
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {currentUser && (
@@ -131,6 +247,7 @@ const GlobalHeader: React.FC = () => {
           </div>
         </div>
 
+        {/* Menú móvil */}
         {currentUser && isMobileMenuOpen && (
           <div className="md:hidden bg-gray-900/95 backdrop-blur-md border-t border-gray-800">
             <nav className="px-4 pt-2 pb-4 space-y-2">
@@ -185,24 +302,62 @@ const GlobalHeader: React.FC = () => {
                 </div>
               </Link>
 
-              <Link
-                to="/academia-settings"
-                onClick={closeMobileMenu}
-                className={`block px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  isActive('/academia-settings') 
-                    ? 'bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400 border border-green-500/30' 
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-green-400'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15l-.75 18H5.25L4.5 3z" />
-                  </svg>
-                  <span>Academia</span>
-                </div>
-              </Link>
+              {/* ✅ MOSTRAR SOLO PARA ACADEMIAS EN MÓVIL TAMBIÉN */}
+              {isAcademia && (
+                <Link
+                  to="/academia-settings"
+                  onClick={closeMobileMenu}
+                  className={`block px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    isActive('/academia-settings') 
+                      ? 'bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400 border border-green-500/30' 
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-green-400'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15l-.75 18H5.25L4.5 3z" />
+                    </svg>
+                    <span>{configLinkText}</span>
+                  </div>
+                </Link>
+              )}
 
               <div className="border-t border-gray-800 my-2 pt-2">
+                {/* ✅ CONFIGURACIÓN EN MÓVIL: Solo abre modal */}
+                <button
+                  onClick={() => {
+                    handleOpenConfig();
+                    closeMobileMenu();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg font-medium text-gray-300 hover:bg-gray-800 hover:text-green-400 transition-all duration-200"
+                >
+                  <div className="flex items-center space-x-3">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span>Configuración</span>
+                  </div>
+                </button>
+
+                {/* Cambiar Academia en móvil */}
+                <button
+                  onClick={() => {
+                    handleChangeAcademia();
+                    closeMobileMenu();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg font-medium text-gray-300 hover:bg-gray-800 hover:text-green-400 transition-all duration-200"
+                >
+                  <div className="flex items-center space-x-3">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    <span>Cambiar {isAcademia ? 'Academia' : 'Grupo'}</span>
+                  </div>
+                </button>
+
                 <button
                   onClick={() => {
                     handleLogout();

@@ -2,7 +2,11 @@
 import { db } from "../firebase/firebase-config";
 import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp, writeBatch } from "firebase/firestore";
 
-export type UserRole = 'director' | 'subdirector' | 'entrenador';
+// ACTUALIZADO: Nuevos roles del sistema
+export type UserRole = 'academyDirector' | 'academySubdirector' | 'academyCoach' | 'groupCoach' | 'assistantCoach';
+
+// Para mantener compatibilidad temporal durante la migración
+export type LegacyUserRole = 'director' | 'subdirector' | 'entrenador';
 
 export interface AcademiaUser {
   userId: string;
@@ -19,6 +23,21 @@ export interface AcademiaWithRole {
   id: string; // ID público de 6 caracteres
   role: UserRole;
 }
+
+// Función helper para convertir roles legacy a nuevos (útil durante la transición)
+export const convertLegacyRole = (legacyRole: string): UserRole => {
+  switch (legacyRole) {
+    case 'director':
+      return 'academyDirector';
+    case 'subdirector':
+      return 'academySubdirector';
+    case 'entrenador':
+      return 'academyCoach';
+    default:
+      // Por defecto, asignar academyCoach si no se reconoce el rol
+      return 'academyCoach';
+  }
+};
 
 // Agregar un usuario a una academia con un rol específico
 export const addUserToAcademia = async (
@@ -55,7 +74,14 @@ export const getUserRoleInAcademia = async (
     const userDoc = await getDoc(userRef);
     
     if (userDoc.exists()) {
-      return userDoc.data().role as UserRole;
+      const data = userDoc.data();
+      // Verificar si es un rol legacy y convertirlo
+      const role = data.role as string;
+      if (['director', 'subdirector', 'entrenador'].includes(role)) {
+        // Si encontramos un rol legacy, lo convertimos
+        return convertLegacyRole(role);
+      }
+      return role as UserRole;
     }
     return null;
   } catch (error) {
@@ -70,10 +96,20 @@ export const getAcademiaUsers = async (academiaId: string): Promise<AcademiaUser
     const usersRef = collection(db, "academias", academiaId, "usuarios");
     const snapshot = await getDocs(usersRef);
     
-    return snapshot.docs.map(doc => ({
-      ...doc.data(),
-      joinedAt: doc.data().joinedAt?.toDate() || new Date()
-    } as AcademiaUser));
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Convertir rol legacy si es necesario
+      const role = data.role as string;
+      const finalRole = ['director', 'subdirector', 'entrenador'].includes(role) 
+        ? convertLegacyRole(role) 
+        : role as UserRole;
+      
+      return {
+        ...data,
+        role: finalRole,
+        joinedAt: data.joinedAt?.toDate() || new Date()
+      } as AcademiaUser;
+    });
   } catch (error) {
     console.error("Error obteniendo usuarios de academia:", error);
     return [];
@@ -121,11 +157,19 @@ export const getUserAcademias = async (userId: string): Promise<AcademiaWithRole
       
       if (userDoc.exists()) {
         const academiaData = academiaDoc.data();
+        const userData = userDoc.data();
+        
+        // Convertir rol legacy si es necesario
+        const role = userData.role as string;
+        const finalRole = ['director', 'subdirector', 'entrenador'].includes(role) 
+          ? convertLegacyRole(role) 
+          : role as UserRole;
+        
         userAcademias.push({
           academiaId: academiaDoc.id,
           nombre: academiaData.nombre,
           id: academiaData.id,
-          role: userDoc.data().role as UserRole
+          role: finalRole
         });
       }
     }
@@ -137,22 +181,30 @@ export const getUserAcademias = async (userId: string): Promise<AcademiaWithRole
   }
 };
 
-// Verificar si un usuario puede realizar acciones de director
+// Verificar si un usuario puede realizar acciones de gestión
 export const canManageAcademia = async (
   academiaId: string,
   userId: string
 ): Promise<boolean> => {
   const role = await getUserRoleInAcademia(academiaId, userId);
-  return role === 'director' || role === 'subdirector';
+  // ACTUALIZADO: Nuevos roles que pueden gestionar la academia
+  return role === 'academyDirector' || role === 'academySubdirector';
 };
 
 // Contar directores en una academia
 export const countDirectors = async (academiaId: string): Promise<number> => {
   try {
     const usersRef = collection(db, "academias", academiaId, "usuarios");
-    const q = query(usersRef, where("role", "==", "director"));
-    const snapshot = await getDocs(q);
-    return snapshot.size;
+    // ACTUALIZADO: Buscar tanto el rol nuevo como el legacy
+    const q1 = query(usersRef, where("role", "==", "academyDirector"));
+    const q2 = query(usersRef, where("role", "==", "director")); // Por compatibilidad
+    
+    const [snapshot1, snapshot2] = await Promise.all([
+      getDocs(q1),
+      getDocs(q2)
+    ]);
+    
+    return snapshot1.size + snapshot2.size;
   } catch (error) {
     console.error("Error contando directores:", error);
     return 0;

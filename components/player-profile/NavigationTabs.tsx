@@ -40,7 +40,7 @@ const NavigationTabs: React.FC<NavigationTabsProps> = ({
             activeTab === "objectives" ? "border-b-2 border-green-400 text-green-400" : "text-gray-400 hover:text-gray-300"
           }`}
         >
-          Objetivos ({playerActualObjectivesCount}/{MAX_ACTIVE_OBJECTIVES})
+          Objetivos 
         </button>
         <button 
           onClick={() => onTabChange("tournaments")} 

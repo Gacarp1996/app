@@ -1,26 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Player } from '../types';
 import { usePlanningAnalysis, AnalysisNode } from '../hooks/usePlanningAnalysis';
+import { SessionExercise } from '../contexts/TrainingContext';
 
 interface PlanningAccordionProps {
   player: Player;
   academiaId: string;
+  // NUEVO: Ejercicios de la sesión actual
+  currentSessionExercises?: SessionExercise[];
+  config?: {
+    defaultExpandedNodes?: string[];
+    statusThreshold?: number;
+    availableRanges?: { value: number; label: string }[];
+    defaultRange?: number;
+  };
 }
 
-const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaId }) => {
-  const [rangoAnalisis, setRangoAnalisis] = useState(30);
+// Configuración por defecto que puede ser sobrescrita
+const DEFAULT_CONFIG = {
+  defaultExpandedNodes: [] as string[], // Ya no hardcodeado
+  statusThreshold: 5,
+  availableRanges: [
+    { value: 7, label: 'Últimos 7 días' },
+    { value: 14, label: 'Últimos 14 días' },
+    { value: 30, label: 'Últimos 30 días' },
+    { value: 60, label: 'Últimos 60 días' },
+    { value: 90, label: 'Últimos 90 días' }
+  ],
+  defaultRange: 30
+};
+
+const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ 
+  player, 
+  academiaId, 
+  currentSessionExercises = [],
+  config = {} 
+}) => {
+  // Combinar configuración por defecto con la recibida
+  const finalConfig = { ...DEFAULT_CONFIG, ...config };
+  
+  const [rangoAnalisis, setRangoAnalisis] = useState(finalConfig.defaultRange);
+  
+  // CAMBIO PRINCIPAL: Pasar ejercicios actuales y habilitar siempre
   const { 
     loading, 
     error, 
     analysisTree, 
-    trainingPlan 
+    trainingPlan,
+    hasCurrentSessionData,
+    totalSessions
   } = usePlanningAnalysis({ 
     player, 
     academiaId, 
-    rangoAnalisis 
+    rangoAnalisis,
+    currentSessionExercises, // NUEVO
+    enabled: true // Siempre habilitado ya que se renderiza bajo demanda
   });
   
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['Canasto', 'Peloteo']));
+  // Determinar nodos expandidos por defecto basándose en datos reales
+  const defaultExpandedNodes = useMemo(() => {
+    if (finalConfig.defaultExpandedNodes.length > 0) {
+      return finalConfig.defaultExpandedNodes;
+    }
+    
+    // Si no se especifican, expandir los nodos de nivel superior automáticamente
+    return analysisTree
+      .filter(node => node.children && node.children.length > 0)
+      .slice(0, 2) // Solo los primeros 2 para no saturar
+      .map(node => node.name);
+  }, [analysisTree, finalConfig.defaultExpandedNodes]);
+  
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(defaultExpandedNodes));
+
+  // Actualizar nodos expandidos cuando cambien los datos
+  useEffect(() => {
+    if (analysisTree.length > 0 && expandedNodes.size === 0) {
+      setExpandedNodes(new Set(defaultExpandedNodes));
+    }
+  }, [analysisTree, defaultExpandedNodes]);
 
   const toggleNode = (nodePath: string) => {
     setExpandedNodes(prev => {
@@ -35,7 +92,7 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
   };
 
   const getStatusConfig = (diferencia: number) => {
-    const threshold = 5;
+    const threshold = finalConfig.statusThreshold;
     if (Math.abs(diferencia) <= threshold) {
       return {
         icon: '✅',
@@ -225,18 +282,37 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
 
   return (
     <div className="space-y-6">
-      {/* Header mejorado */}
+      {/* Header con información de sesión actual */}
       <div className="bg-gradient-to-r from-gray-900/80 to-gray-900/60 p-4 sm:p-6 rounded-xl border border-gray-800">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
               Análisis de Planificación - {player.name}
             </h3>
-            <p className="text-sm text-gray-400 mt-1">
-              Comparación entre lo planificado y lo ejecutado
-            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-gray-400">
+              <span>
+                Comparación entre lo planificado y lo ejecutado (±{finalConfig.statusThreshold}% considerado OK)
+              </span>
+              {hasCurrentSessionData && (
+                <>
+                  <span className="text-gray-600">•</span>
+                  <span className="text-green-400 font-medium">
+                    Incluye {currentSessionExercises.filter(ex => ex.loggedForPlayerId === player.id).length} ejercicio(s) de la sesión actual
+                  </span>
+                </>
+              )}
+            </div>
           </div>
+          
           <div className="flex items-center gap-3">
+            {/* Indicador de datos en tiempo real */}
+            {hasCurrentSessionData && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 rounded-lg border border-green-500/30">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-green-400 text-xs font-medium">En vivo</span>
+              </div>
+            )}
+            
             <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-2 rounded-lg">
               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -246,10 +322,11 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
                 onChange={(e) => setRangoAnalisis(Number(e.target.value))}
                 className="bg-transparent text-sm font-medium text-gray-300 focus:outline-none"
               >
-                <option value={7}>Últimos 7 días</option>
-                <option value={14}>Últimos 14 días</option>
-                <option value={30}>Últimos 30 días</option>
-                <option value={60}>Últimos 60 días</option>
+                {finalConfig.availableRanges.map((range) => (
+                  <option key={range.value} value={range.value}>
+                    {range.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -293,7 +370,7 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({ player, academiaI
                 Dentro del plan
               </h5>
               <p className="text-xs text-gray-500 leading-tight">
-                Diferencia ±5%
+                Diferencia ±{finalConfig.statusThreshold}%
               </p>
             </div>
           </div>

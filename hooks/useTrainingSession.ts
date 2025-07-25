@@ -2,8 +2,10 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Player, Objective, TrainingSession, Tournament, LoggedExercise, SpecificExercise } from '../types';
 import { useTraining, SessionExercise } from '../contexts/TrainingContext';
-import { addSession } from '../Database/FirebaseSessions';
-import { addPostTrainingSurvey, checkSurveyExists } from '../Database/FirebaseSurveys';
+import { useAuth } from '../contexts/AuthContext';
+import { useAcademia } from '../contexts/AcademiaContext';
+import { addSession, updateSession } from '../Database/FirebaseSessions';
+import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
 import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
 import { useExerciseOptions } from './useExerciseOptions';
@@ -14,6 +16,8 @@ interface UseTrainingSessionProps {
   allTournaments: Tournament[];
   onDataChange: () => void;
   academiaId: string;
+  editSessionId?: string | null; // ID de sesión a editar
+  originalSession?: TrainingSession | null; // Sesión original
 }
 
 export const useTrainingSession = ({
@@ -21,13 +25,18 @@ export const useTrainingSession = ({
   allObjectives,
   allTournaments,
   onDataChange,
-  academiaId
+  academiaId,
+  editSessionId,
+  originalSession
 }: UseTrainingSessionProps) => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const { academiaActual } = useAcademia();
   const { participants, setParticipants, exercises, addExercise, endSession, loadSession } = useTraining();
 
   // Estados
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditMode] = useState(!!editSessionId);
   const [activePlayerIds, setActivePlayerIds] = useState<Set<string>>(new Set(participants.map(p => p.id)));
   const [isObjectiveModalOpen, setIsObjectiveModalOpen] = useState(false);
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
@@ -40,50 +49,16 @@ export const useTrainingSession = ({
   const [currentEjercicioEspecifico, setCurrentEjercicioEspecifico] = useState<string>('');
   const [tiempoCantidad, setTiempoCantidad] = useState<string>('');
   const [intensidad, setIntensidad] = useState<number>(5);
-  const [observaciones, setObservaciones] = useState('');
+  
+  // Cargar observaciones desde la sesión original si estamos editando
+  const [observaciones, setObservaciones] = useState(
+    originalSession?.observaciones || ''
+  );
   
   // Estados para ejercicios específicos
   const [specificExercises, setSpecificExercises] = useState<SpecificExercise[]>([]);
   const [isAddSpecificExerciseModalOpen, setIsAddSpecificExerciseModalOpen] = useState(false);
 
-  // Cargar ejercicios específicos del localStorage
-  useEffect(() => {
-    const savedSpecificExercises = localStorage.getItem(`specificExercises_${academiaId}`);
-    if (savedSpecificExercises) {
-      try {
-        setSpecificExercises(JSON.parse(savedSpecificExercises));
-      } catch (error) {
-        console.error('Error loading specific exercises from localStorage:', error);
-      }
-    }
-  }, [academiaId]);
-
-  // Guardar ejercicios específicos en localStorage cuando cambien
-  useEffect(() => {
-    if (specificExercises.length > 0) {
-      localStorage.setItem(`specificExercises_${academiaId}`, JSON.stringify(specificExercises));
-    }
-  }, [specificExercises, academiaId]);
-
-  // Cargar ejercicios específicos desde localStorage
-  useEffect(() => {
-    const savedSpecificExercises = localStorage.getItem(`specificExercises_${academiaId}`);
-    if (savedSpecificExercises) {
-      try {
-        setSpecificExercises(JSON.parse(savedSpecificExercises));
-      } catch (error) {
-        console.error('Error loading specific exercises:', error);
-      }
-    }
-  }, [academiaId]);
-
-  // Guardar ejercicios específicos en localStorage cuando cambien
-  useEffect(() => {
-    if (specificExercises.length > 0) {
-      localStorage.setItem(`specificExercises_${academiaId}`, JSON.stringify(specificExercises));
-    }
-  }, [specificExercises, academiaId]);
-  
   // Estados para las encuestas post-entrenamiento
   const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
   const [currentSurveyPlayerIndex, setCurrentSurveyPlayerIndex] = useState(0);
@@ -125,6 +100,43 @@ export const useTrainingSession = ({
     [singleActivePlayer, allObjectives]
   );
 
+  // Cargar ejercicios específicos del localStorage
+  useEffect(() => {
+    const savedSpecificExercises = localStorage.getItem(`specificExercises_${academiaId}`);
+    if (savedSpecificExercises) {
+      try {
+        setSpecificExercises(JSON.parse(savedSpecificExercises));
+      } catch (error) {
+        console.error('Error loading specific exercises from localStorage:', error);
+      }
+    }
+  }, [academiaId]);
+
+  // Guardar ejercicios específicos en localStorage cuando cambien
+  useEffect(() => {
+    if (specificExercises.length > 0) {
+      localStorage.setItem(`specificExercises_${academiaId}`, JSON.stringify(specificExercises));
+    }
+  }, [specificExercises, academiaId]);
+
+  // Effect para cargar datos de sesión en modo edición
+  useEffect(() => {
+    if (isEditMode && originalSession && originalSession.ejercicios.length > 0) {
+      // Convertir ejercicios de la sesión original al formato del contexto
+      const exercisesForContext = originalSession.ejercicios.map(ex => ({
+        ...ex,
+        id: crypto.randomUUID(), // Generar nuevo ID para el contexto
+        loggedForPlayerId: originalSession.jugadorId,
+        loggedForPlayerName: allPlayers.find(p => p.id === originalSession.jugadorId)?.name || 'Jugador'
+      }));
+      
+      // Cargar en el contexto sin llamar a loadSession
+      exercisesForContext.forEach(exercise => {
+        addExercise(exercise as SessionExercise);
+      });
+    }
+  }, [isEditMode, originalSession, allPlayers, addExercise]);
+
   // Effects
   useEffect(() => {
     if (participants.length === 0) {
@@ -141,11 +153,12 @@ export const useTrainingSession = ({
 
   useEffect(() => {
     setActivePlayerIds(new Set(participants.map(p => p.id)));
-    if (participants.length > 0 && !modalOpenedOnceRef.current) {
+    if (participants.length > 0 && !modalOpenedOnceRef.current && !isEditMode) {
+      // Solo abrir modal automáticamente en modo creación, no en edición
       setIsObjectiveModalOpen(true);
       modalOpenedOnceRef.current = true;
     }
-  }, [participants]);
+  }, [participants, isEditMode]);
 
   // Cargar preguntas habilitadas de encuesta
   useEffect(() => {
@@ -252,10 +265,72 @@ export const useTrainingSession = ({
     setIntensidad(5);
   };
 
-  // Handler para finalizar entrenamiento
+  // Handler principal para finalizar entrenamiento
   const handleFinishTraining = async () => {
     if (exercises.length === 0 && !window.confirm("No has registrado ningún ejercicio. ¿Deseas finalizar de todas formas?")) return;
     
+    if (!currentUser) {
+      alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+      return;
+    }
+
+    if (isEditMode && originalSession) {
+      // MODO EDICIÓN: Actualizar sesión existente
+      await handleUpdateExistingSession();
+    } else {
+      // MODO CREACIÓN: Crear nueva sesión (lógica original)
+      await handleCreateNewSession();
+    }
+  };
+
+  // Función para actualizar sesión existente
+  const handleUpdateExistingSession = async () => {
+    if (!originalSession || !currentUser || !academiaActual) {
+      alert('Error: Faltan datos necesarios para actualizar la sesión.');
+      return;
+    }
+
+    try {
+      // Preparar ejercicios actualizados
+      const updatedExercises = exercises
+        .filter(ex => ex.loggedForPlayerId === originalSession.jugadorId)
+        .map(({ loggedForPlayerId, loggedForPlayerName, ...rest }) => rest as LoggedExercise);
+
+      // Actualizar sesión existente
+      const updatedSession: Partial<Omit<TrainingSession, "id">> = {
+        ejercicios: updatedExercises,
+        observaciones: observaciones.trim(),
+        // Mantener fecha original y otros datos
+        entrenadorId: currentUser.uid
+      };
+
+      // Llamar a función de actualización (usando tu función existente)
+      await updateSession(academiaActual.id, originalSession.id, updatedSession);
+      
+      alert('Entrenamiento actualizado exitosamente');
+      onDataChange();
+      endSession();
+      
+      // Volver al perfil del jugador
+      const player = allPlayers.find(p => p.id === originalSession.jugadorId);
+      if (player) {
+        navigate(`/player/${player.id}`);
+      } else {
+        navigate('/players');
+      }
+    } catch (error) {
+      console.error('Error actualizando sesión:', error);
+      alert('Error al actualizar el entrenamiento');
+    }
+  };
+
+  // Función para crear nueva sesión (lógica original separada)
+  const handleCreateNewSession = async () => {
+    if (!currentUser) {
+      alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+      return;
+    }
+
     // Preparar las sesiones pero NO guardarlas todavía
     const sessionsToSave: Omit<TrainingSession, 'id'>[] = participants.map(player => {
       const playerExercises = exercises.filter(ex => ex.loggedForPlayerId === player.id)
@@ -275,6 +350,7 @@ export const useTrainingSession = ({
       
       return { 
         jugadorId: player.id, 
+        entrenadorId: currentUser.uid,
         fecha: new Date().toISOString(), 
         ejercicios: playerExercises,
         observaciones: observaciones.trim() || ''
@@ -308,11 +384,21 @@ export const useTrainingSession = ({
 
   // Función helper para guardar sesiones directamente
   const saveSessionsDirectly = async (sessionsToSave: Omit<TrainingSession, 'id'>[]) => {
+    if (!currentUser || !academiaActual) {
+      alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+      return;
+    }
+
     const sessionIdsMap = new Map<string, string>();
     
     for (const session of sessionsToSave) {
       try {
-        const sessionId = await addSession(academiaId, session);
+        const sessionWithTrainer = {
+          ...session,
+          entrenadorId: currentUser.uid
+        };
+        
+        const sessionId = await addSession(academiaActual.id, sessionWithTrainer);
         if (sessionId) {
           sessionIdsMap.set(session.jugadorId, sessionId);
         }
@@ -328,7 +414,7 @@ export const useTrainingSession = ({
     navigate('/players');
   };
 
-  // Handler para encuestas
+  // Handler para encuestas - OPCIÓN 3: SIN VERIFICACIÓN DE ENCUESTAS EXISTENTES
   const handleSurveySubmit = async (playerId: string, responses: {
     cansancioFisico?: number;
     concentracion?: number;
@@ -336,6 +422,11 @@ export const useTrainingSession = ({
     sensacionesTenisticas?: number;
   }) => {
     try {
+      if (!currentUser || !academiaActual) {
+        alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+        return;
+      }
+
       let currentSessionIds = sessionIds;
       
       // Si es la primera encuesta, necesitamos guardar las sesiones primero
@@ -344,7 +435,12 @@ export const useTrainingSession = ({
         
         for (const session of pendingSessionsToSave) {
           try {
-            const sessionId = await addSession(academiaId, session);
+            const sessionWithTrainer = {
+              ...session,
+              entrenadorId: currentUser.uid
+            };
+            
+            const sessionId = await addSession(academiaActual.id, sessionWithTrainer);
             if (sessionId) {
               sessionIdsMap.set(session.jugadorId, sessionId);
             }
@@ -364,26 +460,23 @@ export const useTrainingSession = ({
         return;
       }
 
-      const surveyDate = new Date();
-      const surveyExists = await checkSurveyExists(academiaId, playerId, surveyDate);
-      if (surveyExists) {
-        console.log('Ya existe una encuesta para este jugador/sesión hoy');
-      } else {
-        // Filtrar solo las respuestas válidas (no undefined)
-        const validResponses: any = {};
-        Object.entries(responses).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            validResponses[key] = value;
-          }
-        });
+      // OPCIÓN 3: Guardar encuesta directamente sin verificación
+      // Filtrar solo las respuestas válidas (no undefined)
+      const validResponses: any = {};
+      Object.entries(responses).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          validResponses[key] = value;
+        }
+      });
 
-        await addPostTrainingSurvey(academiaId, {
-          jugadorId: playerId,
-          sessionId: sessionId,
-          fecha: surveyDate.toISOString(),
-          ...validResponses
-        });
-      }
+      await addPostTrainingSurvey(academiaActual.id, {
+        jugadorId: playerId,
+        sessionId: sessionId,
+        fecha: new Date().toISOString(),
+        ...validResponses
+      });
+      
+      console.log('Encuesta guardada exitosamente');
       
       // Avanzar al siguiente jugador
       if (currentSurveyPlayerIndex < pendingSurveyPlayers.length - 1) {
@@ -447,6 +540,10 @@ export const useTrainingSession = ({
     observaciones,
     isAddSpecificExerciseModalOpen,
     enabledSurveyQuestions,
+    
+    // Estados de modo edición
+    isEditMode,
+    originalSession,
     
     // Estados del formulario
     currentTipoKey,

@@ -1,5 +1,5 @@
-// hooks/usePlayerTrainings.ts
-import { useState, useEffect, useMemo } from 'react';
+// hooks/usePlayerTrainings.ts - Optimizado con skipExecution
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { TrainingSession, PostTrainingSurvey, ChartDataPoint, IntensityDataPoint, TrainingType, TrainingArea } from '../types';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
 import { EXERCISE_HIERARCHY } from '../constants';
@@ -10,13 +10,15 @@ interface UsePlayerTrainingsProps {
   academiaId: string;
   sessions: TrainingSession[];
   activeTab: string;
+  skipExecution?: boolean; // NUEVO PARÁMETRO
 }
 
 export const usePlayerTrainings = ({ 
   playerId, 
   academiaId, 
   sessions, 
-  activeTab 
+  activeTab,
+  skipExecution = false // NUEVO PARÁMETRO CON DEFAULT
 }: UsePlayerTrainingsProps) => {
   // Estados de filtros
   const defaultDates = getDefaultDateRange();
@@ -26,9 +28,10 @@ export const usePlayerTrainings = ({
   const [areaChartTitle, setAreaChartTitle] = useState<string>("Distribución por Tipo");
   const [intensityChartTitle, setIntensityChartTitle] = useState<string>("Progresión de Intensidad");
   
-  // Estados de encuestas
+  // Estados de encuestas - LAZY LOADING
   const [playerSurveys, setPlayerSurveys] = useState<PostTrainingSurvey[]>([]);
   const [surveysLoading, setSurveysLoading] = useState(false);
+  const [surveysLoaded, setSurveysLoaded] = useState(false);
   
   // Estados del calendario
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -43,14 +46,9 @@ export const usePlayerTrainings = ({
     }
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'trainings' && playerId) {
-      loadPlayerSurveys();
-    }
-  }, [activeTab, playerId, startDate, endDate]);
-
-  const loadPlayerSurveys = async () => {
-    if (!playerId) return;
+  // OPTIMIZACIÓN: Solo cargar encuestas cuando realmente se necesiten
+  const loadPlayerSurveys = useCallback(async () => {
+    if (!playerId || surveysLoaded || skipExecution) return; // AGREGAR skipExecution
     
     setSurveysLoading(true);
     try {
@@ -67,15 +65,29 @@ export const usePlayerTrainings = ({
 
       const surveys = await getPlayerSurveys(academiaId, playerId, startDateObj, endDateObj);
       setPlayerSurveys(surveys);
+      setSurveysLoaded(true);
     } catch (error) {
       console.error('Error cargando encuestas:', error);
     } finally {
       setSurveysLoading(false);
     }
-  };
+  }, [playerId, academiaId, startDate, endDate, surveysLoaded, skipExecution]); // AGREGAR skipExecution
 
+  // OPTIMIZACIÓN: Solo ejecutar effects cuando NO se debe saltar la ejecución
+  useEffect(() => {
+    if (!skipExecution && activeTab === 'trainings' && playerId) { // AGREGAR !skipExecution
+      // Cargar encuestas con debounce
+      const timeoutId = setTimeout(() => {
+        loadPlayerSurveys();
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [skipExecution, activeTab, playerId, loadPlayerSurveys]); // AGREGAR skipExecution
+
+  // OPTIMIZACIÓN: Memoización pesada de sesiones filtradas
   const dateFilteredSessions = useMemo(() => {
-    if (!startDate || !endDate) return [];
+    if (!startDate || !endDate || !playerId || skipExecution) return []; // AGREGAR skipExecution
     
     const userTimezoneOffset = new Date().getTimezoneOffset() * 60000;
     const start = new Date(new Date(startDate).getTime() + userTimezoneOffset);
@@ -88,17 +100,21 @@ export const usePlayerTrainings = ({
         return s.jugadorId === playerId && sessionDate >= start && sessionDate <= end;
       })
       .sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [sessions, playerId, startDate, endDate]);
+  }, [sessions, playerId, startDate, endDate, skipExecution]); // AGREGAR skipExecution
 
+  // OPTIMIZACIÓN: Memoización de entrenamientos para fecha seleccionada
   const trainingsForSelectedDate = useMemo(() => {
-    if (!selectedDate || !playerId) return [];
+    if (!selectedDate || !playerId || skipExecution) return []; // AGREGAR skipExecution
     return sessions.filter(s => 
       s.jugadorId === playerId &&
       new Date(s.fecha).toDateString() === selectedDate.toDateString()
     );
-  }, [selectedDate, sessions, playerId]);
+  }, [selectedDate, sessions, playerId, skipExecution]); // AGREGAR skipExecution
 
+  // OPTIMIZACIÓN: Cálculos de drill down con memoización
   const drillDownData = useMemo((): ChartDataPoint[] => {
+    if (skipExecution) return []; // AGREGAR skipExecution
+    
     const timeSums: Record<string, number> = {};
     
     if (drillDownPath.length === 0) { 
@@ -131,11 +147,16 @@ export const usePlayerTrainings = ({
       })); 
       return Object.entries(timeSums).map(([name, value]) => ({ name, value, type: 'Exercise' })); 
     }
-  }, [dateFilteredSessions, drillDownPath]);
+  }, [dateFilteredSessions, drillDownPath, skipExecution]); // AGREGAR skipExecution
 
+  // OPTIMIZACIÓN: Datos de intensidad con memoización
   const intensityChartData = useMemo((): IntensityDataPoint[] => {
+    if (skipExecution) return []; // AGREGAR skipExecution
+    
     let title = "Progresión de Intensidad (General)";
-    const data = dateFilteredSessions.map(session => {
+    
+    // Primero calculamos la intensidad promedio de cada sesión
+    const sessionsWithAvg = dateFilteredSessions.map(session => {
         let relevantExercises = session.ejercicios;
         if(drillDownPath.length === 1) { 
           const type = drillDownPath[0] as TrainingType; 
@@ -151,17 +172,72 @@ export const usePlayerTrainings = ({
           ? relevantExercises.reduce((sum, ex) => sum + ex.intensidad, 0) / relevantExercises.length 
           : 0;
         return { ...session, avgIntensity: avg };
-    }).filter(s => s.avgIntensity > 0)
-      .map(s => ({ 
-        fecha: new Date(s.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }), 
-        intensidad: parseFloat(s.avgIntensity.toFixed(1)) 
-      }));
-    setIntensityChartTitle(title);
-    return data.reverse();
-  }, [dateFilteredSessions, drillDownPath]);
+    }).filter(s => s.avgIntensity > 0);
 
+    // Agrupar sesiones por día
+    const sessionsByDay = sessionsWithAvg.reduce((acc, session) => {
+      const dateKey = new Date(session.fecha).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: userTimeZone
+      });
+      
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+      acc[dateKey].push(session);
+      return acc;
+    }, {} as Record<string, typeof sessionsWithAvg>);
+
+    // Calcular promedios de intensidad por día
+    const dailyIntensityAverages = Object.entries(sessionsByDay).map(([dateKey, sessions]) => {
+      const totalIntensity = sessions.reduce((sum, session) => sum + session.avgIntensity, 0);
+      const avgDailyIntensity = totalIntensity / sessions.length;
+      
+      // Usar la fecha de la primera sesión del día para el formato de visualización
+      const displayDate = new Date(sessions[0].fecha).toLocaleDateString('es-ES', { 
+        day: '2-digit', 
+        month: 'short',
+        timeZone: userTimeZone
+      });
+      
+      return {
+        fecha: displayDate,
+        intensidad: parseFloat(avgDailyIntensity.toFixed(1)),
+        sessionsCount: sessions.length // Para mostrar en tooltip si se desea
+      };
+    });
+
+    // Ordenar por fecha cronológicamente
+    const sortedData = dailyIntensityAverages.sort((a, b) => {
+      // Encontrar las fechas originales para ordenar correctamente
+      const dateA = new Date(Object.entries(sessionsByDay).find(([_, sessions]) => 
+        new Date(sessions[0].fecha).toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: 'short',
+          timeZone: userTimeZone
+        }) === a.fecha
+      )![1][0].fecha);
+      
+      const dateB = new Date(Object.entries(sessionsByDay).find(([_, sessions]) => 
+        new Date(sessions[0].fecha).toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: 'short',
+          timeZone: userTimeZone
+        }) === b.fecha
+      )![1][0].fecha);
+      
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    setIntensityChartTitle(title);
+    return sortedData;
+  }, [dateFilteredSessions, drillDownPath, skipExecution, userTimeZone]); // AGREGAR userTimeZone
+
+  // OPTIMIZACIÓN: Datos de radar con memoización
   const radarData = useMemo(() => {
-    if (!playerSurveys || playerSurveys.length === 0) return [];
+    if (!playerSurveys || playerSurveys.length === 0 || skipExecution) return []; // AGREGAR skipExecution
 
     const totals = playerSurveys.reduce((acc, survey) => ({
       cansancioFisico: acc.cansancioFisico + survey.cansancioFisico,
@@ -183,26 +259,77 @@ export const usePlayerTrainings = ({
       { metric: 'Actitud', value: parseFloat((totals.actitudMental / count).toFixed(1)), fullMark: 5 },
       { metric: 'Sensaciones', value: parseFloat((totals.sensacionesTenisticas / count).toFixed(1)), fullMark: 5 }
     ];
-  }, [playerSurveys]);
+  }, [playerSurveys, skipExecution]); // AGREGAR skipExecution
 
-  const prepareIndividualChartData = (metricKey: string) => {
-    if (!playerSurveys || playerSurveys.length === 0) return [];
+  // OPTIMIZACIÓN: Función memoizada para datos de gráficos individuales
+  const prepareIndividualChartData = useCallback((metricKey: string) => {
+    if (!playerSurveys || playerSurveys.length === 0 || skipExecution) return [];
 
-    const sortedSurveys = [...playerSurveys].sort((a, b) =>
-      new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-    );
+    // Agrupar encuestas por día
+    const surveysByDay = playerSurveys.reduce((acc, survey) => {
+      // Crear una clave única por día
+      const dateKey = new Date(survey.fecha).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: userTimeZone
+      });
+      
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+      acc[dateKey].push(survey);
+      return acc;
+    }, {} as Record<string, PostTrainingSurvey[]>);
 
-    return sortedSurveys.map(survey => ({
-      fecha: new Date(survey.fecha).toLocaleDateString('es-ES', { 
+    // Calcular promedios por día
+    const dailyAverages = Object.entries(surveysByDay).map(([dateKey, surveys]) => {
+      const sum = surveys.reduce((total, survey) => 
+        total + (survey[metricKey as keyof PostTrainingSurvey] as number), 0
+      );
+      const average = sum / surveys.length;
+      
+      // Tomar la fecha de la primera encuesta del día para el formato de visualización
+      const displayDate = new Date(surveys[0].fecha).toLocaleDateString('es-ES', { 
         day: '2-digit', 
         month: 'short',
         timeZone: userTimeZone
-      }),
-      value: survey[metricKey as keyof PostTrainingSurvey] as number
-    }));
-  };
+      });
+      
+      return {
+        fecha: displayDate,
+        value: parseFloat(average.toFixed(1)),
+        // Información adicional para el tooltip (opcional)
+        surveysCount: surveys.length
+      };
+    });
 
-  const handlePieSliceClick = (dataPoint: ChartDataPoint) => {
+    // Ordenar por fecha (cronológicamente)
+    return dailyAverages.sort((a, b) => {
+      // Necesitamos parsear las fechas para ordenarlas correctamente
+      const dateA = new Date(surveysByDay[Object.keys(surveysByDay).find(key => 
+        new Date(surveysByDay[key][0].fecha).toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: 'short',
+          timeZone: userTimeZone
+        }) === a.fecha
+      )!][0].fecha);
+      
+      const dateB = new Date(surveysByDay[Object.keys(surveysByDay).find(key => 
+        new Date(surveysByDay[key][0].fecha).toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: 'short',
+          timeZone: userTimeZone
+        }) === b.fecha
+      )!][0].fecha);
+      
+      return dateA.getTime() - dateB.getTime();
+    });
+  }, [playerSurveys, userTimeZone, skipExecution]);
+
+  // Handlers optimizados (solo activos cuando NO se salta la ejecución)
+  const handlePieSliceClick = useCallback((dataPoint: ChartDataPoint) => {
+    if (skipExecution) return; // AGREGAR skipExecution
     if (!dataPoint.name || (drillDownPath.length > 1 && dataPoint.type === 'Exercise')) return;
     if (drillDownPath.length < 2) {
       const currentType = drillDownPath[0] as TrainingType;
@@ -210,17 +337,24 @@ export const usePlayerTrainings = ({
         setDrillDownPath(prev => [...prev, dataPoint.name]);
       }
     }
-  };
+  }, [drillDownPath, skipExecution]); // AGREGAR skipExecution
 
-  const handleBreadcrumbClick = (index: number) => setDrillDownPath(drillDownPath.slice(0, index));
+  const handleBreadcrumbClick = useCallback((index: number) => {
+    if (skipExecution) return; // AGREGAR skipExecution
+    setDrillDownPath(drillDownPath.slice(0, index));
+  }, [drillDownPath, skipExecution]); // AGREGAR skipExecution
 
-  const resetDateFilters = () => {
+  const resetDateFilters = useCallback(() => {
+    if (skipExecution) return; // AGREGAR skipExecution
     const defaultDates = getDefaultDateRange();
     setStartDate(defaultDates.start);
     setEndDate(defaultDates.end);
-  };
+    // Reset surveys when dates change
+    setSurveysLoaded(false);
+  }, [skipExecution]); // AGREGAR skipExecution
 
-  const handleDateClick = (date: Date) => {
+  const handleDateClick = useCallback((date: Date) => {
+    if (skipExecution) return; // AGREGAR skipExecution
     const trainingsOnDay = sessions.some(s => 
       s.jugadorId === playerId && 
       new Date(s.fecha).toDateString() === date.toDateString()
@@ -229,19 +363,7 @@ export const usePlayerTrainings = ({
       setSelectedDate(date);
       setIsTrainingsModalOpen(true);
     }
-  };
-
-  // Función para crear el CustomTooltip (será usado como componente en el padre)
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return {
-        active,
-        payload,
-        label
-      };
-    }
-    return null;
-  };
+  }, [sessions, playerId, skipExecution]); // AGREGAR skipExecution
 
   return {
     // Estados de filtros
@@ -258,7 +380,7 @@ export const usePlayerTrainings = ({
     intensityChartData,
     intensityChartTitle,
     
-    // Estados de encuestas
+    // Estados de encuestas (con lazy loading)
     playerSurveys,
     surveysLoading,
     radarData,
@@ -272,14 +394,16 @@ export const usePlayerTrainings = ({
     // Datos filtrados
     dateFilteredSessions,
     
-    // Handlers
+    // Handlers optimizados
     handlePieSliceClick,
     handleBreadcrumbClick,
     handleDateClick,
     
     // Utils
     prepareIndividualChartData,
-    CustomTooltip,
     METRIC_CONFIG,
+    
+    // Función para cargar encuestas manualmente
+    loadPlayerSurveys,
   };
 };

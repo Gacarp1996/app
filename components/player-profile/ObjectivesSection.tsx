@@ -1,4 +1,4 @@
-// components/player-profile/ObjectivesSection.tsx
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Objective, ObjectiveEstado } from '../../types';

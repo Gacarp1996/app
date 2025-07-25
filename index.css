@@ -1,3 +1,10 @@
+/* ===== DIRECTIVAS DE TAILWIND CSS ===== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== TUS ESTILOS PERSONALIZADOS EXISTENTES ===== */
+
 /* === RESET GLOBAL Y FONDO MEJORADO === */
 html {
   margin: 0;
@@ -252,4 +259,44 @@ textarea:focus {
     padding: 0.625rem 1rem;
     font-size: 1.125rem;
   }
+}
+
+/* ===== ESTILOS ADICIONALES PARA COMPONENTES DE TAILWIND ===== */
+
+/* Scrollbar personalizado para modales */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-gray-800 rounded-full;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded-full hover:bg-gray-500;
+}
+
+/* Componentes reutilizables para botones */
+.app-button {
+  @apply px-4 py-2 rounded-lg font-semibold transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black;
+}
+
+.btn-primary {
+  @apply bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black shadow-lg shadow-green-500/25;
+}
+
+.btn-secondary {
+  @apply bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 hover:border-gray-600;
+}
+
+/* Texto con gradiente */
+.gradient-text {
+  @apply bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent;
+}
+
+/* Efectos de glassmorphism */
+.glass-effect {
+  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }

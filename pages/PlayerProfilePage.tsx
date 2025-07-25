@@ -1,5 +1,5 @@
-// pages/PlayerProfilePage.tsx
-import React, { useState, useMemo } from 'react';
+// pages/PlayerProfilePage.tsx - OPTIMIZADO sin duplicar componentes
+import React, { useState, useMemo, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Player, Objective, TrainingSession, Tournament } from '../types';
 
@@ -7,28 +7,33 @@ import Modal from '../components/shared/Modal';
 import TrainingsOnDateModal from '../components/training/TrainingOnDateModal';
 import PlanningAccordion from '../components/PlanningAccordion';
 import DisputedTournamentFormModal from '../components/tournaments/DisputedTournamentFormModal';
-// IMPORTS DE COMPONENTES REFACTORIZADOS
-import IndividualMetricsCharts from '../components/player-profile/IndividualMetricsCharts';
-import RadarChartOverview from '../components/player-profile/RadarChartOverview';
-import DateFilters from '../components/player-profile/DateFilters';
-import ExerciseAnalysis from '../components/player-profile/ExerciseAnalysis';
-import TrainingCalendarSection from '../components/player-profile/TrainingCalendarSection';
+import TournamentFormModal from '@/components/tournaments/TournamentFormModal';
+
+// IMPORTS BÁSICOS (siempre cargados)
 import PlayerHeader from '../components/player-profile/PlayerHeader';
 import NavigationTabs, { Tab } from '../components/player-profile/NavigationTabs';
 import ProfileSection from '../components/player-profile/ProfileSection';
-import ObjectivesSection from '../components/player-profile/ObjectivesSection';
-import FutureTournamentsSection from '../components/player-profile/FutureTournamentsSection';
-import DisputedTournamentsSection from '../components/player-profile/DisputedTournamentsSection';
-import PlanningSection from '../components/player-profile/PlanningSection';
-import TournamentSubTabs from '../components/player-profile/TournamentSubTabs';
-// IMPORTS DE HOOKS PERSONALIZADOS
+
+// IMPORTS CONDICIONALES - Solo se importan cuando se necesitan
+const DateFilters = React.lazy(() => import('../components/player-profile/DateFilters'));
+const ExerciseAnalysis = React.lazy(() => import('../components/player-profile/ExerciseAnalysis'));
+const IndividualMetricsCharts = React.lazy(() => import('../components/player-profile/IndividualMetricsCharts'));
+const RadarChartOverview = React.lazy(() => import('../components/player-profile/RadarChartOverview'));
+const TrainingCalendarSection = React.lazy(() => import('../components/player-profile/TrainingCalendarSection'));
+const ObjectivesSection = React.lazy(() => import('../components/player-profile/ObjectivesSection'));
+const FutureTournamentsSection = React.lazy(() => import('../components/player-profile/FutureTournamentsSection'));
+const DisputedTournamentsSection = React.lazy(() => import('../components/player-profile/DisputedTournamentsSection'));
+const PlanningSection = React.lazy(() => import('../components/player-profile/PlanningSection'));
+const TournamentSubTabs = React.lazy(() => import('../components/player-profile/TournamentSubTabs'));
+
+// HOOKS BÁSICOS
 import { usePlayerProfile } from '../hooks/usePlayerProfile';
+import { usePlayerTrainings } from '../hooks/usePlayerTrainings';
 import { useTrainingPlan } from '../hooks/useTrainingPlan';
 import { usePlayerTournaments } from '../hooks/usePlayerTournaments';
-import { usePlayerTrainings } from '../hooks/usePlayerTrainings';
+
 // UTILIDADES
 import { formatDate } from '../components/player-profile/utils';
-import TournamentFormModal from '@/components/tournaments/TournamentFormModal';
 
 interface PlayerProfilePageProps {
   players: Player[];
@@ -38,6 +43,27 @@ interface PlayerProfilePageProps {
   onDataChange: () => void;
   academiaId: string;
 }
+
+// LOADING COMPONENT REUTILIZABLE
+const TabLoadingSkeleton: React.FC<{ message?: string }> = ({ message = "Cargando..." }) => (
+  <div className="space-y-6 animate-pulse">
+    <div className="bg-gray-900/50 backdrop-blur-sm p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-6 h-6 bg-gray-700 rounded"></div>
+        <div className="h-6 bg-gray-700 rounded w-48"></div>
+      </div>
+      <div className="space-y-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-4 bg-gray-700 rounded w-full"></div>
+        ))}
+      </div>
+    </div>
+    <div className="text-center py-4">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-400 mx-auto"></div>
+      <p className="mt-2 text-gray-400 text-sm">{message}</p>
+    </div>
+  </div>
+);
 
 const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ 
   players, 
@@ -51,10 +77,10 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
   
   // Estados de UI
   const [activeTab, setActiveTab] = useState<Tab>("perfil");
-  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isPlanningAnalysisOpen, setIsPlanningAnalysisOpen] = useState(false);
 
-  // Hooks personalizados
+  // Hook básico del jugador (siempre cargado)
   const { 
     player, 
     profileData, 
@@ -67,151 +93,126 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
     onDataChange 
   });
 
-  const {
-    planLoading,
-    planSaving,
-    rangoAnalisis,
-    planificacion,
-    setRangoAnalisis,
-    handlers: planHandlers,
-    calculations: planCalculations
-  } = useTrainingPlan({ 
-    playerId, 
-    academiaId, 
-    activeTab 
-  });
-
-  const {
-    isTournamentModalOpen,
-    editingTournament,
-    playerDisputedTournaments,
-    isDisputedTournamentModalOpen,
-    editingDisputedTournament,
-    tournamentToConvert,
-    activeSubTab,
-    setActiveSubTab,
-    futureTournamentHandlers,
-    disputedTournamentHandlers
-  } = usePlayerTournaments({ 
-    playerId, 
-    academiaId, 
-    activeTab, 
-    onDataChange 
-  });
-
-  const {
-    startDate,
-    endDate,
-    setStartDate,
-    setEndDate,
-    resetDateFilters,
-    drillDownPath,
-    drillDownData,
-    areaChartTitle,
-    intensityChartData,
-    intensityChartTitle,
-    playerSurveys,
-    surveysLoading,
-    radarData,
-    selectedDate,
-    isTrainingsModalOpen,
-    setIsTrainingsModalOpen,
-    trainingsForSelectedDate,
-    dateFilteredSessions,
-    handlePieSliceClick,
-    handleBreadcrumbClick,
-    handleDateClick,
-    prepareIndividualChartData,
-    METRIC_CONFIG,
-  } = usePlayerTrainings({ 
+  // HOOKS CONDICIONALES - Solo se ejecutan cuando el tab está activo
+  const trainingsHook = usePlayerTrainings({ 
     playerId, 
     academiaId, 
     sessions, 
-    activeTab 
+    activeTab,
+    skipExecution: activeTab !== "trainings" // Solo ejecutar cuando el tab esté activo
   });
 
-  // Datos calculados
+  const planningHook = useTrainingPlan({ 
+    playerId, 
+    academiaId, 
+    activeTab
+    // Removido skipExecution - no existe en este hook
+  });
+
+  const tournamentsHook = usePlayerTournaments({ 
+    playerId, 
+    academiaId, 
+    activeTab, 
+    onDataChange
+    // Removido skipExecution - no existe en este hook
+  });
+
+  // Datos calculados básicos (solo cuando son necesarios)
   const playerAllObjectives = useMemo(() => {
-    if (!objectives || !Array.isArray(objectives)) return [];
+    if (!objectives || !Array.isArray(objectives) || (activeTab !== "objectives" && activeTab !== "perfil")) return [];
     return objectives.filter(obj => obj.jugadorId === playerId);
-  }, [objectives, playerId]);
+  }, [objectives, playerId, activeTab]);
 
   const playerActualObjectivesCount = useMemo(() => 
     playerAllObjectives.filter(obj => obj.estado === 'actual-progreso').length, 
     [playerAllObjectives]
   );
 
-  const playerTournaments = useMemo(() => 
-    tournaments.filter(t => t.jugadorId === playerId)
-      .sort((a,b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime()), 
-    [tournaments, playerId]
-  );
-
-  const totalPercentage = planCalculations.calculateTotalPercentage();
-  const validation = planCalculations.validateFlexiblePlan();
+  const playerTournaments = useMemo(() => {
+    if (activeTab !== "tournaments") return [];
+    return tournaments.filter(t => t.jugadorId === playerId)
+      .sort((a,b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime());
+  }, [tournaments, playerId, activeTab]);
 
   // Handlers locales
-  const handleArchiveClick = () => setIsArchiveModalOpen(true);
-  const confirmArchivePlayer = async () => {
-    await profileHandlers.handleArchivePlayer();
-    setIsArchiveModalOpen(false);
+  const handleDeleteClick = () => setIsDeleteModalOpen(true);
+  const confirmDeletePlayer = async () => {
+    await profileHandlers.handleArchivePlayer(); // Mantienes la misma función backend
+    setIsDeleteModalOpen(false);
   };
 
-  if (!player) return <div className="text-center py-10 text-gray-400">Cargando...</div>;
-  
-  if (!objectives || !sessions || !tournaments) {
-    return <div className="text-center py-10 text-gray-400">Cargando datos...</div>;
+  if (!player) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto"></div>
+          <p className="mt-4 text-gray-400">Cargando jugador...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-black relative">
-      {/* Efectos de fondo */}
+      {/* Efectos de fondo REDUCIDOS - más sutiles */}
       <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
-      <div className="fixed top-20 left-20 w-64 h-64 lg:w-96 lg:h-96 bg-green-500/5 rounded-full blur-3xl"></div>
-      <div className="fixed bottom-20 right-20 w-64 h-64 lg:w-96 lg:h-96 bg-cyan-500/5 rounded-full blur-3xl"></div>
+      <div className="fixed top-20 left-20 w-64 h-64 lg:w-96 lg:h-96 bg-green-500/3 rounded-full blur-3xl"></div>
+      <div className="fixed bottom-20 right-20 w-64 h-64 lg:w-96 lg:h-96 bg-cyan-500/3 rounded-full blur-3xl"></div>
       
       <div className="relative z-10 max-w-5xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
-        {/* Modales */}
-        <Modal isOpen={isArchiveModalOpen} onClose={() => setIsArchiveModalOpen(false)} title="Confirmar Archivar">
-          <p>¿Archivar a <strong>{player.name}</strong>?</p>
+        
+        {/* Modal de eliminación - cambio simple */}
+        <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmar Eliminación">
+          <p>¿Eliminar a <strong>{player.name}</strong>?</p>
+          <p className="text-sm text-gray-400 mt-2">Esta acción no se puede deshacer.</p>
           <div className="flex justify-end space-x-3 mt-4">
-            <button onClick={() => setIsArchiveModalOpen(false)} className="app-button btn-secondary">Cancelar</button>
-            <button onClick={confirmArchivePlayer} className="app-button btn-warning">Sí, Archivar</button>
+            <button onClick={() => setIsDeleteModalOpen(false)} className="app-button btn-secondary">Cancelar</button>
+            <button onClick={confirmDeletePlayer} className="app-button btn-danger">Sí, Eliminar</button>
           </div>
         </Modal>
         
-        {isTournamentModalOpen && playerId && (
-          <TournamentFormModal 
-            isOpen={isTournamentModalOpen} 
-            onClose={() => futureTournamentHandlers.setIsTournamentModalOpen(false)} 
-            onSave={futureTournamentHandlers.handleSaveTournament} 
-            playerId={playerId} 
-            existingTournament={editingTournament} 
-          />
+        {/* Modales condicionales de torneos */}
+        {activeTab === "tournaments" && tournamentsHook.isTournamentModalOpen && playerId && (
+          <Suspense fallback={null}>
+            <TournamentFormModal 
+              isOpen={tournamentsHook.isTournamentModalOpen} 
+              onClose={() => tournamentsHook.futureTournamentHandlers.setIsTournamentModalOpen(false)} 
+              onSave={tournamentsHook.futureTournamentHandlers.handleSaveTournament} 
+              playerId={playerId} 
+              existingTournament={tournamentsHook.editingTournament} 
+            />
+          </Suspense>
         )}
         
-        <TrainingsOnDateModal
-          isOpen={isTrainingsModalOpen}
-          onClose={() => setIsTrainingsModalOpen(false)}
-          date={selectedDate}
-          sessions={trainingsForSelectedDate}
-        />
+        {/* Modal de entrenamientos */}
+        {activeTab === "trainings" && trainingsHook.isTrainingsModalOpen && (
+          <Suspense fallback={null}>
+            <TrainingsOnDateModal
+              isOpen={trainingsHook.isTrainingsModalOpen}
+              onClose={() => trainingsHook.setIsTrainingsModalOpen(false)}
+              date={trainingsHook.selectedDate}
+              sessions={trainingsHook.trainingsForSelectedDate}
+            />
+          </Suspense>
+        )}
 
-        {isDisputedTournamentModalOpen && playerId && (
-          <DisputedTournamentFormModal
-            isOpen={isDisputedTournamentModalOpen}
-            onClose={() => disputedTournamentHandlers.setIsDisputedTournamentModalOpen(false)}
-            onSave={disputedTournamentHandlers.handleSaveDisputedTournament}
-            playerId={playerId}
-            existingDisputedTournament={editingDisputedTournament}
-            futureTournamentToConvert={tournamentToConvert}
-          />
+        {activeTab === "tournaments" && tournamentsHook.isDisputedTournamentModalOpen && playerId && (
+          <Suspense fallback={null}>
+            <DisputedTournamentFormModal
+              isOpen={tournamentsHook.isDisputedTournamentModalOpen}
+              onClose={() => tournamentsHook.disputedTournamentHandlers.setIsDisputedTournamentModalOpen(false)}
+              onSave={tournamentsHook.disputedTournamentHandlers.handleSaveDisputedTournament}
+              playerId={playerId}
+              existingDisputedTournament={tournamentsHook.editingDisputedTournament}
+              futureTournamentToConvert={tournamentsHook.tournamentToConvert}
+            />
+          </Suspense>
         )}
 
         {/* Header y navegación */}
         <PlayerHeader 
           player={player} 
-          onArchiveClick={handleArchiveClick}
+          onDeleteClick={handleDeleteClick}
         />
 
         <NavigationTabs 
@@ -220,7 +221,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
           playerActualObjectivesCount={playerActualObjectivesCount}
         />
         
-        {/* Contenido según tab activa */}
+        {/* Contenido según tab activa - LAZY LOADED */}
         {activeTab === "perfil" && (
           <ProfileSection
             {...profileData}
@@ -241,35 +242,34 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
 
         {activeTab === "trainings" && (
           <section className="space-y-8 lg:space-y-12">
-            <DateFilters 
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
-              onReset={resetDateFilters}
-            />
+            <Suspense fallback={<TabLoadingSkeleton message="Cargando filtros..." />}>
+              <DateFilters 
+                startDate={trainingsHook.startDate || ''}
+                endDate={trainingsHook.endDate || ''}
+                onStartDateChange={trainingsHook.setStartDate || (() => {})}
+                onEndDateChange={trainingsHook.setEndDate || (() => {})}
+                onReset={trainingsHook.resetDateFilters || (() => {})}
+              />
+            </Suspense>
 
-            <ExerciseAnalysis
-              dateFilteredSessions={dateFilteredSessions}
-              drillDownPath={drillDownPath}
-              drillDownData={drillDownData}
-              areaChartTitle={areaChartTitle}
-              intensityChartData={intensityChartData}
-              intensityChartTitle={intensityChartTitle}
-              onBreadcrumbClick={handleBreadcrumbClick}
-              onPieSliceClick={handlePieSliceClick}
-              playerId={playerId}
-              allSessions={sessions}
-            />
+            <Suspense fallback={<TabLoadingSkeleton message="Cargando análisis de ejercicios..." />}>
+              <ExerciseAnalysis
+                dateFilteredSessions={trainingsHook.dateFilteredSessions || []}
+                drillDownPath={trainingsHook.drillDownPath || []}
+                drillDownData={trainingsHook.drillDownData || []}
+                areaChartTitle={trainingsHook.areaChartTitle || ''}
+                intensityChartData={trainingsHook.intensityChartData || []}
+                intensityChartTitle={trainingsHook.intensityChartTitle || ''}
+                onBreadcrumbClick={trainingsHook.handleBreadcrumbClick || (() => {})}
+                onPieSliceClick={trainingsHook.handlePieSliceClick || (() => {})}
+              />
+            </Suspense>
             
             <div className="border-t border-gray-800 pt-8 lg:pt-12">
               <h2 className="text-2xl lg:text-3xl font-semibold text-green-400 mb-6 lg:mb-8">Mentalidad y Rendimiento</h2>
-              {surveysLoading ? (
-                <div className="text-center py-10">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto"></div>
-                  <p className="mt-4 text-gray-400">Cargando encuestas...</p>
-                </div>
-              ) : playerSurveys.length === 0 ? (
+              {trainingsHook.surveysLoading ? (
+                <TabLoadingSkeleton message="Cargando encuestas..." />
+              ) : trainingsHook.playerSurveys.length === 0 ? (
                 <div className="bg-gray-900/50 p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800 text-center">
                   <p className="text-gray-400 text-lg">
                     No hay encuestas registradas para este jugador en el período seleccionado.
@@ -277,82 +277,94 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
                 </div>
               ) : (
                 <div className="space-y-8 lg:space-y-10">
-                  <RadarChartOverview 
-                    radarData={radarData}
-                    surveysCount={playerSurveys.length}
-                  />
+                  <Suspense fallback={<TabLoadingSkeleton message="Cargando gráfico radar..." />}>
+                    <RadarChartOverview 
+                      radarData={trainingsHook.radarData || []}
+                      surveysCount={trainingsHook.playerSurveys.length || 0}
+                    />
+                  </Suspense>
 
-                  <IndividualMetricsCharts
-                    prepareIndividualChartData={prepareIndividualChartData}
-                    METRIC_CONFIG={METRIC_CONFIG}
-                  />
+                  <Suspense fallback={<TabLoadingSkeleton message="Cargando gráficos individuales..." />}>
+                    <IndividualMetricsCharts
+                      prepareIndividualChartData={trainingsHook.prepareIndividualChartData || (() => [])}
+                      METRIC_CONFIG={trainingsHook.METRIC_CONFIG || {}}
+                    />
+                  </Suspense>
                 </div>
               )}
             </div>
 
-            <TrainingCalendarSection
-              sessions={sessions}
-              playerId={playerId!}
-              onDateClick={handleDateClick}
-            />
+            <Suspense fallback={<TabLoadingSkeleton message="Cargando calendario..." />}>
+              <TrainingCalendarSection
+                sessions={sessions}
+                playerId={playerId!}
+                onDateClick={trainingsHook.handleDateClick || (() => {})}
+              />
+            </Suspense>
           </section>
         )}
 
         {activeTab === "objectives" && (
-          <ObjectivesSection
-            playerId={playerId!}
-            playerAllObjectives={playerAllObjectives}
-          />
+          <Suspense fallback={<TabLoadingSkeleton message="Cargando objetivos..." />}>
+            <ObjectivesSection
+              playerId={playerId!}
+              playerAllObjectives={playerAllObjectives}
+            />
+          </Suspense>
         )}
 
         {activeTab === "tournaments" && (
           <section className="space-y-6">
-            <TournamentSubTabs
-              activeSubTab={activeSubTab}
-              onSubTabChange={setActiveSubTab}
-              futureTournamentsCount={playerTournaments.length}
-              disputedTournamentsCount={playerDisputedTournaments.length}
-            />
+            <Suspense fallback={<TabLoadingSkeleton message="Cargando torneos..." />}>
+              <TournamentSubTabs
+                activeSubTab={tournamentsHook.activeSubTab || 'future'}
+                onSubTabChange={tournamentsHook.setActiveSubTab || (() => {})}
+                futureTournamentsCount={playerTournaments.length}
+                disputedTournamentsCount={tournamentsHook.playerDisputedTournaments.length || 0}
+              />
 
-            {activeSubTab === 'future' ? (
-              <FutureTournamentsSection
-                playerTournaments={playerTournaments}
-                onAddClick={futureTournamentHandlers.handleOpenAddTournamentModal}
-                onEditClick={futureTournamentHandlers.handleEditTournamentClick}
-                onDeleteClick={futureTournamentHandlers.handleDeleteTournament}
-                onConvertClick={futureTournamentHandlers.handleConvertTournamentClick}
-                formatDate={formatDate}
-              />
-            ) : (
-              <DisputedTournamentsSection
-                playerDisputedTournaments={playerDisputedTournaments}
-                onAddClick={disputedTournamentHandlers.handleOpenAddDisputedTournamentModal}
-                onEditClick={disputedTournamentHandlers.handleEditDisputedTournamentClick}
-                onDeleteClick={disputedTournamentHandlers.handleDeleteDisputedTournament}
-                formatDate={formatDate}
-              />
-            )}
+              {tournamentsHook.activeSubTab === 'future' ? (
+                <FutureTournamentsSection
+                  playerTournaments={playerTournaments}
+                  onAddClick={tournamentsHook.futureTournamentHandlers.handleOpenAddTournamentModal || (() => {})}
+                  onEditClick={tournamentsHook.futureTournamentHandlers.handleEditTournamentClick || (() => {})}
+                  onDeleteClick={tournamentsHook.futureTournamentHandlers.handleDeleteTournament || (() => {})}
+                  onConvertClick={tournamentsHook.futureTournamentHandlers.handleConvertTournamentClick || (() => {})}
+                  formatDate={formatDate}
+                />
+              ) : (
+                <DisputedTournamentsSection
+                  playerDisputedTournaments={tournamentsHook.playerDisputedTournaments || []}
+                  onAddClick={tournamentsHook.disputedTournamentHandlers.handleOpenAddDisputedTournamentModal || (() => {})}
+                  onEditClick={tournamentsHook.disputedTournamentHandlers.handleEditDisputedTournamentClick || (() => {})}
+                  onDeleteClick={tournamentsHook.disputedTournamentHandlers.handleDeleteDisputedTournament || (() => {})}
+                  formatDate={formatDate}
+                />
+              )}
+            </Suspense>
           </section>
         )}
 
         {activeTab === "planificacion" && (
-          <PlanningSection
-            planLoading={planLoading}
-            planSaving={planSaving}
-            rangoAnalisis={rangoAnalisis}
-            planificacion={planificacion}
-            totalPercentage={totalPercentage}
-            validation={validation}
-            onRangoAnalisisChange={setRangoAnalisis}
-            onTipoPercentageChange={planHandlers.handleTipoPercentageChange}
-            onAreaPercentageChange={planHandlers.handleAreaPercentageChange}
-            onEjercicioPercentageChange={planHandlers.handleEjercicioPercentageChange}
-            calculateAreasTotalPercentage={planCalculations.calculateAreasTotalPercentage}
-            calculateEjerciciosTotalPercentage={planCalculations.calculateEjerciciosTotalPercentage}
-            hasDetailAtLevel={planCalculations.hasDetailAtLevel}
-            onSavePlan={planHandlers.handleSavePlan}
-            onAnalysisClick={() => setIsPlanningAnalysisOpen(true)}
-          />
+          <Suspense fallback={<TabLoadingSkeleton message="Cargando planificación..." />}>
+            <PlanningSection
+              planLoading={planningHook.planLoading || false}
+              planSaving={planningHook.planSaving || false}
+              rangoAnalisis={planningHook.rangoAnalisis || 0}
+              planificacion={planningHook.planificacion || {}}
+              totalPercentage={planningHook.calculations?.calculateTotalPercentage() || 0}
+              validation={planningHook.calculations?.validateFlexiblePlan() || { isValid: true, errors: [] }}
+              onRangoAnalisisChange={planningHook.setRangoAnalisis || (() => {})}
+              onTipoPercentageChange={planningHook.handlers?.handleTipoPercentageChange || (() => {})}
+              onAreaPercentageChange={planningHook.handlers?.handleAreaPercentageChange || (() => {})}
+              onEjercicioPercentageChange={planningHook.handlers?.handleEjercicioPercentageChange || (() => {})}
+              calculateAreasTotalPercentage={planningHook.calculations?.calculateAreasTotalPercentage || (() => 0)}
+              calculateEjerciciosTotalPercentage={planningHook.calculations?.calculateEjerciciosTotalPercentage || (() => 0)}
+              hasDetailAtLevel={planningHook.calculations?.hasDetailAtLevel || (() => false)}
+              onSavePlan={planningHook.handlers?.handleSavePlan || (() => {})}
+              onAnalysisClick={() => setIsPlanningAnalysisOpen(true)}
+            />
+          </Suspense>
         )}
         
         <div className="mt-8 lg:mt-12 text-center pb-8">
@@ -386,10 +398,12 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
               
               <div className="flex-1 overflow-y-auto">
                 <div className="p-6">
-                  <PlanningAccordion 
-                    player={player} 
-                    academiaId={academiaId} 
-                  />
+                  <Suspense fallback={<TabLoadingSkeleton message="Cargando análisis..." />}>
+                    <PlanningAccordion 
+                      player={player} 
+                      academiaId={academiaId} 
+                    />
+                  </Suspense>
                 </div>
               </div>
             </div>
