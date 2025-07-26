@@ -21,11 +21,13 @@ import { Player, Objective, TrainingSession, Tournament, DisputedTournament } fr
 import AcademiaSettingsPage from '../../pages/AcademiaSettingsPage';
 import HomePage from '@/pages/HomePage';
 
-// ✅ IMPORTS PARA MODAL GLOBAL
+// ✅ IMPORTS PARA MODALES GLOBALES
 import { useConfigModal } from '../../contexts/ConfigModalContext';
 import { MainConfigModal } from '../../components/academia-settings/sections/MainConfigModal';
+import { AdvancedConfigModal } from '../../components/academia-settings/sections/AdvancedConfigModal';
 import { RoleChangeModal } from '../../components/academia-settings';
 import Modal from '../../components/shared/Modal';
+import { AcademiaConfig, getAcademiaConfig, saveAcademiaConfig } from '../../Database/FirebaseAcademiaConfig';
 import { 
   useAcademiaSettings, 
   useUserManagement, 
@@ -42,7 +44,15 @@ const AppWithAcademia: React.FC = () => {
   const { academiaActual } = useAcademia();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const { isConfigModalOpen, closeConfigModal } = useConfigModal(); // ✅ USAR CONTEXT
+  
+  // ✅ USAR CONTEXTO PARA AMBOS MODALES
+  const { 
+    isConfigModalOpen, 
+    closeConfigModal,
+    isAdvancedModalOpen,
+    openAdvancedModal,
+    closeAdvancedModal 
+  } = useConfigModal();
   
   const [players, setPlayers] = useState<Player[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
@@ -51,6 +61,11 @@ const AppWithAcademia: React.FC = () => {
   const [disputedTournaments, setDisputedTournaments] = useState<DisputedTournament[]>([]);
   const [dataLoading, setDataLoading] = useState(true); 
   const [processingAction, setProcessingAction] = useState<string | boolean>(false);
+
+  // ✅ ESTADOS PARA CONFIGURACIÓN DE ENCUESTAS
+  const [surveyConfig, setSurveyConfig] = useState<AcademiaConfig | null>(null);
+  const [loadingSurveyConfig, setLoadingSurveyConfig] = useState(false);
+  const [savingSurveyConfig, setSavingSurveyConfig] = useState(false);
 
   // ✅ HOOKS PARA EL MODAL DE CONFIGURACIÓN
   const {
@@ -77,7 +92,6 @@ const AppWithAcademia: React.FC = () => {
     () => {}
   );
 
-  // ✅ CORREGIDO: Hook con callback vacío
   const {
     isDeleteModalOpen,
     deletePassword,
@@ -91,7 +105,7 @@ const AppWithAcademia: React.FC = () => {
     currentUser,
     eliminarAcademiaDeMisAcademias,
     hookNavigate,
-    () => {} // ✅ CALLBACK VACÍO PARA EVITAR ERROR
+    () => {}
   );
 
   useEffect(() => {
@@ -102,6 +116,13 @@ const AppWithAcademia: React.FC = () => {
     
     fetchData();
   }, [academiaActual, navigate]);
+
+  // ✅ EFECTO PARA CARGAR CONFIGURACIÓN CUANDO SE ABRE EL MODAL AVANZADO
+  useEffect(() => {
+    if (isAdvancedModalOpen && academiaActual && !surveyConfig && !loadingSurveyConfig) {
+      loadSurveyConfig();
+    }
+  }, [isAdvancedModalOpen, academiaActual, surveyConfig, loadingSurveyConfig]);
 
   const fetchData = async () => {
     if (!academiaActual) return;
@@ -123,7 +144,6 @@ const AppWithAcademia: React.FC = () => {
       setDisputedTournaments(disputedData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      // Establecer arrays vacíos en caso de error
       setPlayers([]);
       setObjectives([]);
       setSessions([]);
@@ -184,15 +204,69 @@ const AppWithAcademia: React.FC = () => {
   };
 
   const handleChangeAcademia = () => {
-    closeConfigModal(); // Cerrar modal primero
+    closeConfigModal();
     limpiarAcademiaActual();
     navigate('/select-academia');
   };
 
+  // ✅ HANDLER PARA ABRIR CONFIGURACIÓN AVANZADA
   const handleOpenAdvancedConfig = () => {
-    closeConfigModal();
-    // Navegar a academia-settings para configuración avanzada
-    navigate('/academia-settings');
+    openAdvancedModal(); // Usar la función del contexto
+  };
+
+  // ✅ HANDLERS PARA CONFIGURACIÓN DE ENCUESTAS
+  const loadSurveyConfig = async () => {
+    if (!academiaActual) return;
+    
+    setLoadingSurveyConfig(true);
+    try {
+      const config = await getAcademiaConfig(academiaActual.id);
+      setSurveyConfig(config);
+    } catch (error) {
+      console.error('Error cargando configuración de encuestas:', error);
+    } finally {
+      setLoadingSurveyConfig(false);
+    }
+  };
+
+  const handleSurveyConfigChange = (key: keyof AcademiaConfig['preguntasEncuesta'], checked: boolean) => {
+    if (!surveyConfig) return;
+    
+    setSurveyConfig(prev => ({
+      ...prev!,
+      preguntasEncuesta: {
+        ...prev!.preguntasEncuesta,
+        [key]: checked
+      }
+    }));
+  };
+
+  const handleSaveSurveyConfig = async () => {
+    if (!surveyConfig || !academiaActual) return;
+    
+    setSavingSurveyConfig(true);
+    try {
+      await saveAcademiaConfig(academiaActual.id, {
+        encuestasHabilitadas: surveyConfig.encuestasHabilitadas,
+        preguntasEncuesta: surveyConfig.preguntasEncuesta
+      });
+      alert('Configuración guardada exitosamente');
+    } catch (error) {
+      console.error('Error guardando configuración:', error);
+      alert('Error al guardar la configuración');
+    } finally {
+      setSavingSurveyConfig(false);
+      closeAdvancedModal();
+    }
+  };
+
+  const handleToggleSurveys = (enabled: boolean) => {
+    if (!surveyConfig) return;
+    
+    setSurveyConfig(prev => prev ? {
+      ...prev,
+      encuestasHabilitadas: enabled
+    } : null);
   };
 
   // ✅ FUNCIÓN HELPER PARA DETERMINAR TIPO
@@ -200,7 +274,6 @@ const AppWithAcademia: React.FC = () => {
     if (academiaActual?.tipo) {
       return academiaActual.tipo;
     }
-    // Fallback para academias legacy
     return 'academia';
   };
 
@@ -216,8 +289,8 @@ const AppWithAcademia: React.FC = () => {
     e.preventDefault();
     
     try {
-      await handleDeleteAcademia(e); // ✅ PASAR EL EVENTO
-      closeConfigModal(); // Cerrar modal de configuración después de eliminar
+      await handleDeleteAcademia(e);
+      closeConfigModal();
     } catch (error) {
       console.error('Error en eliminación:', error);
     }
@@ -227,7 +300,6 @@ const AppWithAcademia: React.FC = () => {
     return null;
   }
 
-  // Mostrar loading mientras se cargan los datos
   if (dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center pt-[60px]">
@@ -245,21 +317,16 @@ const AppWithAcademia: React.FC = () => {
       <main className="container mx-auto p-4 flex-grow">
         <TrainingProvider>
           <Routes>
-            
             <Route path="/" element={<HomePage />} />
-
             <Route path="/players" element={
-             <PlayersListPage 
-             players={players || []} 
-             onDataChange={fetchData} 
-             academiaId={academiaActual.id}
-             academiaActual={academiaActual}
-            />
-          } />
-            <Route path="/academia-settings" element={
-              <AcademiaSettingsPage />
-                } />
-
+              <PlayersListPage 
+                players={players || []} 
+                onDataChange={fetchData} 
+                academiaId={academiaActual.id}
+                academiaActual={academiaActual}
+              />
+            } />
+            <Route path="/academia-settings" element={<AcademiaSettingsPage />} />
             <Route path="/player/:playerId" element={
               <PlayerProfilePage 
                 players={players || []} 
@@ -271,9 +338,7 @@ const AppWithAcademia: React.FC = () => {
               />
             } />
             <Route path="/start-training" element={
-              <StartTrainingPage 
-                players={players || []} 
-              />
+              <StartTrainingPage players={players || []} />
             } />
             <Route path="/training/:playerId" element={
               <TrainingSessionPage 
@@ -307,13 +372,12 @@ const AppWithAcademia: React.FC = () => {
                 academiaId={academiaActual.id}
               />
             } />
-            {/* Esta redirección ahora tiene más sentido, si no encuentra ninguna ruta, va a la de inicio */ }
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </TrainingProvider>
       </main>
 
-      {/* ✅ MODAL DE CONFIGURACIÓN GLOBAL */}
+      {/* ✅ MODAL DE CONFIGURACIÓN PRINCIPAL */}
       {academiaActual && (
         <MainConfigModal
           isOpen={isConfigModalOpen}
@@ -335,6 +399,20 @@ const AppWithAcademia: React.FC = () => {
         />
       )}
 
+      {/* ✅ MODAL DE CONFIGURACIÓN AVANZADA */}
+      {academiaActual && (
+        <AdvancedConfigModal
+          isOpen={isAdvancedModalOpen}
+          onClose={closeAdvancedModal}
+          surveyConfig={surveyConfig}
+          loadingSurveyConfig={loadingSurveyConfig}
+          savingSurveyConfig={savingSurveyConfig}
+          onToggleSurveys={handleToggleSurveys}
+          onSurveyConfigChange={handleSurveyConfigChange}
+          onSaveSurveyConfig={handleSaveSurveyConfig}
+        />
+      )}
+
       {/* ✅ MODAL DE CAMBIO DE ROL */}
       <RoleChangeModal
         isOpen={isRoleModalOpen}
@@ -345,7 +423,7 @@ const AppWithAcademia: React.FC = () => {
         onConfirm={handlePromoteUser}
       />
 
-      {/* ✅ MODAL DE ELIMINACIÓN SIN CLASSNAME */}
+      {/* ✅ MODAL DE ELIMINACIÓN */}
       <div className={`${isDeleteModalOpen ? 'block' : 'hidden'} fixed inset-0 z-[150]`}>
         <Modal 
           isOpen={isDeleteModalOpen} 

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { AcademiaUser, UserRole } from '@/Database/FirebaseRoles';
 import { TipoEntidad } from '@/types';
+import { getRoleInfo } from '@/components/academia-settings/sections/helpers';
 
 interface RoleChangeModalProps {
   isOpen: boolean;
@@ -46,53 +47,6 @@ const RoleChangeModal: React.FC<RoleChangeModalProps> = ({
       }
       return [];
     }
-  };
-
-  // Obtener información del rol
-  const getRoleInfo = (role: UserRole) => {
-    const roleData = {
-      academyDirector: {
-        name: 'Director de Academia',
-        description: 'Control total sobre la academia, puede gestionar usuarios y configuración',
-        icon: '👑',
-        color: 'text-red-400',
-        bgColor: 'bg-red-500/20',
-        borderColor: 'border-red-500/30'
-      },
-      academySubdirector: {
-        name: 'Subdirector de Academia',
-        description: 'Puede gestionar usuarios y ayudar en la administración',
-        icon: '🏆',
-        color: 'text-orange-400',
-        bgColor: 'bg-orange-500/20',
-        borderColor: 'border-orange-500/30'
-      },
-      academyCoach: {
-        name: 'Entrenador de Academia',
-        description: 'Puede registrar entrenamientos y gestionar jugadores',
-        icon: '🎾',
-        color: 'text-green-400',
-        bgColor: 'bg-green-500/20',
-        borderColor: 'border-green-500/30'
-      },
-      groupCoach: {
-        name: 'Entrenador de Grupo',
-        description: 'Gestiona su grupo personal de entrenamiento',
-        icon: '🏃',
-        color: 'text-blue-400',
-        bgColor: 'bg-blue-500/20',
-        borderColor: 'border-blue-500/30'
-      },
-      assistantCoach: {
-        name: 'Entrenador Asistente',
-        description: 'Apoya en los entrenamientos y registro de actividades',
-        icon: '🤝',
-        color: 'text-purple-400',
-        bgColor: 'bg-purple-500/20',
-        borderColor: 'border-purple-500/30'
-      }
-    };
-    return roleData[role];
   };
 
   const availableRoles = getAvailableRoles();
