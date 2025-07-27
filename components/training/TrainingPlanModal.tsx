@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import Modal from './shared/Modal';
-import { Player } from '../types';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants';
-import { getTrainingPlan, saveTrainingPlan, TrainingPlan } from '../Database/FirebaseTrainingPlans';
-import { useAcademia } from '../contexts/AcademiaContext';
+import Modal from '../shared/Modal';
+import { Player } from '../../types';
+import { NEW_EXERCISE_HIERARCHY_CONST } from '../../constants/index';
+import { getTrainingPlan, saveTrainingPlan, TrainingPlan } from '../../Database/FirebaseTrainingPlans';
+import { useAcademia } from '../../contexts/AcademiaContext';
 
 interface TrainingPlanModalProps {
   isOpen: boolean;

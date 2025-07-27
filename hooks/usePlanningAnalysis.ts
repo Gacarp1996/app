@@ -2,8 +2,52 @@ import { useState, useEffect, useMemo } from 'react';
 import { TrainingSession, Player, LoggedExercise } from '../types';
 import { TrainingPlan, getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { getSessions } from '../Database/FirebaseSessions';
-import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
+import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants/index';
 import { SessionExercise } from '../contexts/TrainingContext';
+
+// Función auxiliar para normalizar nombres de tipos y áreas
+const normalizeKey = (key: string): string => {
+  // Normalizar nombres comunes que pueden variar
+  const normalizations: Record<string, string> = {
+    // Tipos de entrenamiento
+    'Pelota viva': 'Peloteo',
+    'pelota viva': 'Peloteo',
+    'PELOTA VIVA': 'Peloteo',
+    
+    // Áreas de entrenamiento
+    'Primeras pelotas': 'Primeras pelotas',
+    'primeras pelotas': 'Primeras pelotas',
+    'PRIMERAS PELOTAS': 'Primeras pelotas',
+    'Primeras Pelotas': 'Primeras pelotas',
+    
+    'Canasto': 'Canasto',
+    'canasto': 'Canasto',
+    'CANASTO': 'Canasto',
+    
+    'Fondo': 'Juego de base',
+    'fondo': 'Juego de base',
+    'FONDO': 'Juego de base',
+    
+    'Juego de base': 'Juego de base',
+    'juego de base': 'Juego de base',
+    'JUEGO DE BASE': 'Juego de base',
+    
+    'Red': 'Juego de red',  // ✅ Normalizar "Red" a "Juego de red"
+    'red': 'Juego de red',
+    'RED': 'Juego de red',
+    'Juego de red': 'Juego de red',
+    'juego de red': 'Juego de red',
+    'JUEGO DE RED': 'Juego de red',
+    
+    'Puntos': 'Puntos',
+    'puntos': 'Puntos',
+    'PUNTOS': 'Puntos'
+  };
+  
+  const normalized = normalizations[key] || key;
+  console.log(`🔧 [PLANNING] Normalización: "${key}" → "${normalized}"`);
+  return normalized;
+};
 
 export interface AnalysisNode {
   name: string;
@@ -82,6 +126,18 @@ export const usePlanningAnalysis = ({
           const sessionDate = new Date(session.fecha);
           const isPlayerMatch = session.jugadorId === player.id;
           const isInRange = sessionDate >= fechaInicio;
+          
+          // ✅ LOG ESPECÍFICO para debug de sesiones de Augusto
+          if (player.name === "Augusto Peralta") {
+            console.log(`🔍 [PLANNING] Sesión ${session.id}:`, {
+              jugadorIdBuscado: player.id,
+              jugadorIdSesion: session.jugadorId,
+              coincide: isPlayerMatch,
+              fecha: session.fecha,
+              enRango: isInRange,
+              ejercicios: session.ejercicios?.length || 0
+            });
+          }
           
           if (isPlayerMatch) {
             console.log('📊 [PLANNING] Sesión del jugador:', {
@@ -171,11 +227,11 @@ export const usePlanningAnalysis = ({
 
         const tipoKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP).find(
           key => NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP[key] === ejercicio.tipo
-        ) || ejercicio.tipo.toString();
+        ) || normalizeKey(ejercicio.tipo);
         
         const areaKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP).find(
           key => NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP[key] === ejercicio.area
-        ) || ejercicio.area.toString();
+        ) || normalizeKey(ejercicio.area);
 
         console.log(`🔄 [PLANNING] Mapeo histórico:`, {
           tipoOriginal: ejercicio.tipo,
@@ -210,11 +266,11 @@ export const usePlanningAnalysis = ({
 
       const tipoKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP).find(
         key => NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP[key] === ejercicio.tipo
-      ) || ejercicio.tipo.toString();
+      ) || normalizeKey(ejercicio.tipo);
       
       const areaKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP).find(
         key => NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP[key] === ejercicio.area
-      ) || ejercicio.area.toString();
+      ) || normalizeKey(ejercicio.area);
 
       console.log(`🔄 [PLANNING] Mapeo actual:`, {
         tipoOriginal: ejercicio.tipo,

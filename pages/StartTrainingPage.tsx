@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Player } from '../types';
-import { MAX_PLAYERS_PER_SESSION } from '../constants';
+import { MAX_PLAYERS_PER_SESSION } from '../constants/index';
 import { useTraining } from '../contexts/TrainingContext';
 
 interface StartTrainingPageProps {

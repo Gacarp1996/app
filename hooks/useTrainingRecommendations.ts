@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Player, TrainingSession } from '../types';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
 import { getTrainingPlan, TrainingPlan } from '../Database/FirebaseTrainingPlans';
-import { EXERCISE_HIERARCHY, NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
+import { EXERCISE_HIERARCHY, NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants/index';
 
 // Tipo flexible para sesiones que puede manejar ambas estructuras
 type FlexibleSession = TrainingSession | {
@@ -48,7 +48,7 @@ export const useTrainingRecommendations = ({
   players,
   sessions,
   academiaId,
-  analysisWindowDays = 7,
+  analysisWindowDays = 30, // ✅ CAMBIADO: Sincronizado con usePlanningAnalysis (30 días)
   maxSessionsToAnalyze = 7
 }: UseTrainingRecommendationsProps) => {
   const [recommendations, setRecommendations] = useState<Record<string, TrainingRecommendations>>({});
@@ -110,11 +110,11 @@ export const useTrainingRecommendations = ({
       
       console.log('📋 Plan de entrenamiento:', hasActivePlan ? (adaptedPlan ? 'ADAPTADO' : 'PROPIO') : 'NO');
 
-      // 2. Obtener las sesiones del jugador de los últimos 7 días
+      // 2. Obtener las sesiones del jugador de los últimos 30 días (sincronizado con usePlanningAnalysis)
       console.log('🔍 Filtrando sesiones para jugador:', playerId);
       console.log('📅 Analizando sesiones de los últimos', analysisWindowDays, 'días');
       
-      // Calcular fecha límite (hace 7 días desde hoy)
+      // Calcular fecha límite (hace 30 días desde hoy)
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - analysisWindowDays);
       console.log('📅 Fecha límite para análisis:', cutoffDate.toISOString().split('T')[0]);
@@ -134,6 +134,11 @@ export const useTrainingRecommendations = ({
         // Estructura nueva: session.participants es array con objetos {playerId: string}
         if (sessionAny.participants && Array.isArray(sessionAny.participants)) {
           isPlayerInSession = sessionAny.participants.some((p: any) => p.playerId === playerId);
+        }
+        
+        // 🔍 LOG específico para debugging Augusto
+        if (playerId === 'C05TLtQ0CZjwuHk1bP4m') {
+          console.log(`🔍 [RECOMMENDATIONS] Sesión ${sessionAny.id}: {jugadorIdBuscado: '${playerId}', jugadorIdSesion: '${sessionAny.jugadorId}', coincide: ${isPlayerInSession}, fecha: '${sessionAny.fecha}', ejercicios: ${sessionAny.ejercicios?.length || 0}}`);
         }
         
         if (!isPlayerInSession) return false;
@@ -157,6 +162,18 @@ export const useTrainingRecommendations = ({
       const hasSessions = playerSessions.length > 0;
       
       console.log(`🏃 Sesiones encontradas en los últimos ${analysisWindowDays} días: ${playerSessions.length}`);
+      
+      // 🔍 LOG específico para contar ejercicios de Augusto
+      if (playerId === 'C05TLtQ0CZjwuHk1bP4m') {
+        let totalEjercicios = 0;
+        playerSessions.forEach((session: any, index) => {
+          const ejerciciosEnSesion = session.ejercicios?.length || 0;
+          totalEjercicios += ejerciciosEnSesion;
+          console.log(`📋 [RECOMMENDATIONS] Sesión ${index + 1} (${session.fecha}): ${ejerciciosEnSesion} ejercicios`);
+        });
+        console.log(`📊 [RECOMMENDATIONS] TOTAL ejercicios Augusto: ${totalEjercicios}`);
+      }
+      
       if (playerSessions.length > 0) {
         const firstSession = playerSessions[0] as any;
         const lastSession = playerSessions[playerSessions.length - 1] as any;
@@ -275,6 +292,9 @@ export const useTrainingRecommendations = ({
       'juego de base': 'Juego de base',
       'JUEGO DE BASE': 'Juego de base',
       
+      'Red': 'Juego de red',  // ✅ AGREGADO: Normalizar "Red" a "Juego de red"
+      'red': 'Juego de red',
+      'RED': 'Juego de red',
       'Juego de red': 'Juego de red',
       'juego de red': 'Juego de red',
       'JUEGO DE RED': 'Juego de red',
@@ -322,14 +342,13 @@ export const useTrainingRecommendations = ({
       totalExercises += exercises.length;
       
       exercises.forEach((ejercicio: any, exIndex) => {
-        // Usar la misma lógica de mapeo que usePlanningAnalysis
-        const tipoKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP).find(
-          key => NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP[key] === ejercicio.tipo
-        ) || ejercicio.tipo.toString();
+        // Primero normalizar los valores del ejercicio usando nuestra función de normalización
+        const normalizedTipo = normalizeKey(ejercicio.tipo);
+        const normalizedArea = normalizeKey(ejercicio.area);
         
-        const areaKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP).find(
-          key => NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP[key] === ejercicio.area
-        ) || ejercicio.area.toString();
+        // ✅ CORREGIDO: Usar directamente los valores normalizados como keys
+        const tipoKey = normalizedTipo;
+        const areaKey = normalizedArea;
 
         // Convertir tiempo a minutos
         const timeInMinutes = parseTimeToMinutes(ejercicio.tiempoCantidad);
@@ -337,6 +356,14 @@ export const useTrainingRecommendations = ({
 
         console.log(`     🏃 Ejercicio ${exIndex + 1}: ${tipoKey}-${areaKey}-${ejercicio.ejercicio} (${timeInMinutes}min)`);
         console.log(`       🔧 Original: ${ejercicio.tipo}-${ejercicio.area} → Normalizado: ${tipoKey}-${areaKey}`);
+        console.log(`       🔍 Normalización aplicada: tipo="${ejercicio.tipo}"→"${normalizedTipo}", area="${ejercicio.area}"→"${normalizedArea}"`);
+        
+        // ✅ LOG ESPECÍFICO para debug de Canasto + Red
+        if (ejercicio.tipo === "Canasto" && ejercicio.area === "Red") {
+          console.log(`       🎯 CASO ESPECÍFICO DETECTADO: Canasto + Red`);
+          console.log(`       🎯 tipoKey final: "${tipoKey}"`);
+          console.log(`       🎯 areaKey final: "${areaKey}"`);
+        }
 
         // Crear estructura jerárquica igual que usePlanningAnalysis
         if (!stats[tipoKey]) stats[tipoKey] = {};
@@ -372,6 +399,11 @@ export const useTrainingRecommendations = ({
           });
           
           percentages[`tipo.${tipo}.area.${area}`] = (areaTotal / totalMinutes) * 100;
+          
+          // ✅ LOG ESPECÍFICO para Canasto + Juego de red
+          if (tipo === "Canasto" && area === "Juego de red") {
+            console.log(`   🎯 ESTADÍSTICA REAL generada: "tipo.${tipo}.area.${area}" = ${((areaTotal / totalMinutes) * 100).toFixed(2)}%`);
+          }
           
           // Ejercicios específicos
           Object.keys(stats[tipo][area]).forEach(ejercicio => {
@@ -536,12 +568,29 @@ export const useTrainingRecommendations = ({
     Object.entries(plan.planificacion).forEach(([tipo, tipoData]) => {
       console.log(`🔄 DEBUGGING - Procesando tipo ${tipo} (${tipoData.porcentajeTotal}%)`);
       
+      // ✅ NORMALIZAR también las claves del plan
+      const tipoNormalizado = normalizeKey(tipo);
+      
+      // ✅ LOG ESPECÍFICO para debug de Canasto
+      if (tipo === "Canasto" || tipoNormalizado === "Canasto") {
+        console.log(`   🎯 PLAN CANASTO detectado - tipo original: "${tipo}", normalizado: "${tipoNormalizado}"`);
+        console.log(`   🎯 PLAN CANASTO detectado - áreas disponibles:`, Object.keys(tipoData.areas));
+      }
+      
       // Generar estadísticas por TIPO (igual que el análisis de planificación)
-      percentages[`tipo.${tipo}`] = tipoData.porcentajeTotal;
+      percentages[`tipo.${tipoNormalizado}`] = tipoData.porcentajeTotal;
       
       Object.entries(tipoData.areas).forEach(([area, areaData]) => {
+        // ✅ NORMALIZAR también las áreas del plan
+        const areaNormalizada = normalizeKey(area);
+        
+        // ✅ LOG ESPECÍFICO para debug de áreas de Canasto
+        if (tipo === "Canasto" || tipoNormalizado === "Canasto") {
+          console.log(`   🎯 PLAN CANASTO área: original="${area}", normalizada="${areaNormalizada}" → ${areaData.porcentajeDelTotal}%`);
+        }
+        
         // Generar estadísticas por TIPO+ÁREA (igual que el análisis de planificación)
-        const tipoAreaKey = `tipo.${tipo}.area.${area}`;
+        const tipoAreaKey = `tipo.${tipoNormalizado}.area.${areaNormalizada}`;
         percentages[tipoAreaKey] = areaData.porcentajeDelTotal;
         
         console.log(`   ${tipo} -> ${area}: ${areaData.porcentajeDelTotal.toFixed(2)}%`);
@@ -549,7 +598,7 @@ export const useTrainingRecommendations = ({
         // También generar ejercicios específicos si existen
         if (areaData.ejercicios) {
           Object.entries(areaData.ejercicios).forEach(([ejercicio, ejercicioData]) => {
-            const ejercicioKey = `tipo.${tipo}.area.${area}.ejercicio.${ejercicio}`;
+            const ejercicioKey = `tipo.${tipoNormalizado}.area.${areaNormalizada}.ejercicio.${ejercicio}`;
             percentages[ejercicioKey] = ejercicioData.porcentajeDelTotal;
             
             console.log(`     ${tipo} -> ${area} -> ${ejercicio}: ${ejercicioData.porcentajeDelTotal.toFixed(2)}%`);

@@ -147,8 +147,10 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
 
   // Función para generar preview de datos disponibles
   const generateDataPreview = (sessions: TrainingSession[], plans: {[playerId: string]: TrainingPlan}) => {
+    // ✅ CORREGIDO: Usar 30 días como en usePlanningAnalysis
+    const analysisWindowDays = 30;
     const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - analysisWindowDays);
     
     const participantsPreviews = participants.map(participant => {
       const playerSessions = sessions.filter(session => {
@@ -161,6 +163,8 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       }, 0);
       
       const hasPlan = !!plans[participant.id];
+      
+      console.log(`🔍 [ACTIVE_SESSION] Participante ${participant.name}: ${playerSessions.length} sesiones, ${totalExercises} ejercicios en últimos ${analysisWindowDays} días`);
       
       return {
         playerId: participant.id,
@@ -195,9 +199,10 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       return { recommendations: [], totalExercises: 0, typeStats: {}, areaStats: {} };
     }
 
-    // Obtener sesiones reales del jugador de los últimos 30 días
+    // ✅ CORREGIDO: Usar 30 días como en usePlanningAnalysis
+    const analysisWindowDays = 30;
     const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - analysisWindowDays);
     
     const playerSessions = realSessions.filter(session => {
       const sessionDate = new Date(session.fecha);
@@ -279,7 +284,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       };
     });
 
-    const totalExercises = normalizedExercises.reduce((sum, ex) => sum + ex.repeticiones, 0);
+    const totalExercises = normalizedExercises.length;
 
     // Calcular estadísticas por tipos
     const typeStats: any = {};
@@ -290,25 +295,25 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       if (!typeStats[exercise.tipo]) {
         typeStats[exercise.tipo] = { total: 0, percentage: 0, areas: {} };
       }
-      typeStats[exercise.tipo].total += exercise.repeticiones;
+      typeStats[exercise.tipo].total += 1;
       
       // Stats por área dentro del tipo
       if (!typeStats[exercise.tipo].areas[exercise.area]) {
         typeStats[exercise.tipo].areas[exercise.area] = { total: 0, percentage: 0, exercises: {} };
       }
-      typeStats[exercise.tipo].areas[exercise.area].total += exercise.repeticiones;
+      typeStats[exercise.tipo].areas[exercise.area].total += 1;
       
       // Contar ejercicios específicos
       if (!typeStats[exercise.tipo].areas[exercise.area].exercises[exercise.ejercicio]) {
         typeStats[exercise.tipo].areas[exercise.area].exercises[exercise.ejercicio] = 0;
       }
-      typeStats[exercise.tipo].areas[exercise.area].exercises[exercise.ejercicio] += exercise.repeticiones;
+      typeStats[exercise.tipo].areas[exercise.area].exercises[exercise.ejercicio] += 1;
 
       // Stats por área global
       if (!areaStats[exercise.area]) {
         areaStats[exercise.area] = { total: 0, percentage: 0 };
       }
-      areaStats[exercise.area].total += exercise.repeticiones;
+      areaStats[exercise.area].total += 1;
     });
 
     // Calcular porcentajes

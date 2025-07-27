@@ -65,7 +65,7 @@ export const INITIAL_SESSIONS_DATA: TrainingSession[] = [
       {
         id: 'e1s1', 
         tipo: TrainingType.CANASTO, 
-        area: TrainingArea.FONDO, 
+        area: TrainingArea.JUEGO_DE_BASE, 
         ejercicio: 'Desde el lugar', 
         tiempoCantidad: '20m', 
         intensidad: 7
@@ -89,7 +89,7 @@ export const INITIAL_SESSIONS_DATA: TrainingSession[] = [
       {
         id: 'e1s2', 
         tipo: TrainingType.CANASTO, 
-        area: TrainingArea.FONDO, 
+        area: TrainingArea.JUEGO_DE_BASE, 
         ejercicio: 'Dinámico', 
         tiempoCantidad: '25m', 
         intensidad: 8
@@ -113,7 +113,7 @@ export const INITIAL_SESSIONS_DATA: TrainingSession[] = [
       {
         id: 'e1s3', 
         tipo: TrainingType.PELOTA_VIVA, 
-        area: TrainingArea.FONDO, 
+        area: TrainingArea.JUEGO_DE_BASE, 
         ejercicio: 'Control', 
         tiempoCantidad: '30m', 
         intensidad: 6

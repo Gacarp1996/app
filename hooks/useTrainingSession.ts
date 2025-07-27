@@ -7,7 +7,7 @@ import { useAcademia } from '../contexts/AcademiaContext';
 import { addSession, updateSession } from '../Database/FirebaseSessions';
 import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
-import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
+import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants/index';
 import { useExerciseOptions } from './useExerciseOptions';
 
 interface UseTrainingSessionProps {

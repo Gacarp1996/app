@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants';
+import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants/index';
 
 export const useExerciseOptions = (currentTipoKey: string, currentAreaKey: string) => {
   const availableTipoKeys = useMemo(() => 

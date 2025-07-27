@@ -1,7 +1,7 @@
 // components/RegisterForm.tsx
 import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase/firebase-config";
+import { auth } from "../../firebase/firebase-config";
 
 export default function RegisterForm() {
   const [email, setEmail] = useState("");

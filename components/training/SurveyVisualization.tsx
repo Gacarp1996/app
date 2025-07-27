@@ -1,6 +1,6 @@
 // components/SurveyVisualization.tsx
 import React, { useMemo } from 'react';
-import { PostTrainingSurvey, SurveyDataPoint } from '../types';
+import { PostTrainingSurvey, SurveyDataPoint } from '../../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface SurveyVisualizationProps {

@@ -6,7 +6,7 @@ import {
   saveTrainingPlan, 
   validateFlexiblePlan as validatePlan 
 } from '../Database/FirebaseTrainingPlans';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants';
+import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants/index';
 
 interface UseTrainingPlanProps {
   playerId: string | undefined;

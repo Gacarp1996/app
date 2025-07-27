@@ -5,7 +5,7 @@ import { getSurveyBySessionId, addPostTrainingSurvey, updateSurvey } from '../Da
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useTraining } from '../contexts/TrainingContext';
 
-import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
+import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants/index';
 import PostTrainingSurveyModal from '@/components/training/PostTrainingSurveyModal';
 
 interface SessionDetailPageProps {
