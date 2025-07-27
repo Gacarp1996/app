@@ -914,7 +914,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
               <div className="space-y-4">
                 {/* Selector de jugador mejorado */}
                 <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-2 border-purple-400/30 rounded-xl p-4">
-                  <label className="text-purple-400 font-semibold text-base mb-3 block flex items-center gap-2">
+                  <label className="text-purple-400 font-semibold text-base mb-3 flex items-center gap-2">
                     <span className="text-lg">👤</span>
                     Seleccionar jugador:
                   </label>
