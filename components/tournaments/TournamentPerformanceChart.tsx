@@ -1,19 +1,12 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DisputedTournament, RendimientoJugador } from '../../types';
+import { RENDIMIENTO_MAP } from './helpers';
 
 interface TournamentPerformanceChartProps {
   tournaments: DisputedTournament[];
 }
 
-// Mapeo de valores de texto a números para gráficos
-const RENDIMIENTO_MAP: Record<RendimientoJugador, number> = {
-  'Muy malo': 1,
-  'Malo': 2,
-  'Bueno': 3,
-  'Muy bueno': 4,
-  'Excelente': 5
-};
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
