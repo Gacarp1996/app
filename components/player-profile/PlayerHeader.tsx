@@ -4,7 +4,7 @@ import { Player } from '../../types';
 
 interface PlayerHeaderProps {
   player: Player;
-  onDeleteClick: () => void; // Cambié de onArchiveClick a onDeleteClick
+  onDeleteClick: () => void; 
 }
 
 const PlayerHeader: React.FC<PlayerHeaderProps> = ({ player, onDeleteClick }) => {

@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import AreaPieChart from './AreaPieChart';
 import { ChartDataPoint, IntensityDataPoint, TrainingSession } from '../../types';
 import IntensityLineChart from './IntensityLineChart';
+ import { parseTimeToMinutes } from './utils';
 
 interface ExerciseAnalysisProps {
   dateFilteredSessions: any[];
@@ -17,20 +18,7 @@ interface ExerciseAnalysisProps {
   allSessions?: TrainingSession[];
 }
 
-// Helper function to parse time string to minutes
-const parseTimeToMinutes = (timeStr: string): number => {
-  if (!timeStr || typeof timeStr !== 'string') return 0;
-  
-  const parts = timeStr.split(':');
-  if (parts.length !== 2) return 0;
-  
-  const minutes = parseInt(parts[0], 10);
-  const seconds = parseInt(parts[1], 10);
-  
-  if (isNaN(minutes) || isNaN(seconds)) return 0;
-  
-  return minutes + (seconds / 60);
-};
+
 
 const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
   dateFilteredSessions,

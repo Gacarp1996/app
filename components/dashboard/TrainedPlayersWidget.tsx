@@ -1,5 +1,6 @@
 import { Player } from '@/types';
 import React from 'react';
+import { formatDate, getPlayerName } from './helpers';
 
 
 interface TrainedPlayerData {
@@ -27,21 +28,9 @@ const TrainedPlayersWidget: React.FC<TrainedPlayersWidgetProps> = ({
   coachName,
   loading = false
 }) => {
-  // Función para obtener el nombre del jugador por ID
-  const getPlayerName = (playerId: string): string => {
-    const player = players.find(p => p.id === playerId);
-    return player?.name || 'Jugador desconocido';
-  };
+ 
 
-  // Función para formatear la fecha
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
+  
 
   // Función para formatear el rango de fechas
   const formatDateRange = (): string => {
@@ -117,7 +106,7 @@ const TrainedPlayersWidget: React.FC<TrainedPlayersWidgetProps> = ({
       ) : (
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {trainedPlayersData.slice(0, 10).map((playerData, index) => {
-            const playerName = getPlayerName(playerData.playerId);
+            const playerName = getPlayerName(players, playerData.playerId);
             const isActive = players.find(p => p.id === playerData.playerId)?.estado === 'activo';
             
             return (
