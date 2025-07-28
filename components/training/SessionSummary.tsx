@@ -26,22 +26,35 @@ const SessionSummary: React.FC<SessionSummaryProps> = ({
               Ejercicios Registrados ({exercises.length})
             </h2>
             <ul className="space-y-3 max-h-[400px] lg:max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {exercises.map((ex) => (
-                <li key={ex.id} className="bg-gray-800/50 p-3 lg:p-4 rounded-lg border border-gray-700">
-                  <p className="font-semibold text-green-400">{ex.loggedForPlayerName}</p>
-                  <p className="text-sm lg:text-base text-gray-300 mt-1">
-                    {ex.tipo.toString()} - {ex.area.toString()} - {ex.ejercicio}
-                  </p>
-                  {ex.ejercicioEspecifico && (
-                    <p className="text-sm text-purple-400 mt-1 font-medium">
-                      📋 {ex.ejercicioEspecifico}
+              {exercises.map((ex) => {
+                // Debug log para diagnosticar datos inconsistentes
+                if (!ex.tipo || !ex.area) {
+                  console.warn('🚨 Ejercicio con datos incompletos:', {
+                    id: ex.id,
+                    tipo: ex.tipo,
+                    area: ex.area,
+                    ejercicio: ex.ejercicio,
+                    completeObject: ex
+                  });
+                }
+                
+                return (
+                  <li key={ex.id} className="bg-gray-800/50 p-3 lg:p-4 rounded-lg border border-gray-700">
+                    <p className="font-semibold text-green-400">{ex.loggedForPlayerName}</p>
+                    <p className="text-sm lg:text-base text-gray-300 mt-1">
+                      {ex.tipo?.toString() || 'Tipo no definido'} - {ex.area?.toString() || 'Área no definida'} - {ex.ejercicio || 'Ejercicio no definido'}
                     </p>
-                  )}
-                  <p className="text-xs lg:text-sm text-gray-500 mt-1">
-                    Tiempo: {ex.tiempoCantidad} min | Intensidad: {ex.intensidad}/10
-                  </p>
-                </li>
-              ))}
+                    {ex.ejercicioEspecifico && (
+                      <p className="text-sm text-purple-400 mt-1 font-medium">
+                        📋 {ex.ejercicioEspecifico}
+                      </p>
+                    )}
+                    <p className="text-xs lg:text-sm text-gray-500 mt-1">
+                      Tiempo: {ex.tiempoCantidad} min | Intensidad: {ex.intensidad}/10
+                    </p>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
