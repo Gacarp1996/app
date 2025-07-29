@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { TrainingSession, TrainingType, TrainingArea, LoggedExercise } from '../../types';
 import { getSessions } from '../../Database/FirebaseSessions';
 import { getTrainingPlan, TrainingPlan } from '../../Database/FirebaseTrainingPlans';
+import { RecommendationLegend } from './RecommendationLegend';
 
 interface Recommendation {
   level: 'TIPO' | 'AREA' | 'EJERCICIO';
@@ -48,6 +49,8 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
   sessions 
 }) => {
   const [activeTab, setActiveTab] = useState<'individual' | 'group'>('individual');
+  // Clave para forzar refresco de efectos y componentes
+  const [refreshKey, setRefreshKey] = useState(Date.now());
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(participants[0]?.id || '');
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [individualLoading, setIndividualLoading] = useState(false);
@@ -60,36 +63,91 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
   const [individualRecommendations, setIndividualRecommendations] = useState<any>(null);
   const [groupRecommendations, setGroupRecommendations] = useState<any>(null);
   const [dataPreview, setDataPreview] = useState<any>(null);
+  
+  // Estado para mostrar/ocultar la leyenda de colores
+  const [showLegend, setShowLegend] = useState(false);
+
+  // 🎨 FUNCIÓN HELPER: Formatear información del área con tipo padre
+  const formatAreaWithParent = (area: string, parentType: string | undefined, level: string) => {
+    if (!parentType) return area;
+    
+    // Si es una recomendación de TIPO, no necesitamos mostrar parentType porque es redundante
+    if (level === 'TIPO') return area;
+    
+    // Para áreas específicas, mostrar el contexto del tipo padre
+    return `${area} (${parentType})`;
+  };
 
   // Función principal para generar recomendaciones bajo demanda
   const generateRecommendations = async () => {
+    console.log('🚀 [DEBUG] Generando recomendaciones...');
+    console.log('🚀 [DEBUG] Participantes:', participants);
+    console.log('🚀 [DEBUG] Sesiones reales disponibles:', realSessions.length);
+    console.log('🚀 [DEBUG] Planes de entrenamiento:', Object.keys(trainingPlans));
+    
     setRecommendationsLoading(true);
     
     try {
       // Generar recomendaciones individuales para el jugador seleccionado
+      console.log('📊 [DEBUG] Analizando jugador:', selectedPlayerId);
       const individualAnalysis = analyzePlayerExercises(selectedPlayerId);
+      console.log('📊 [DEBUG] Análisis individual:', individualAnalysis);
       setIndividualRecommendations(individualAnalysis);
       
       // Generar recomendaciones grupales si hay más de un participante
       if (participants.length > 1) {
+        console.log('👥 [DEBUG] Generando análisis grupal...');
         const groupAnalysis = generateGroupRecommendations();
+        console.log('👥 [DEBUG] Análisis grupal:', groupAnalysis);
         setGroupRecommendations(groupAnalysis);
       }
       
       setRecommendationsGenerated(true);
+      console.log('✅ [DEBUG] Recomendaciones generadas exitosamente');
     } catch (error) {
-      console.error('Error generando recomendaciones:', error);
+      console.error('❌ Error generando recomendaciones:', error);
     } finally {
       setRecommendationsLoading(false);
     }
   };
 
   // Función para refrescar recomendaciones (regenerar)
-  const refreshRecommendations = () => {
+  // Refrescar recomendaciones y recargar datos reales y planes
+  const refreshRecommendations = async () => {
     setRecommendationsGenerated(false);
     setIndividualRecommendations(null);
     setGroupRecommendations(null);
-    generateRecommendations();
+    setRecommendationsLoading(true);
+
+    try {
+      // Recargar sesiones reales
+      const realSessionsData = await getSessions(academiaId);
+      setRealSessions(realSessionsData);
+
+      // Recargar planes de entrenamiento
+      const plansMap: {[playerId: string]: TrainingPlan} = {};
+      for (const participant of participants) {
+        try {
+          const plan = await getTrainingPlan(academiaId, participant.id);
+          if (plan) {
+            plansMap[participant.id] = plan;
+          }
+        } catch (error) {
+          console.error(`Error recargando plan para ${participant.name}:`, error);
+        }
+      }
+      setTrainingPlans(plansMap);
+
+      // Generar preview de datos
+      generateDataPreview(realSessionsData, plansMap);
+
+      // Generar recomendaciones con los datos recargados
+      await generateRecommendations();
+    } catch (error) {
+      console.error('❌ Error recargando datos para regenerar recomendaciones:', error);
+    } finally {
+      setRecommendationsLoading(false);
+    }
   };
 
   // Regenerar recomendaciones cuando cambie el jugador seleccionado
@@ -109,16 +167,16 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
 
   // Cargar planes de entrenamiento y sesiones reales
   useEffect(() => {
+    // Forzar refreshKey para que todos los efectos y componentes dependientes se reinicialicen
+    setRefreshKey(Date.now());
     const loadRealData = async () => {
       if (academiaId && participants.length > 0) {
         try {
           // Cargar sesiones reales desde Firebase
           const realSessionsData = await getSessions(academiaId);
           setRealSessions(realSessionsData);
-          
           // Cargar planes de entrenamiento para cada participante
           const plansMap: {[playerId: string]: TrainingPlan} = {};
-          
           for (const participant of participants) {
             try {
               const plan = await getTrainingPlan(academiaId, participant.id);
@@ -129,9 +187,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
               console.error(`Error cargando plan para ${participant.name}:`, error);
             }
           }
-          
           setTrainingPlans(plansMap);
-          
           // Generar preview de datos sin procesar recomendaciones
           generateDataPreview(realSessionsData, plansMap);
         } catch (error) {
@@ -139,7 +195,13 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
         }
       }
     };
-
+    // Limpiar todos los estados dependientes de participantes
+    setRecommendationsGenerated(false);
+    setIndividualRecommendations(null);
+    setGroupRecommendations(null);
+    setDataPreview(null);
+    setRealSessions([]);
+    setTrainingPlans({});
     if (academiaId && participants.length > 0) {
       loadRealData();
     }
@@ -194,30 +256,50 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
 
   // Función para analizar ejercicios de un jugador específico usando datos reales
   const analyzePlayerExercises = (playerId: string) => {
+    console.log('🔍 [DEBUG] analyzePlayerExercises - playerId:', playerId);
+    
     const player = participants.find(p => p.id === playerId);
     if (!player) {
+      console.log('❌ [DEBUG] Jugador no encontrado:', playerId);
       return { recommendations: [], totalExercises: 0, typeStats: {}, areaStats: {} };
     }
+
+    console.log('👤 [DEBUG] Jugador encontrado:', player.name);
 
     // ✅ CORREGIDO: Usar 30 días como en usePlanningAnalysis
     const analysisWindowDays = 30;
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - analysisWindowDays);
     
+    console.log('📅 [DEBUG] Ventana de análisis:', {
+      days: analysisWindowDays,
+      from: thirtyDaysAgo.toLocaleDateString(),
+      to: new Date().toLocaleDateString()
+    });
+    
     const playerSessions = realSessions.filter(session => {
       const sessionDate = new Date(session.fecha);
       return session.jugadorId === playerId && sessionDate >= thirtyDaysAgo;
     });
 
+    console.log('📊 [DEBUG] Sesiones del jugador encontradas:', playerSessions.length);
+    console.log('📊 [DEBUG] Total de sesiones reales disponibles:', realSessions.length);
+
     // Extraer todos los ejercicios de las sesiones del jugador
     const allExercises: LoggedExercise[] = [];
     playerSessions.forEach(session => {
       if (session.ejercicios && Array.isArray(session.ejercicios)) {
+        console.log('🏃 [DEBUG] Sesión con ejercicios:', session.fecha, '- Ejercicios:', session.ejercicios.length);
         allExercises.push(...session.ejercicios);
+      } else {
+        console.log('⚠️ [DEBUG] Sesión sin ejercicios:', session.fecha);
       }
     });
 
+    console.log('🏃 [DEBUG] Total ejercicios extraídos:', allExercises.length);
+
     if (allExercises.length === 0) {
+      console.log('❌ [DEBUG] No hay ejercicios para analizar');
       return { recommendations: [], totalExercises: 0, typeStats: {}, areaStats: {} };
     }
 
@@ -531,7 +613,114 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       return null; // No hay datos suficientes
     }
 
-    // Calcular estadísticas grupales promedio
+    // Generar el análisis grupal basado en coincidencias
+    return summarizeGroupRecommendations(participantsWithData);
+  };
+
+  // 🧩 FUNCIÓN: Detectar coincidencias grupales
+  const getGroupCoincidences = (allRecommendations: any[]) => {
+    const coincidencesMap = new Map();
+    
+    // Agrupar recomendaciones por área y tipo de acción
+    allRecommendations.forEach(rec => {
+      rec.recommendations.forEach((recommendation: any) => {
+        const key = `${recommendation.level}-${recommendation.type}-${recommendation.area}`;
+        
+        if (!coincidencesMap.has(key)) {
+          coincidencesMap.set(key, {
+            level: recommendation.level,
+            type: recommendation.type,
+            area: recommendation.area,
+            parentType: recommendation.parentType, // Agregar tipo padre
+            players: [],
+            totalDiferencia: 0,
+            diferencias: []
+          });
+        }
+        
+        const coincidence = coincidencesMap.get(key);
+        coincidence.players.push({
+          name: rec.playerName,
+          diferencia: recommendation.difference,
+          currentPercentage: recommendation.currentPercentage,
+          plannedPercentage: recommendation.plannedPercentage
+        });
+        coincidence.totalDiferencia += recommendation.difference;
+        coincidence.diferencias.push(recommendation.difference);
+      });
+    });
+    
+    // Filtrar solo coincidencias de 2+ jugadores y calcular promedio
+    const significantCoincidences = Array.from(coincidencesMap.values())
+      .filter(coincidence => coincidence.players.length >= 2)
+      .map(coincidence => ({
+        ...coincidence,
+        playerCount: coincidence.players.length,
+        promedioDiferencia: Math.round(coincidence.totalDiferencia / coincidence.players.length * 10) / 10,
+        priority: coincidence.players.length >= 3 ? 'high' : 'medium'
+      }))
+      .sort((a, b) => {
+        // Priorizar por cantidad de jugadores afectados, luego por diferencia promedio
+        if (b.playerCount !== a.playerCount) {
+          return b.playerCount - a.playerCount;
+        }
+        return b.promedioDiferencia - a.promedioDiferencia;
+      });
+    
+    return significantCoincidences;
+  };
+
+  // 🎯 FUNCIÓN: Obtener top déficits por jugador
+  const getTopDeficitsPerPlayer = (allRecommendations: any[]) => {
+    return allRecommendations.map(rec => ({
+      playerName: rec.playerName,
+      playerId: rec.playerId,
+      deficits: rec.recommendations
+        .filter((r: any) => r.type === 'INCREMENTAR') // Solo déficits
+        .sort((a: any, b: any) => b.difference - a.difference) // Por diferencia descendente
+        .slice(0, 2) // Top 2
+        .map((r: any) => ({
+          area: r.area,
+          level: r.level,
+          parentType: r.parentType, // Tipo padre (Peloteo/Canasto)
+          diferencia: r.difference,
+          currentPercentage: r.currentPercentage,
+          plannedPercentage: r.plannedPercentage
+        })),
+      excesos: rec.recommendations
+        .filter((r: any) => r.type === 'REDUCIR') // Solo excesos
+        .sort((a: any, b: any) => b.difference - a.difference) // Por diferencia descendente
+        .slice(0, 1) // Top 1 exceso
+        .map((r: any) => ({
+          area: r.area,
+          level: r.level,
+          parentType: r.parentType, // Tipo padre (Peloteo/Canasto)
+          diferencia: r.difference,
+          currentPercentage: r.currentPercentage,
+          plannedPercentage: r.plannedPercentage
+        }))
+    })).filter(player => player.deficits.length > 0 || player.excesos.length > 0);
+  };
+
+  // 🎯 FUNCIÓN PRINCIPAL: Orquestar análisis grupal
+  const summarizeGroupRecommendations = (participantsWithData: any[]) => {
+    // Generar recomendaciones individuales para cada jugador
+    const allRecommendations = participantsWithData.map(participant => ({
+      playerId: participant.playerId,
+      playerName: participant.playerName,
+      recommendations: participant.analysis.recommendations || [],
+      totalExercises: participant.analysis.totalExercises,
+      sessionsCount: participant.sessions.totalSessions,
+      planUsed: participant.analysis.planUsed
+    }));
+
+    // Detectar coincidencias grupales
+    const coincidencias = getGroupCoincidences(allRecommendations);
+    
+    // Obtener déficits individuales
+    const individuales = getTopDeficitsPerPlayer(allRecommendations);
+
+    // Calcular estadísticas grupales adicionales
     const totalSessions = participantsWithData.reduce((sum, p) => sum + p.sessions.totalSessions, 0);
     const avgSessionsPerPlayer = Math.round(totalSessions / participantsWithData.length);
 
@@ -553,8 +742,9 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     Object.entries(groupTypeStats).forEach(([tipo, data]) => {
       groupAverages[tipo] = Math.round(data.totalPercentage / data.count);
     });
-    
+
     return {
+      // Datos básicos
       analyzedPlayers: participantsWithData.length,
       totalPlayers: participants.length,
       sessionAnalysis: {
@@ -573,8 +763,47 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
         totalExercises: p.analysis.totalExercises,
         sessionsCount: p.sessions.totalSessions,
         planUsed: p.analysis.planUsed
-      }))
+      })),
+      
+      // 🎯 NUEVAS FUNCIONALIDADES GRUPALES
+      coincidencias,
+      individuales,
+      hasStrongCoincidences: coincidencias.length > 0,
+      recommendation: generateGroupRecommendationText(coincidencias, individuales)
     };
+  };
+
+  // 💬 FUNCIÓN: Generar texto de recomendación
+  const generateGroupRecommendationText = (coincidencias: any[], individuales: any[]) => {
+    if (coincidencias.length > 0) {
+      const topCoincidence = coincidencias[0];
+      let action = topCoincidence.type === 'INCREMENTAR' ? 'incrementar' : 'reducir';
+      let area = topCoincidence.area;
+      let parentType = topCoincidence.parentType || '';
+
+      // Si la recomendación es reducir (exceso), sugerir el tipo alternativo
+      if (topCoincidence.type === 'REDUCIR') {
+        // Lógica simple: si el parentType es 'Peloteo', sugerir 'Canasto', y viceversa
+        let alternativo = '';
+        if (parentType.toLowerCase().includes('peloteo') || area.toLowerCase().includes('juego de base')) {
+          alternativo = 'Canasto';
+        } else if (parentType.toLowerCase().includes('canasto')) {
+          alternativo = 'Peloteo';
+        } else {
+          // fallback: si no se puede determinar, sugerir "otro tipo de ejercicio"
+          alternativo = 'otro tipo de ejercicio';
+        }
+        return `Sugerencia: Hay un exceso de ${area}. Inicia la sesión con ejercicios de ${alternativo} para balancear el entrenamiento. (${topCoincidence.playerCount} jugadores, diferencia promedio de ${topCoincidence.promedioDiferencia}%)`;
+      } else {
+        return `Sugerencia: Iniciar con ejercicios de "${area}" (${action}) que afecta a ${topCoincidence.playerCount} jugadores con una diferencia promedio de ${topCoincidence.promedioDiferencia}%.`;
+      }
+    } else if (individuales.length > 0) {
+      const playersWithDeficits = individuales.filter(p => p.deficits.length > 0);
+      if (playersWithDeficits.length > 0) {
+        return `Sugerencia: Alternar entre ejercicios según déficits individuales. ${playersWithDeficits.length} jugadores necesitan trabajo específico.`;
+      }
+    }
+    return "El grupo está balanceado. Mantener variedad en los ejercicios.";
   };
 
   return (
@@ -586,17 +815,40 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
           </svg>
           <h4 className="text-lg font-semibold text-white">Recomendaciones</h4>
         </div>
-        
-        <button
-          onClick={refreshRecommendations}
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-          title="Actualizar recomendaciones"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refreshRecommendations}
+            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            title="Actualizar recomendaciones"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+          </button>
+          
+          
+          {/* Botón de ayuda para mostrar leyenda */}
+          <button
+            onClick={() => setShowLegend(!showLegend)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-300 shadow-md border-2 border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400
+              ${showLegend ? 'bg-indigo-700 text-white scale-105' : 'bg-indigo-500/80 text-white animate-pulse'}
+              hover:bg-indigo-600 hover:scale-105`}
+            title="Guía de colores: ¿Qué significa cada color?"
+            style={{ minWidth: 0 }}
+          >
+            <svg className="w-5 h-5 mr-1 text-yellow-300 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="#facc15" />
+              <text x="12" y="16" textAnchor="middle" fontSize="12" fill="#1e293b" fontWeight="bold">?</text>
+            </svg>
+            <span>Guía de colores</span>
+          </button>
+        </div>
       </div>
+
+      {/* Leyenda de colores (mostrar/ocultar) */}
+      {showLegend && (
+        <RecommendationLegend className="mb-4" />
+      )}
 
       {/* Loading state */}
       {(recommendationsLoading || individualLoading) && (
@@ -743,15 +995,13 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       {/* Contenido de recomendaciones generadas */}
       {!recommendationsLoading && recommendationsGenerated && (
         <div className="space-y-4">
-          {/* Botón para volver a generar */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <span className="text-green-400 text-lg">✅</span>
-              <span className="text-green-400 font-semibold">Recomendaciones Generadas</span>
-            </div>
+          {/* Botón para volver a generar (único) */}
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-green-400 text-lg">✅</span>
+            <span className="text-green-400 font-semibold">Recomendaciones Generadas</span>
             <button
               onClick={refreshRecommendations}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+              className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
             >
               🔄 Regenerar
             </button>
@@ -812,101 +1062,185 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                             <span className="text-purple-400 text-xl">👥</span>
                           </div>
                           <div>
-                            <h3 className="text-purple-400 font-bold text-lg">Recomendaciones Grupales</h3>
+                            <h3 className="text-purple-400 font-bold text-lg">Análisis Grupal Inteligente</h3>
                             <p className="text-purple-300 text-sm">
-                              Análisis real de {groupRecs.analyzedPlayers} jugadores con datos ({groupRecs.sessionAnalysis.totalSessionsAnalyzed} sesiones totales)
+                              {groupRecs.analyzedPlayers} jugadores analizados • {groupRecs.sessionAnalysis.totalSessionsAnalyzed} sesiones
                             </p>
-                          </div>
-                        </div>
-                        
-                        {/* Mostrar información detallada de los datos */}
-                        <div className="mt-3 p-3 bg-purple-500/5 rounded-lg border border-purple-500/20">
-                          <h4 className="text-xs font-semibold text-purple-400 mb-2">Jugadores analizados:</h4>
-                          <div className="grid grid-cols-1 gap-2">
-                            {groupRecs.participantsWithData.map((participant: any, index: number) => (
-                              <div key={index} className="flex items-center justify-between text-xs">
-                                <span className="text-purple-300">{participant.playerName}</span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-purple-400">{participant.totalExercises} ejercicios</span>
-                                  <span className="text-purple-400">{participant.sessionsCount} sesiones</span>
-                                  <span className={`px-2 py-1 rounded text-xs ${
-                                    participant.planUsed === 'real' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
-                                  }`}>
-                                    {participant.planUsed === 'real' ? 'Plan' : 'Default'}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
                           </div>
                         </div>
                       </div>
 
-                      {/* Recomendaciones grupales - mostrar promedios reales */}
-                      <div className="space-y-3">
-                        {['Canasto', 'Peloteo'].map((tipo) => {
-                          const currentPercentage = groupRecs.groupAverages[tipo] || 0;
-                          const plannedPercentage = 50; // Meta por defecto o podríamos calcular promedio de planes
-                          const difference = Math.abs(currentPercentage - plannedPercentage);
-                          const isDeficit = currentPercentage < plannedPercentage;
-
-                          return (
-                            <div key={tipo} className="bg-gray-800/50 border border-gray-600/50 rounded-xl overflow-hidden">
-                              <div 
-                                className={`p-4 ${
-                                  difference > 5 ? (isDeficit ? 'bg-red-500/20' : 'bg-green-500/20') : 'bg-blue-500/20'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className={`rounded-full p-3 ${
-                                      difference > 5 ? (isDeficit ? 'bg-red-500/30' : 'bg-green-500/30') : 'bg-blue-500/30'
-                                    }`}>
-                                      <span className="text-xl">
-                                        {tipo === 'Canasto' ? '🧺' : '🎾'}
+                      {/* 🎯 COINCIDENCIAS GRUPALES */}
+                      {groupRecs.hasStrongCoincidences ? (
+                        <div className="space-y-4">
+                          <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-2 border-green-400/30 rounded-xl p-4">
+                            <h4 className="text-green-400 font-bold text-base mb-3 flex items-center gap-2">
+                              🎯 Coincidencias Grupales Detectadas
+                            </h4>
+                            <p className="text-green-300 text-sm mb-4">
+                              Múltiples jugadores comparten déficits similares. Prioriza estos ejercicios:
+                            </p>
+                            
+                            <div className="space-y-3">
+                              {groupRecs.coincidencias.slice(0, 3).map((coincidencia: any, index: number) => (
+                                <div key={index} className={`p-3 rounded-lg border ${
+                                  coincidencia.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-yellow-500/10 border-yellow-500/20'
+                                }`}>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-lg">
+                                        {coincidencia.type === 'INCREMENTAR' ? '📈' : '📉'}
                                       </span>
+                                      <div>
+                                        <h5 className={`font-semibold ${
+                                          coincidencia.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'
+                                        }`}>
+                                          {formatAreaWithParent(coincidencia.area, coincidencia.parentType, coincidencia.level)} ({coincidencia.type === 'INCREMENTAR' ? '↑' : '↓'})
+                                        </h5>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-gray-400">
+                                            {coincidencia.level === 'TIPO' ? 'Tipo de entrenamiento' : 'Área específica'}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div>
-                                      <span className={`font-bold text-xl ${
-                                        difference > 5 ? (isDeficit ? 'text-red-300' : 'text-green-300') : 'text-blue-300'
+                                    <div className="text-right">
+                                      <div className={`text-sm font-bold ${
+                                        coincidencia.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'
                                       }`}>
-                                        {tipo}
-                                      </span>
-                                      <div className="flex items-center gap-3 mt-1">
-                                        <span className="text-sm text-gray-300">
-                                          Promedio Grupal: <strong className={difference > 5 ? (isDeficit ? 'text-red-400' : 'text-green-400') : 'text-blue-400'}>{currentPercentage}%</strong>
-                                        </span>
-                                        <span className="text-sm text-gray-300">
-                                          Meta: <strong>{plannedPercentage}%</strong>
-                                        </span>
-                                        <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
-                                          Datos reales
-                                        </span>
+                                        {coincidencia.playerCount} jugadores
+                                      </div>
+                                      <div className="text-xs text-gray-400">
+                                        Dif. prom: {coincidencia.promedioDiferencia}%
                                       </div>
                                     </div>
                                   </div>
-                                  {difference > 5 && (
-                                    <span className={`text-xl font-bold ${isDeficit ? 'text-red-400' : 'text-green-400'}`}>
-                                      {isDeficit ? '+' : '-'}{difference.toFixed(1)}%
-                                    </span>
-                                  )}
+                                  
+                                  {/* Lista de jugadores afectados */}
+                                  <div className="flex flex-wrap gap-2">
+                                    {coincidencia.players.map((player: any, pidx: number) => (
+                                      <span key={pidx} className="text-xs px-2 py-1 bg-gray-700/50 text-gray-300 rounded">
+                                        {player.name} ({player.diferencia.toFixed(1)}%)
+                                      </span>
+                                    ))}
+                                  </div>
                                 </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Sugerencia práctica */}
+                          <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                              <span className="text-blue-400 text-lg">💡</span>
+                              <div>
+                                <h5 className="text-blue-400 font-semibold text-sm mb-1">Sugerencia del Sistema:</h5>
+                                <p className="text-blue-300 text-sm">{groupRecs.recommendation}</p>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Sugerencia práctica basada en datos reales */}
-                      <div className="bg-gradient-to-r from-blue-500/15 to-cyan-500/15 border-2 border-blue-400/40 rounded-xl p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-blue-500/30 rounded-full p-2">
-                            <span className="text-blue-400 text-lg">💭</span>
                           </div>
-                          <div>
-                            <p className="text-blue-400 font-semibold text-base">Estrategia Basada en Datos Reales</p>
-                            <p className="text-blue-300 text-sm mt-1">
-                              Basado en {groupRecs.sessionAnalysis.totalSessionsAnalyzed} sesiones reales de {groupRecs.analyzedPlayers} jugadores
+                        </div>
+                      ) : (
+                        /* 📋 VISTA INDIVIDUAL COMPACTA */
+                        <div className="space-y-4">
+                          <div className="bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-2 border-orange-400/30 rounded-xl p-4">
+                            <h4 className="text-orange-400 font-bold text-base mb-3 flex items-center gap-2">
+                              📋 Déficits Individuales
+                            </h4>
+                            <p className="text-orange-300 text-sm mb-4">
+                              No hay coincidencias grupales fuertes. Aquí están los principales déficits por jugador:
                             </p>
+
+                            {/* Tabla compacta de déficits */}
+                            <div className="space-y-3">
+                              {groupRecs.individuales.map((player: any, index: number) => (
+                                <div key={index} className="bg-gray-800/50 border border-gray-600/30 rounded-lg p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h5 className="text-white font-medium">{player.playerName}</h5>
+                                    <span className="text-xs text-gray-400">
+                                      {player.deficits.length} déficit(s) • {player.excesos.length} exceso(s)
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {/* Déficits (incrementar) */}
+                                    {player.deficits.slice(0, 2).map((deficit: any, didx: number) => (
+                                      <div key={`deficit-${didx}`} className="flex flex-col p-2 bg-red-500/10 border border-red-500/20 rounded text-xs">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex flex-col">
+                                            <span className="text-red-400 font-medium">
+                                              {formatAreaWithParent(deficit.area, deficit.parentType, deficit.level)} ↑
+                                            </span>
+                                            <span className="text-xs text-red-300/70 mt-0.5">
+                                              {deficit.level === 'TIPO'
+                                                ? 'Tipo de entrenamiento'
+                                                : deficit.parentType
+                                                  ? `Ejercicio de ${deficit.parentType}`
+                                                  : ''}
+                                            </span>
+                                          </div>
+                                          <span className="text-red-300 font-bold">{deficit.diferencia.toFixed(1)}%</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    
+                                    {/* Excesos (reducir) */}
+                                    {player.excesos.slice(0, 1).map((exceso: any, eidx: number) => (
+                                      <div key={`exceso-${eidx}`} className="flex flex-col p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex flex-col">
+                                            <span className="text-yellow-400 font-medium">
+                                              {formatAreaWithParent(exceso.area, exceso.parentType, exceso.level)} ↓
+                                            </span>
+                                            <span className="text-xs text-yellow-300/70 mt-0.5">
+                                              {exceso.level === 'TIPO' ? 'Tipo de entrenamiento' : 'Área específica'}
+                                            </span>
+                                          </div>
+                                          <span className="text-yellow-300 font-bold">{exceso.diferencia.toFixed(1)}%</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Sugerencia para casos individuales */}
+                          <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                              <span className="text-blue-400 text-lg">💡</span>
+                              <div>
+                                <h5 className="text-blue-400 font-semibold text-sm mb-1">Sugerencia del Sistema:</h5>
+                                <p className="text-blue-300 text-sm">{groupRecs.recommendation}</p>
+                                <p className="text-blue-300 text-xs mt-2">
+                                  Tip: Alterna ejercicios durante la sesión para cubrir diferentes déficits según el contexto y prioridades.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Información adicional de sesiones */}
+                      <div className="bg-gray-800/30 border border-gray-600/30 rounded-lg p-3">
+                        <h5 className="text-gray-400 font-medium text-sm mb-2">Datos del análisis:</h5>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                          <div className="text-center">
+                            <div className="text-purple-400 font-bold">{groupRecs.sessionAnalysis.totalSessionsAnalyzed}</div>
+                            <div className="text-gray-400">Sesiones</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-purple-400 font-bold">{groupRecs.sessionAnalysis.averageSessionsPerPlayer}</div>
+                            <div className="text-gray-400">Prom/jugador</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-purple-400 font-bold">{groupRecs.coincidencias.length}</div>
+                            <div className="text-gray-400">Coincidencias</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-purple-400 font-bold">{groupRecs.individuales.length}</div>
+                            <div className="text-gray-400">Con déficits</div>
                           </div>
                         </div>
                       </div>
@@ -1072,7 +1406,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                 {/* Encabezado del tipo */}
                                 <div 
                                   className={`cursor-pointer p-4 transition-all duration-300 ${
-                                    difference > 5 ? (isDeficit ? 'bg-red-500/20 border-red-500/30' : 'bg-green-500/20 border-green-500/30') : 'bg-blue-500/20 border-blue-500/30'
+                                    difference > 5 ? (isDeficit ? 'bg-red-500/20 border-red-500/30' : 'bg-yellow-500/20 border-yellow-500/30') : 'bg-blue-500/20 border-blue-500/30'
                                   } hover:bg-opacity-80`}
                                   onClick={() => {
                                     const newExpanded = new Set(expandedRecommendations);
@@ -1088,7 +1422,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                       <div className={`rounded-full p-3 ${
-                                        difference > 5 ? (isDeficit ? 'bg-red-500/30' : 'bg-green-500/30') : 'bg-blue-500/30'
+                                        difference > 5 ? (isDeficit ? 'bg-red-500/30' : 'bg-yellow-500/30') : 'bg-blue-500/30'
                                       }`}>
                                         <span className="text-xl">
                                           {tipo === 'Canasto' ? '🧺' : '🎾'}
@@ -1098,7 +1432,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                       <div>
                                         <div className="flex items-center gap-2">
                                           <span className={`font-bold text-xl ${
-                                            difference > 5 ? (isDeficit ? 'text-red-300' : 'text-green-300') : 'text-blue-300'
+                                            difference > 5 ? (isDeficit ? 'text-red-300' : 'text-yellow-300') : 'text-blue-300'
                                           }`}>
                                             {tipo}
                                           </span>
@@ -1108,7 +1442,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                         </div>
                                         <div className="flex items-center gap-3 mt-1">
                                           <span className="text-sm text-gray-300">
-                                            Actual: <strong className={difference > 5 ? (isDeficit ? 'text-red-400' : 'text-green-400') : 'text-blue-400'}>{currentPercentage}%</strong>
+                                            Actual: <strong className={difference > 5 ? (isDeficit ? 'text-red-400' : 'text-yellow-400') : 'text-blue-400'}>{currentPercentage}%</strong>
                                           </span>
                                           <span className="text-sm text-gray-300">
                                             Meta: <strong>{plannedPercentage}%</strong>
@@ -1118,14 +1452,14 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                     </div>
                                     <div className="flex items-center gap-3">
                                       {difference > 5 && (
-                                        <span className={`text-xl font-bold ${isDeficit ? 'text-red-400' : 'text-green-400'}`}>
+                                        <span className={`text-xl font-bold ${isDeficit ? 'text-red-400' : 'text-yellow-400'}`}>
                                           {isDeficit ? '+' : '-'}{difference.toFixed(1)}%
                                         </span>
                                       )}
                                       <svg 
                                         className={`w-5 h-5 transition-transform ${
                                           expandedRecommendations.has(`type-${tipo}` as any) ? 'rotate-180' : ''
-                                        } ${difference > 5 ? (isDeficit ? 'text-red-300' : 'text-green-300') : 'text-blue-300'}`}
+                                        } ${difference > 5 ? (isDeficit ? 'text-red-300' : 'text-yellow-300') : 'text-blue-300'}`}
                                         fill="none" 
                                         viewBox="0 0 24 24" 
                                         strokeWidth={2} 
@@ -1144,28 +1478,28 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                     {recommendations.filter(rec => rec.level === 'TIPO').map((rec: any, index: number) => (
                                       <div key={`tipo-${index}`} className={`mb-4 p-3 rounded-lg border ${
                                         rec.isStatus ? 'bg-blue-500/10 border-blue-500/20' :
-                                        rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'
+                                        rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-yellow-500/10 border-yellow-500/20'
                                       }`}>
                                         <div className="flex items-center justify-between">
                                           <div className="flex items-center gap-2">
                                             <span className="text-lg">🎯</span>
                                             <span className={`font-semibold ${
                                               rec.isStatus ? 'text-blue-400' :
-                                              rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'
+                                              rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'
                                             }`}>
                                               {rec.isStatus ? 'Estado Óptimo' : 
                                                rec.type === 'INCREMENTAR' ? 'INCREMENTAR' : 'REDUCIR'} {tipo}
                                             </span>
                                           </div>
                                           {!rec.isStatus && (
-                                            <span className={`font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'}`}>
+                                            <span className={`font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'}`}>
                                               {rec.type === 'INCREMENTAR' ? '+' : '-'}{rec.difference.toFixed(1)}%
                                             </span>
                                           )}
                                         </div>
                                         <p className={`text-sm mt-1 ${
                                           rec.isStatus ? 'text-blue-300' :
-                                          rec.type === 'INCREMENTAR' ? 'text-red-300' : 'text-green-300'
+                                          rec.type === 'INCREMENTAR' ? 'text-red-300' : 'text-yellow-300'
                                         }`}>
                                           {rec.reason}
                                         </p>
@@ -1201,12 +1535,12 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                               let bgColor, borderColor, textColor, statusText, statusIcon;
                                               
                                               if (totalExercises === 0) {
-                                                // Sin datos
-                                                bgColor = 'bg-gray-500/10';
-                                                borderColor = 'border-gray-500/30';
-                                                textColor = 'text-gray-400';
-                                                statusText = 'Sin datos';
-                                                statusIcon = '⚪';
+                                                // Sin datos - usar mismo diseño que incrementar
+                                                bgColor = 'bg-red-500/10';
+                                                borderColor = 'border-red-500/30';
+                                                textColor = 'text-red-400';
+                                                statusText = 'Incrementar';
+                                                statusIcon = '📈';
                                               } else if (difference <= 5) {
                                                 // Óptimo
                                                 bgColor = 'bg-blue-500/10';
@@ -1222,10 +1556,10 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                                 statusText = 'Incrementar';
                                                 statusIcon = '📈';
                                               } else {
-                                                // Exceso - necesita reducir
-                                                bgColor = 'bg-green-500/10';
-                                                borderColor = 'border-green-500/30';
-                                                textColor = 'text-green-400';
+                                                // Exceso - necesita reducir - cambio de verde a amarillo
+                                                bgColor = 'bg-yellow-500/10';
+                                                borderColor = 'border-yellow-500/30';
+                                                textColor = 'text-yellow-400';
                                                 statusText = 'Reducir';
                                                 statusIcon = '📉';
                                               }
@@ -1298,12 +1632,12 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                           <div className="space-y-2">
                                             {exerciseRecs.slice(0, 3).map((rec: any, index: number) => (
                                               <div key={`exercise-${index}`} className={`p-2 rounded border ${
-                                                rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'
+                                                rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-yellow-500/10 border-yellow-500/20'
                                               }`}>
                                                 <div className="flex items-center justify-between">
                                                   <div className="flex items-center gap-2">
                                                     <span>🔧</span>
-                                                    <span className={`text-sm font-medium ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'}`}>
+                                                    <span className={`text-sm font-medium ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'}`}>
                                                       {rec.area}
                                                     </span>
                                                     {rec.parentArea && (
@@ -1312,7 +1646,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                                       </span>
                                                     )}
                                                   </div>
-                                                  <span className={`text-sm font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'}`}>
+                                                  <span className={`text-sm font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'}`}>
                                                     {rec.basedOnExercises} veces
                                                   </span>
                                                 </div>
@@ -1486,7 +1820,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                             <div key={tipo} className="bg-gray-800/50 border border-gray-600/50 rounded-xl overflow-hidden">
                               <div 
                                 className={`cursor-pointer p-4 transition-all duration-300 ${
-                                  difference > 5 ? (isDeficit ? 'bg-red-500/20 border-red-500/30' : 'bg-green-500/20 border-green-500/30') : 'bg-blue-500/20 border-blue-500/30'
+                                  difference > 5 ? (isDeficit ? 'bg-red-500/20 border-red-500/30' : 'bg-yellow-500/20 border-yellow-500/30') : 'bg-blue-500/20 border-blue-500/30'
                                 } hover:bg-opacity-80`}
                                 onClick={() => {
                                   const newExpanded = new Set(expandedRecommendations);
@@ -1502,7 +1836,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3">
                                     <div className={`rounded-full p-3 ${
-                                      difference > 5 ? (isDeficit ? 'bg-red-500/30' : 'bg-green-500/30') : 'bg-blue-500/30'
+                                      difference > 5 ? (isDeficit ? 'bg-red-500/30' : 'bg-yellow-500/30') : 'bg-blue-500/30'
                                     }`}>
                                       <span className="text-xl">
                                         {tipo === 'Canasto' ? '🧺' : '🎾'}
@@ -1512,7 +1846,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className={`font-bold text-xl ${
-                                          difference > 5 ? (isDeficit ? 'text-red-300' : 'text-green-300') : 'text-blue-300'
+                                          difference > 5 ? (isDeficit ? 'text-red-300' : 'text-yellow-300') : 'text-blue-300'
                                         }`}>
                                           {tipo}
                                         </span>
@@ -1522,7 +1856,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                       </div>
                                       <div className="flex items-center gap-3 mt-1">
                                         <span className="text-sm text-gray-300">
-                                          Actual: <strong className={difference > 5 ? (isDeficit ? 'text-red-400' : 'text-green-400') : 'text-blue-400'}>{currentPercentage}%</strong>
+                                          Actual: <strong className={difference > 5 ? (isDeficit ? 'text-red-400' : 'text-yellow-400') : 'text-blue-400'}>{currentPercentage}%</strong>
                                         </span>
                                         <span className="text-sm text-gray-300">
                                           Meta: <strong>{plannedPercentage}%</strong>
@@ -1532,14 +1866,14 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                   </div>
                                   <div className="flex items-center gap-3">
                                     {difference > 5 && (
-                                      <span className={`text-xl font-bold ${isDeficit ? 'text-red-400' : 'text-green-400'}`}>
+                                      <span className={`text-xl font-bold ${isDeficit ? 'text-red-400' : 'text-yellow-400'}`}>
                                         {isDeficit ? '+' : '-'}{difference.toFixed(1)}%
                                       </span>
                                     )}
                                     <svg 
                                       className={`w-5 h-5 transition-transform ${
                                         expandedRecommendations.has(`type-${tipo}` as any) ? 'rotate-180' : ''
-                                      } ${difference > 5 ? (isDeficit ? 'text-red-300' : 'text-green-300') : 'text-blue-300'}`}
+                                      } ${difference > 5 ? (isDeficit ? 'text-red-300' : 'text-yellow-300') : 'text-blue-300'}`}
                                       fill="none" 
                                       viewBox="0 0 24 24" 
                                       strokeWidth={2} 
@@ -1556,28 +1890,28 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                   {recommendations.filter(rec => rec.level === 'TIPO').map((rec: any, index: number) => (
                                     <div key={`tipo-${index}`} className={`mb-4 p-3 rounded-lg border ${
                                       rec.isStatus ? 'bg-blue-500/10 border-blue-500/20' :
-                                      rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'
+                                      rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-yellow-500/10 border-yellow-500/20'
                                     }`}>
                                       <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                           <span className="text-lg">🎯</span>
                                           <span className={`font-semibold ${
                                             rec.isStatus ? 'text-blue-400' :
-                                            rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'
+                                            rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'
                                           }`}>
                                             {rec.isStatus ? 'Estado Óptimo' : 
                                              rec.type === 'INCREMENTAR' ? 'INCREMENTAR' : 'REDUCIR'} {tipo}
                                           </span>
                                         </div>
                                         {!rec.isStatus && (
-                                          <span className={`font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'}`}>
+                                          <span className={`font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'}`}>
                                             {rec.type === 'INCREMENTAR' ? '+' : '-'}{rec.difference.toFixed(1)}%
                                           </span>
                                         )}
                                       </div>
                                       <p className={`text-sm mt-1 ${
                                         rec.isStatus ? 'text-blue-300' :
-                                        rec.type === 'INCREMENTAR' ? 'text-red-300' : 'text-green-300'
+                                        rec.type === 'INCREMENTAR' ? 'text-red-300' : 'text-yellow-300'
                                       }`}>
                                         {rec.reason}
                                       </p>
@@ -1613,12 +1947,12 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                             let bgColor, borderColor, textColor, statusText, statusIcon;
                                             
                                             if (totalExercises === 0) {
-                                              // Sin datos
-                                              bgColor = 'bg-gray-500/10';
-                                              borderColor = 'border-gray-500/30';
-                                              textColor = 'text-gray-400';
-                                              statusText = 'Sin datos';
-                                              statusIcon = '⚪';
+                                              // Sin datos - usar mismo diseño que incrementar
+                                              bgColor = 'bg-red-500/10';
+                                              borderColor = 'border-red-500/30';
+                                              textColor = 'text-red-400';
+                                              statusText = 'Incrementar';
+                                              statusIcon = '📈';
                                             } else if (difference <= 5) {
                                               // Óptimo
                                               bgColor = 'bg-blue-500/10';
@@ -1634,10 +1968,10 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                               statusText = 'Incrementar';
                                               statusIcon = '📈';
                                             } else {
-                                              // Exceso - necesita reducir
-                                              bgColor = 'bg-green-500/10';
-                                              borderColor = 'border-green-500/30';
-                                              textColor = 'text-green-400';
+                                              // Exceso - necesita reducir - cambio de verde a amarillo
+                                              bgColor = 'bg-yellow-500/10';
+                                              borderColor = 'border-yellow-500/30';
+                                              textColor = 'text-yellow-400';
                                               statusText = 'Reducir';
                                               statusIcon = '📉';
                                             }
@@ -1710,12 +2044,12 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                         <div className="space-y-2">
                                           {exerciseRecs.slice(0, 3).map((rec: any, index: number) => (
                                             <div key={`exercise-${index}`} className={`p-2 rounded border ${
-                                              rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'
+                                              rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-yellow-500/10 border-yellow-500/20'
                                             }`}>
                                               <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                   <span>🔧</span>
-                                                  <span className={`text-sm font-medium ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'}`}>
+                                                  <span className={`text-sm font-medium ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'}`}>
                                                     {rec.area}
                                                   </span>
                                                   {rec.parentArea && (
@@ -1724,7 +2058,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                                                     </span>
                                                   )}
                                                 </div>
-                                                <span className={`text-sm font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'}`}>
+                                                <span className={`text-sm font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'}`}>
                                                   {rec.basedOnExercises} veces
                                                 </span>
                                               </div>
@@ -1749,14 +2083,23 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                   })()}
                 </div>
               ) : (
-                <div className="bg-gradient-to-r from-gray-800/30 to-gray-700/30 border-2 border-gray-600/40 rounded-xl p-6 text-center">
-                  <div className="bg-gray-600/30 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                    <span className="text-gray-400 text-2xl">📊</span>
+                <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border-2 border-red-400/40 rounded-xl p-6 text-center">
+                  <div className="bg-red-600/30 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <span className="text-red-400 text-2xl">❌</span>
                   </div>
-                  <p className="text-gray-400 font-semibold text-base mb-2">Sin datos de entrenamientos</p>
-                  <p className="text-gray-500 text-sm">
-                    No se encontraron ejercicios en las sesiones recientes para este jugador
+                  <p className="text-red-400 font-semibold text-base mb-2">Sin datos de entrenamientos</p>
+                  <p className="text-red-300 text-sm mb-4">
+                    No se encontraron ejercicios en las sesiones de los últimos 30 días para este jugador
                   </p>
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-left">
+                    <p className="text-red-300 text-xs">
+                      💡 <strong>Posibles causas:</strong><br/>
+                      • El jugador no tiene sesiones registradas recientemente<br/>
+                      • Las sesiones no tienen ejercicios cargados<br/>
+                      • Los ejercicios están fuera del período de 30 días<br/>
+                      • Error en la carga de datos desde Firebase
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
