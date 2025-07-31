@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Player, Objective, ObjectiveEstado } from '../types';
-import { MAX_ACTIVE_OBJECTIVES, OBJECTIVE_ESTADOS } from '../constants';
+import { MAX_ACTIVE_OBJECTIVES, OBJECTIVE_ESTADOS } from '../constants/index';
 import { addObjective, updateObjective, deleteObjective } from '../Database/FirebaseObjectives';
 
 interface EditObjectivesPageProps {

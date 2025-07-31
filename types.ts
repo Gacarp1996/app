@@ -61,8 +61,8 @@ export interface SpecificExercise {
 }
 
 export enum TrainingArea {
-  FONDO = "Fondo",
-  RED = "Red", 
+  JUEGO_DE_BASE = "Juego de base",
+  RED = "Red", // "Juego de red" maps to this
   PRIMERAS_PELOTAS = "Primeras Pelotas",
   PUNTOS = "Puntos",
 }

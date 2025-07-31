@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-
 import Modal from '../shared/Modal';
 import { DisputedTournament, RendimientoJugador, Tournament } from '@/types';
+import { validateTournamentForm, dateToISOString, isoToLocalDate } from './helpers';
 
 interface DisputedTournamentFormModalProps {
   isOpen: boolean;
@@ -49,16 +49,16 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
   useEffect(() => {
     if (existingDisputedTournament) {
       setNombreTorneo(existingDisputedTournament.nombreTorneo);
-      setFechaInicio(existingDisputedTournament.fechaInicio.split('T')[0]);
-      setFechaFin(existingDisputedTournament.fechaFin.split('T')[0]);
+      setFechaInicio(isoToLocalDate(existingDisputedTournament.fechaInicio));
+      setFechaFin(isoToLocalDate(existingDisputedTournament.fechaFin));
       setResultado(existingDisputedTournament.resultado);
       setNivelDificultad(existingDisputedTournament.nivelDificultad);
       setRendimientoJugador(existingDisputedTournament.rendimientoJugador);
       setObservaciones(existingDisputedTournament.observaciones || '');
     } else if (futureTournamentToConvert) {
       setNombreTorneo(futureTournamentToConvert.nombreTorneo);
-      setFechaInicio(futureTournamentToConvert.fechaInicio.split('T')[0]);
-      setFechaFin(futureTournamentToConvert.fechaFin.split('T')[0]);
+      setFechaInicio(isoToLocalDate(futureTournamentToConvert.fechaInicio));
+      setFechaFin(isoToLocalDate(futureTournamentToConvert.fechaFin));
       setResultado('');
       setNivelDificultad(3);
       setRendimientoJugador('Bueno');
@@ -81,29 +81,22 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (!nombreTorneo.trim()) {
-      setError('El nombre del torneo no puede estar vacío.');
-      return;
-    }
-    if (!fechaInicio || !fechaFin) {
-      setError('Debe seleccionar una fecha de inicio y una fecha de fin.');
-      return;
-    }
-    if (new Date(fechaInicio) > new Date(fechaFin)) {
-      setError('La fecha de inicio no puede ser posterior a la fecha de fin.');
-      return;
-    }
-    if (!resultado) {
-      setError('Debe seleccionar el resultado del torneo.');
+    const validationError = validateTournamentForm({
+      nombreTorneo,
+      fechaInicio,
+      fechaFin,
+      resultado
+    });
+   
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     const tournamentData: Omit<DisputedTournament, 'id' | 'jugadorId' | 'fechaRegistro'> = {
       nombreTorneo: nombreTorneo.trim(),
-      fechaInicio: new Date(fechaInicio + 'T00:00:00Z').toISOString(),
-      fechaFin: new Date(fechaFin + 'T00:00:00Z').toISOString(),
+      fechaInicio: dateToISOString(fechaInicio),
+      fechaFin: dateToISOString(fechaFin),
       resultado: resultado,
       nivelDificultad,
       rendimientoJugador,

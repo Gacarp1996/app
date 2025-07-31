@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { obtenerIdPublico } from '../../../Database/FirebaseAcademias';
+import { copyToClipboard } from './helpers';
 
 interface AcademiaInfoSectionProps {
   academiaName: string;
@@ -33,25 +34,10 @@ export const AcademiaInfoSection: React.FC<AcademiaInfoSectionProps> = ({
   const handleCopyId = async () => {
     if (!publicId) return;
     
-    try {
-      await navigator.clipboard.writeText(publicId);
+    const success = await copyToClipboard(publicId);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Error copiando al portapapeles:', error);
-      // Fallback para navegadores que no soportan clipboard API
-      try {
-        const textArea = document.createElement('textarea');
-        textArea.value = publicId;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (fallbackError) {
-        console.error('Error en fallback de copia:', fallbackError);
-      }
     }
   };
 

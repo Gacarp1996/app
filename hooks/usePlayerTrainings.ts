@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { TrainingSession, PostTrainingSurvey, ChartDataPoint, IntensityDataPoint, TrainingType, TrainingArea } from '../types';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
-import { EXERCISE_HIERARCHY } from '../constants';
+import { EXERCISE_HIERARCHY } from '../constants/index';
 import { parseTimeToMinutes, getDefaultDateRange, METRIC_CONFIG } from '../components/player-profile/utils';
 
 interface UsePlayerTrainingsProps {

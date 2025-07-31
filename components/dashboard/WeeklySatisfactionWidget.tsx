@@ -16,6 +16,8 @@ interface WeeklySatisfactionWidgetProps {
   weeklySatisfaction: WeeklySatisfaction;
 }
 
+
+
 const WeeklySatisfactionWidget: React.FC<WeeklySatisfactionWidgetProps> = ({ weeklySatisfaction }) => {
   const navigate = useNavigate();
 

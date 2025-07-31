@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { TrainingSession, Player } from '../../types';
+import { getPlayerName } from './helpers';
+
 
 interface ActiveTrainer {
   id: string;
@@ -34,12 +36,7 @@ const ActiveTrainersWidget: React.FC<ActiveTrainersWidgetProps> = ({
     setTrainerSessions([]);
   };
 
-  // Función helper para obtener el nombre del jugador
-  const getPlayerName = (playerId: string) => {
-    const player = players.find(p => p.id === playerId);
-    return player?.name || 'Jugador desconocido';
-  };
-
+  
   // Agrupar sesiones por hora
   const groupSessionsByTime = (sessions: TrainingSession[]) => {
     return sessions.reduce((acc, session) => {
@@ -178,7 +175,7 @@ const ActiveTrainersWidget: React.FC<ActiveTrainersWidgetProps> = ({
                           <div key={session.id} className="border-l-2 border-gray-700 pl-4">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="text-white font-medium">
-                                {getPlayerName(session.jugadorId)}
+                                {getPlayerName(players, session.jugadorId)}
                               </p>
                               <span className="text-xs text-gray-500">
                                 • {calculateTotalDuration(session)} min

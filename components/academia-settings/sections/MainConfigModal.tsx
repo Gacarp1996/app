@@ -4,75 +4,15 @@ import { AcademiaUser, UserRole } from '../../../Database/FirebaseRoles';
 import { TipoEntidad } from '../../../types';
 import { UserManagementSection } from '../users/UserManagementSection';
 import { AcademiaInfoSection } from '../sections/AcademiaInfoSection';
-
-// Función helper para nombres de roles en español
-const getRoleDisplayName = (role?: UserRole | null) => {
-  if (!role) return 'Sin rol';
-  
-  switch (role) {
-    case 'academyDirector':
-      return 'Director';
-    case 'academySubdirector':
-      return 'Subdirector';
-    case 'academyCoach':
-      return 'Entrenador';
-    case 'groupCoach':
-      return 'Entrenador de Grupo';
-    case 'assistantCoach':
-      return 'Entrenador Asistente';
-    default:
-      return 'Sin rol';
-  }
-};
-
-// Función helper para colores de roles
-const getRoleBadgeColor = (role?: UserRole | null) => {
-  if (!role) return 'bg-gray-500/20 text-gray-400 border border-gray-500/30';
-  
-  switch (role) {
-    case 'academyDirector':
-      return 'bg-red-500/20 text-red-400 border border-red-500/30';
-    case 'academySubdirector':
-      return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
-    case 'academyCoach':
-      return 'bg-green-500/20 text-green-400 border border-green-500/30';
-    case 'groupCoach':
-      return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
-    case 'assistantCoach':
-      return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
-    default:
-      return 'bg-gray-500/20 text-gray-400 border border-gray-500/30';
-  }
-};
-
-// FUNCIONES DE LÓGICA CONDICIONAL
-const shouldShowUserManagement = (role: UserRole | null, entityType: TipoEntidad) => {
-  // En academias: solo academyDirector puede gestionar usuarios
-  if (entityType === 'academia') {
-    return role === 'academyDirector';
-  }
-  // En grupos: solo groupCoach puede gestionar usuarios
-  if (entityType === 'grupo-entrenamiento') {
-    return role === 'groupCoach';
-  }
-  return false;
-};
-
-const shouldShowEntityInfo = (role: UserRole | null) => {
-  // Tanto directores de academia como coaches de grupo pueden ver info de su entidad
-  return role === 'academyDirector' || role === 'groupCoach';
-};
-
-const shouldShowAdvancedConfig = (role: UserRole | null) => {
-  // En academias: director y subdirector
-  // En grupos: solo groupCoach
-  return ['academyDirector', 'academySubdirector', 'groupCoach'].includes(role || '');
-};
-
-const shouldShowDeleteOption = (role: UserRole | null) => {
-  // Solo directores de academia y coaches de grupo pueden eliminar su entidad
-  return role === 'academyDirector' || role === 'groupCoach';
-};
+import { 
+  copyToClipboard,
+  shouldShowUserManagement,
+  shouldShowEntityInfo,
+  shouldShowAdvancedConfig,
+  shouldShowDeleteOption,
+  generatePublicIdForGroup
+} from './helpers';
+import { RoleBadge } from '../users/RoleBadge';
 
 // Componente para mostrar la información del perfil del usuario
 const UserProfileSection: React.FC<{
@@ -97,9 +37,13 @@ const UserProfileSection: React.FC<{
       
       <div>
         <p className="text-gray-400 text-sm mb-2">Rol actual:</p>
-        <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(currentUserRole)}`}>
-          {getRoleDisplayName(currentUserRole)}
-        </span>
+        {currentUserRole ? (
+          <RoleBadge role={currentUserRole} />
+        ) : (
+          <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-gray-500/20 text-gray-400 border border-gray-500/30">
+            Sin rol
+          </span>
+        )}
       </div>
     </div>
   </div>
@@ -117,40 +61,8 @@ const GroupInfoSection: React.FC<{
   useEffect(() => {
     const loadPublicId = async () => {
       try {
-        // Validar que groupId existe y no está vacío
-        if (!groupId || typeof groupId !== 'string' || groupId.trim() === '') {
-          console.warn('GroupId no válido:', groupId);
-          setPublicId(null);
-          return;
-        }
-
-        // Para grupos de entrenamiento, generamos un ID público simple
-        // basado en los primeros 6 caracteres del Firebase ID
-        if (groupId.length >= 6) {
-          // Generar ID público de 6 caracteres a partir del groupId
-          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-          let generatedId = '';
-          
-          // Usar el groupId como semilla para generar un ID consistente
-          for (let i = 0; i < 6; i++) {
-            const charIndex = (groupId.charCodeAt(i % groupId.length) + i) % chars.length;
-            generatedId += chars[charIndex];
-          }
-          
-          setPublicId(generatedId);
-        } else {
-          // Fallback: usar el groupId completo en mayúsculas si es menor a 6 caracteres
-          // Completar con caracteres adicionales si es necesario
-          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-          let paddedId = groupId.toUpperCase();
-          
-          // Rellenar hasta 6 caracteres si es más corto
-          while (paddedId.length < 6) {
-            paddedId += chars[paddedId.length % chars.length];
-          }
-          
-          setPublicId(paddedId.substring(0, 6));
-        }
+        const generatedId = generatePublicIdForGroup(groupId);
+        setPublicId(generatedId);
       } catch (error) {
         console.error('Error generando ID público del grupo:', error);
         setPublicId(null);
@@ -165,25 +77,10 @@ const GroupInfoSection: React.FC<{
   const handleCopyId = async () => {
     if (!publicId) return;
     
-    try {
-      await navigator.clipboard.writeText(publicId);
+    const success = await copyToClipboard(publicId);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Error copiando al portapapeles:', error);
-      // Fallback para navegadores que no soportan clipboard API
-      try {
-        const textArea = document.createElement('textarea');
-        textArea.value = publicId;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (fallbackError) {
-        console.error('Error en fallback de copia:', fallbackError);
-      }
     }
   };
 
@@ -303,12 +200,6 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
   onDeleteEntity,
   onOpenAdvancedConfig
 }) => {
-  // Debug
-  console.log('🔍 MainConfigModal props:', {
-    isOpen,
-    onOpenAdvancedConfig: typeof onOpenAdvancedConfig
-  });
-
   if (!isOpen) return null;
 
   // Determinar qué secciones mostrar según el rol y tipo de entidad
@@ -419,12 +310,8 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('🔍 Configurar button clicked!');
-                        console.log('🔍 onOpenAdvancedConfig is:', typeof onOpenAdvancedConfig);
                         if (typeof onOpenAdvancedConfig === 'function') {
                           onOpenAdvancedConfig();
-                        } else {
-                          console.error('❌ onOpenAdvancedConfig is not a function!');
                         }
                       }}
                       type="button"

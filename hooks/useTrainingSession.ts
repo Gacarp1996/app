@@ -7,7 +7,7 @@ import { useAcademia } from '../contexts/AcademiaContext';
 import { addSession, updateSession } from '../Database/FirebaseSessions';
 import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
-import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
+import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants/index';
 import { useExerciseOptions } from './useExerciseOptions';
 
 interface UseTrainingSessionProps {
@@ -334,14 +334,26 @@ export const useTrainingSession = ({
     // Preparar las sesiones pero NO guardarlas todavía
     const sessionsToSave: Omit<TrainingSession, 'id'>[] = participants.map(player => {
       const playerExercises = exercises.filter(ex => ex.loggedForPlayerId === player.id)
-        .map(({ loggedForPlayerId, loggedForPlayerName, ...rest }) => rest as LoggedExercise);
+        .map(({ loggedForPlayerId, loggedForPlayerName, ...rest }) => {
+          // Asegurar que todos los campos requeridos estén presentes
+          const exercise: LoggedExercise = {
+            id: rest.id || '',
+            tipo: rest.tipo || 'PELOTEO',
+            area: rest.area || 'Técnica',
+            ejercicio: rest.ejercicio || '',
+            ejercicioEspecifico: rest.ejercicioEspecifico,
+            tiempoCantidad: rest.tiempoCantidad || '',
+            intensidad: rest.intensidad || 1
+          };
+          return exercise;
+        });
       
       return { 
         jugadorId: player.id, 
         entrenadorId: currentUser.uid,
         fecha: new Date().toISOString(), 
         ejercicios: playerExercises,
-        observaciones: observaciones.trim()
+        observaciones: observaciones.trim() || ''
       };
     }).filter(session => session.ejercicios.length > 0 || (session.observaciones && session.observaciones.length > 0));
 

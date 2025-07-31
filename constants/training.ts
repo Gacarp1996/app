@@ -5,13 +5,13 @@ import { TrainingArea, TrainingType } from '../types';
 // Existing hierarchical structure for exercises (used by charts, older data)
 export const EXERCISE_HIERARCHY: Record<TrainingType, Record<TrainingArea, string[] | undefined>> = {
   [TrainingType.CANASTO]: {
-    [TrainingArea.FONDO]: ["Desde el lugar", "Dinámico"],
+    [TrainingArea.JUEGO_DE_BASE]: ["Desde el lugar", "Dinámico"],
     [TrainingArea.RED]: ["Desde el lugar", "Dinámico"],
     [TrainingArea.PRIMERAS_PELOTAS]: ["Saque", "Saque + Devolución + 1"],
     [TrainingArea.PUNTOS]: undefined, // Puntos no aplica a Canasto
   },
   [TrainingType.PELOTA_VIVA]: {
-    [TrainingArea.FONDO]: ["Control", "Movilidad", "Jugadas"],
+    [TrainingArea.JUEGO_DE_BASE]: ["Control", "Movilidad", "Jugadas"],
     [TrainingArea.RED]: ["Volea", "Subida", "Smash"],
     [TrainingArea.PRIMERAS_PELOTAS]: ["Saque", "Saque y devolución", "Saque + 1", "Saque + 1 devolución + 1"],
     [TrainingArea.PUNTOS]: ["Libres", "Con pautas"],
@@ -40,8 +40,9 @@ export const NEW_EXERCISE_HIERARCHY_MAPPING = {
     "Peloteo": TrainingType.PELOTA_VIVA,
   } as Record<string, TrainingType>,
   AREA_MAP: {
-    "Juego de base": TrainingArea.FONDO,
-    "Juego de red": TrainingArea.RED,
+    "Juego de base": TrainingArea.JUEGO_DE_BASE,
+    "Red": TrainingArea.RED,          // ✅ AGREGAR: Para datos guardados como "Red"
+    "Juego de red": TrainingArea.RED,  // Para datos nuevos como "Juego de red"
     "Primeras pelotas": TrainingArea.PRIMERAS_PELOTAS,
     "Puntos": TrainingArea.PUNTOS,
   } as Record<string, TrainingArea>
