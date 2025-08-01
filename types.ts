@@ -27,10 +27,6 @@ export interface Objective {
   estado: ObjectiveEstado; 
 }
 
-export enum TrainingType {
-  CANASTO = "Canasto", // Basket drill
-  PELOTA_VIVA = "Pelota viva", // Live ball
-}
 
 
 export interface TrainingSession {
@@ -60,10 +56,15 @@ export interface SpecificExercise {
   ejercicio: string;
 }
 
+export enum TrainingType {
+  CANASTO = "Canasto",
+  PELOTEO = "Peloteo", // Cambiar de PELOTA_VIVA
+}
+
 export enum TrainingArea {
   JUEGO_DE_BASE = "Juego de base",
-  RED = "Red", // "Juego de red" maps to this
-  PRIMERAS_PELOTAS = "Primeras Pelotas",
+  JUEGO_DE_RED = "Juego de red", 
+  PRIMERAS_PELOTAS = "Primeras pelotas", 
   PUNTOS = "Puntos",
 }
 

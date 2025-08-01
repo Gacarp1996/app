@@ -31,7 +31,6 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
       try {
         const plan = await getTrainingPlan(academiaActual.id, player.id);
         if (plan && plan.planificacion) {
-          // Verificar si el plan tiene algún porcentaje asignado
           const tienePorcentajes = Object.values(plan.planificacion).some(
             tipo => tipo && tipo.porcentajeTotal > 0
           );

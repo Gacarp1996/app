@@ -1,9 +1,9 @@
+import { EXERCISE_HIERARCHY } from '@/constants';
+import { useAcademia } from '@/contexts/AcademiaContext';
+import { TrainingPlan, getTrainingPlan, saveTrainingPlan } from '@/Database/FirebaseTrainingPlans';
+import { Player, TrainingType, TrainingArea } from '@/types';
 import React, { useState, useEffect } from 'react';
-import Modal from './shared/Modal';
-import { Player } from '../types';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants';
-import { getTrainingPlan, saveTrainingPlan, TrainingPlan } from '../Database/FirebaseTrainingPlans';
-import { useAcademia } from '../contexts/AcademiaContext';
+import Modal from '../shared/Modal';
 
 interface TrainingPlanModalProps {
   isOpen: boolean;
@@ -48,23 +48,32 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
   const initializeEmptyPlan = () => {
     const newPlan: TrainingPlan['planificacion'] = {};
     
-    Object.keys(NEW_EXERCISE_HIERARCHY_CONST).forEach(tipo => {
+    // Iterar sobre los tipos de entrenamiento usando los enums
+    Object.values(TrainingType).forEach(tipo => {
       newPlan[tipo] = {
         porcentajeTotal: 0,
         areas: {}
       };
       
-      Object.keys(NEW_EXERCISE_HIERARCHY_CONST[tipo]).forEach(area => {
-        newPlan[tipo].areas[area] = {
-          porcentajeDelTotal: 0,
-          ejercicios: {}
-        };
-        
-        NEW_EXERCISE_HIERARCHY_CONST[tipo][area].forEach(ejercicio => {
-          newPlan[tipo].areas[area].ejercicios![ejercicio] = {
-            porcentajeDelTotal: 0
+      // Iterar sobre las áreas disponibles para este tipo
+      Object.values(TrainingArea).forEach(area => {
+        // Verificar si esta combinación tipo/área es válida
+        if (EXERCISE_HIERARCHY[tipo]?.[area] !== undefined) {
+          newPlan[tipo].areas[area] = {
+            porcentajeDelTotal: 0,
+            ejercicios: {}
           };
-        });
+          
+          // Obtener ejercicios para esta área
+          const ejercicios = EXERCISE_HIERARCHY[tipo][area];
+          if (ejercicios) {
+            ejercicios.forEach((ejercicio: string) => {
+              newPlan[tipo].areas[area].ejercicios![ejercicio] = {
+                porcentajeDelTotal: 0
+              };
+            });
+          }
+        }
       });
     });
     
@@ -212,7 +221,7 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
         </div>
 
         {/* Planificación por tipo */}
-        {Object.keys(NEW_EXERCISE_HIERARCHY_CONST).map(tipo => (
+        {Object.values(TrainingType).map(tipo => (
           <div key={tipo} className="border border-gray-700 rounded-lg p-4 space-y-4 bg-gray-900/50">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-green-400">{tipo}</h3>
@@ -238,52 +247,59 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
                   </span> / {planificacion[tipo].porcentajeTotal}%
                 </div>
                 
-                {Object.keys(NEW_EXERCISE_HIERARCHY_CONST[tipo]).map(area => (
-                  <div key={area} className="bg-gray-800/30 rounded-lg p-3 space-y-2 border border-gray-700/50">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-cyan-400">{area}</h4>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          value={planificacion[tipo]?.areas[area]?.porcentajeDelTotal || 0}
-                          onChange={(e) => handleAreaPercentageChange(tipo, area, Number(e.target.value))}
-                          min="0"
-                          max={planificacion[tipo].porcentajeTotal}
-                          step="0.1"
-                          className="w-16 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20"
-                        />
-                        <span className="text-xs text-gray-400">%</span>
-                      </div>
-                    </div>
-
-                    {planificacion[tipo]?.areas[area]?.porcentajeDelTotal > 0 && (
-                      <div className="ml-4 space-y-1">
-                        <div className="text-xs text-gray-500">
-                          Total ejercicios: <span className={calculateEjerciciosTotalPercentage(tipo, area) === planificacion[tipo].areas[area].porcentajeDelTotal ? 'text-green-400' : 'text-yellow-400'}>
-                            {calculateEjerciciosTotalPercentage(tipo, area).toFixed(2)}%
-                          </span> / {planificacion[tipo].areas[area].porcentajeDelTotal}%
+                {Object.values(TrainingArea).map(area => {
+                  // Solo mostrar áreas válidas para este tipo
+                  if (!EXERCISE_HIERARCHY[tipo as TrainingType]?.[area as TrainingArea]) {
+                    return null;
+                  }
+                  
+                  return (
+                    <div key={area} className="bg-gray-800/30 rounded-lg p-3 space-y-2 border border-gray-700/50">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-cyan-400">{area}</h4>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={planificacion[tipo]?.areas[area]?.porcentajeDelTotal || 0}
+                            onChange={(e) => handleAreaPercentageChange(tipo, area, Number(e.target.value))}
+                            min="0"
+                            max={planificacion[tipo].porcentajeTotal}
+                            step="0.1"
+                            className="w-16 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20"
+                          />
+                          <span className="text-xs text-gray-400">%</span>
                         </div>
-                        {NEW_EXERCISE_HIERARCHY_CONST[tipo][area].map(ejercicio => (
-                          <div key={ejercicio} className="flex items-center justify-between py-1 px-2 hover:bg-gray-800/50 rounded">
-                            <span className="text-sm text-gray-300">{ejercicio}</span>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                value={planificacion[tipo]?.areas[area]?.ejercicios?.[ejercicio]?.porcentajeDelTotal || 0}
-                                onChange={(e) => handleEjercicioPercentageChange(tipo, area, ejercicio, Number(e.target.value))}
-                                min="0"
-                                max={planificacion[tipo].areas[area].porcentajeDelTotal}
-                                step="0.1"
-                                className="w-14 px-1 py-0.5 bg-gray-900 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-green-500"
-                              />
-                              <span className="text-xs text-gray-500">%</span>
-                            </div>
-                          </div>
-                        ))}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {planificacion[tipo]?.areas[area]?.porcentajeDelTotal > 0 && (
+                        <div className="ml-4 space-y-1">
+                          <div className="text-xs text-gray-500">
+                            Total ejercicios: <span className={calculateEjerciciosTotalPercentage(tipo, area) === planificacion[tipo].areas[area].porcentajeDelTotal ? 'text-green-400' : 'text-yellow-400'}>
+                              {calculateEjerciciosTotalPercentage(tipo, area).toFixed(2)}%
+                            </span> / {planificacion[tipo].areas[area].porcentajeDelTotal}%
+                          </div>
+                          {EXERCISE_HIERARCHY[tipo as TrainingType][area as TrainingArea]?.map((ejercicio: string) => (
+                            <div key={ejercicio} className="flex items-center justify-between py-1 px-2 hover:bg-gray-800/50 rounded">
+                              <span className="text-sm text-gray-300">{ejercicio}</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={planificacion[tipo]?.areas[area]?.ejercicios?.[ejercicio]?.porcentajeDelTotal || 0}
+                                  onChange={(e) => handleEjercicioPercentageChange(tipo, area, ejercicio, Number(e.target.value))}
+                                  min="0"
+                                  max={planificacion[tipo].areas[area].porcentajeDelTotal}
+                                  step="0.1"
+                                  className="w-14 px-1 py-0.5 bg-gray-900 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-green-500"
+                                />
+                                <span className="text-xs text-gray-500">%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

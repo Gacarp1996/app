@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { TrainingSession, Player, LoggedExercise } from '../types';
 import { TrainingPlan, getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { getSessions } from '../Database/FirebaseSessions';
-import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
 import { SessionExercise } from '../contexts/TrainingContext';
 
 export interface AnalysisNode {
@@ -169,19 +168,13 @@ export const usePlanningAnalysis = ({
           tiempo: tiempo
         });
 
-        const tipoKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP).find(
-          key => NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP[key] === ejercicio.tipo
-        ) || ejercicio.tipo.toString();
-        
-        const areaKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP).find(
-          key => NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP[key] === ejercicio.area
-        ) || ejercicio.area.toString();
+        // Usar directamente los valores sin mapeo
+        const tipoKey = ejercicio.tipo;
+        const areaKey = ejercicio.area;
 
-        console.log(`🔄 [PLANNING] Mapeo histórico:`, {
-          tipoOriginal: ejercicio.tipo,
-          tipoMapeado: tipoKey,
-          areaOriginal: ejercicio.area,
-          areaMapeada: areaKey
+        console.log(`🔄 [PLANNING] Ejercicio procesado:`, {
+          tipo: tipoKey,
+          area: areaKey
         });
 
         if (!stats[tipoKey]) stats[tipoKey] = {};
@@ -208,19 +201,13 @@ export const usePlanningAnalysis = ({
         tiempo: tiempo
       });
 
-      const tipoKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP).find(
-        key => NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP[key] === ejercicio.tipo
-      ) || ejercicio.tipo.toString();
-      
-      const areaKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP).find(
-        key => NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP[key] === ejercicio.area
-      ) || ejercicio.area.toString();
+      // Usar directamente los valores sin mapeo
+      const tipoKey = ejercicio.tipo;
+      const areaKey = ejercicio.area;
 
-      console.log(`🔄 [PLANNING] Mapeo actual:`, {
-        tipoOriginal: ejercicio.tipo,
-        tipoMapeado: tipoKey,
-        areaOriginal: ejercicio.area,
-        areaMapeada: areaKey
+      console.log(`🔄 [PLANNING] Ejercicio actual procesado:`, {
+        tipo: tipoKey,
+        area: areaKey
       });
 
       if (!stats[tipoKey]) stats[tipoKey] = {};

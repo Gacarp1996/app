@@ -4,8 +4,6 @@ import { TrainingSession, Player, PostTrainingSurvey } from '../types';
 import { getSurveyBySessionId, addPostTrainingSurvey, updateSurvey } from '../Database/FirebaseSurveys';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useTraining } from '../contexts/TrainingContext';
-
-import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants';
 import PostTrainingSurveyModal from '@/components/training/PostTrainingSurveyModal';
 
 interface SessionDetailPageProps {
@@ -142,17 +140,6 @@ const SessionDetailPage: React.FC<SessionDetailPageProps> = ({ sessions, players
     );
   }
 
-  // Función para obtener el key del NEW_EXERCISE_HIERARCHY_CONST a partir del enum
-  const getTypeKey = (tipo: string): string => {
-    return Object.entries(NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP)
-      .find(([_, value]) => value === tipo)?.[0] || tipo;
-  };
-
-  const getAreaKey = (area: string): string => {
-    return Object.entries(NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP)
-      .find(([_, value]) => value === area)?.[0] || area;
-  };
-
   return (
     <div className="min-h-screen bg-black relative">
       {/* Efectos de fondo sutiles - REDUCIDOS */}
@@ -251,7 +238,7 @@ const SessionDetailPage: React.FC<SessionDetailPageProps> = ({ sessions, players
               {session.ejercicios.map((ex, index) => (
                 <div key={index} className="bg-gray-800/50 p-4 lg:p-6 rounded-lg border border-gray-700 hover:border-green-500/30 transition-all duration-200">
                   <h3 className="text-lg font-medium text-white mb-2">
-                    {getTypeKey(ex.tipo)} - {getAreaKey(ex.area)} - {ex.ejercicio}
+                    {ex.tipo} - {ex.area} - {ex.ejercicio}
                   </h3>
                   {ex.ejercicioEspecifico && (
                     <p className="text-cyan-400 font-medium mb-2">

@@ -71,7 +71,7 @@ export const normalizeTrainingArea = (area: TrainingArea | string): string => {
   const areaStr = String(area);
   
   // Mapeo unificado
-  if (areaStr === String(TrainingArea.RED) || areaStr === "Red" || areaStr === "Juego de red") {
+  if (areaStr === String(TrainingArea.JUEGO_DE_RED) || areaStr === "Red" || areaStr === "Juego de red") {
     return "Juego de red";
   }
   if (areaStr === String(TrainingArea.PRIMERAS_PELOTAS) || areaStr === "Primeras Pelotas" || areaStr === "Primeras pelotas") {

@@ -6,7 +6,8 @@ import {
   saveTrainingPlan, 
   validateFlexiblePlan as validatePlan 
 } from '../Database/FirebaseTrainingPlans';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants';
+import { EXERCISE_HIERARCHY } from '../constants';
+import { TrainingType, TrainingArea } from '../types';
 
 interface UseTrainingPlanProps {
   playerId: string | undefined;
@@ -50,27 +51,34 @@ export const useTrainingPlan = ({ playerId, academiaId, activeTab }: UseTraining
   const initializeEmptyPlan = () => {
     const newPlan: TrainingPlan['planificacion'] = {};
     
-    Object.keys(NEW_EXERCISE_HIERARCHY_CONST).forEach(tipo => {
+    // Iterar sobre los tipos de entrenamiento usando los enums
+    Object.values(TrainingType).forEach(tipo => {
       newPlan[tipo] = {
         porcentajeTotal: 0,
         areas: {}
       };
       
-      Object.keys(NEW_EXERCISE_HIERARCHY_CONST[tipo]).forEach(area => {
-        newPlan[tipo].areas[area] = {
-          porcentajeDelTotal: 0,
-          ejercicios: {}
-        };
-        
-        if (NEW_EXERCISE_HIERARCHY_CONST[tipo][area] && Array.isArray(NEW_EXERCISE_HIERARCHY_CONST[tipo][area])) {
-          NEW_EXERCISE_HIERARCHY_CONST[tipo][area].forEach(ejercicio => {
-            if (!newPlan[tipo].areas[area].ejercicios) {
-              newPlan[tipo].areas[area].ejercicios = {};
-            }
-            newPlan[tipo].areas[area].ejercicios[ejercicio] = {
-              porcentajeDelTotal: 0
-            };
-          });
+      // Iterar sobre las áreas disponibles para este tipo
+      Object.values(TrainingArea).forEach(area => {
+        // Verificar si esta combinación tipo/área es válida
+        if (EXERCISE_HIERARCHY[tipo]?.[area] !== undefined) {
+          newPlan[tipo].areas[area] = {
+            porcentajeDelTotal: 0,
+            ejercicios: {}
+          };
+          
+          // Obtener ejercicios para esta área
+          const ejercicios = EXERCISE_HIERARCHY[tipo][area];
+          if (ejercicios && Array.isArray(ejercicios)) {
+            ejercicios.forEach((ejercicio: string) => {
+              if (!newPlan[tipo].areas[area].ejercicios) {
+                newPlan[tipo].areas[area].ejercicios = {};
+              }
+              newPlan[tipo].areas[area].ejercicios[ejercicio] = {
+                porcentajeDelTotal: 0
+              };
+            });
+          }
         }
       });
     });

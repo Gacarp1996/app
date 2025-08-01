@@ -54,26 +54,25 @@ export const INITIAL_OBJECTIVES_DATA: Objective[] = [
   },
 ];
 
-// CORREGIDO: Agregado entrenadorId a todas las sesiones
 export const INITIAL_SESSIONS_DATA: TrainingSession[] = [
   {
     id: 's1',
     jugadorId: '1',
-    entrenadorId: 'default-coach-id', // Agregado
+    entrenadorId: 'default-coach-id',
     fecha: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     ejercicios: [
       {
         id: 'e1s1', 
         tipo: TrainingType.CANASTO, 
-        area: TrainingArea.FONDO, 
-        ejercicio: 'Desde el lugar', 
+        area: TrainingArea.JUEGO_DE_BASE, 
+        ejercicio: 'Estático', 
         tiempoCantidad: '20m', 
         intensidad: 7
       },
       {
         id: 'e2s1', 
-        tipo: TrainingType.PELOTA_VIVA, 
-        area: TrainingArea.RED, 
+        tipo: TrainingType.PELOTEO, 
+        area: TrainingArea.JUEGO_DE_RED, 
         ejercicio: 'Volea', 
         tiempoCantidad: '15m', 
         intensidad: 6
@@ -83,20 +82,20 @@ export const INITIAL_SESSIONS_DATA: TrainingSession[] = [
   {
     id: 's2',
     jugadorId: '1',
-    entrenadorId: 'default-coach-id', // Agregado
+    entrenadorId: 'default-coach-id',
     fecha: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     ejercicios: [
       {
         id: 'e1s2', 
         tipo: TrainingType.CANASTO, 
-        area: TrainingArea.FONDO, 
+        area: TrainingArea.JUEGO_DE_BASE, 
         ejercicio: 'Dinámico', 
         tiempoCantidad: '25m', 
         intensidad: 8
       },
       {
         id: 'e2s2', 
-        tipo: TrainingType.PELOTA_VIVA, 
+        tipo: TrainingType.PELOTEO, 
         area: TrainingArea.PRIMERAS_PELOTAS, 
         ejercicio: 'Saque + 1', 
         tiempoCantidad: '30 reps', 
@@ -107,13 +106,13 @@ export const INITIAL_SESSIONS_DATA: TrainingSession[] = [
   {
     id: 's3',
     jugadorId: '2',
-    entrenadorId: 'default-coach-id', // Agregado
+    entrenadorId: 'default-coach-id',
     fecha: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     ejercicios: [
       {
         id: 'e1s3', 
-        tipo: TrainingType.PELOTA_VIVA, 
-        area: TrainingArea.FONDO, 
+        tipo: TrainingType.PELOTEO, 
+        area: TrainingArea.JUEGO_DE_BASE, 
         ejercicio: 'Control', 
         tiempoCantidad: '30m', 
         intensidad: 6

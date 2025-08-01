@@ -1,22 +1,26 @@
+// hooks/useExerciseOptions.ts
 import { useMemo } from 'react';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants';
+import { EXERCISE_HIERARCHY } from '../constants';
+import { TrainingType, TrainingArea } from '../types';
 
 export const useExerciseOptions = (currentTipoKey: string, currentAreaKey: string) => {
   const availableTipoKeys = useMemo(() => 
-    Object.keys(NEW_EXERCISE_HIERARCHY_CONST), 
+    Object.values(TrainingType), 
     []
   );
   
   const availableAreaKeys = useMemo(() => 
     currentTipoKey 
-      ? Object.keys(NEW_EXERCISE_HIERARCHY_CONST[currentTipoKey] || {}) 
+      ? Object.values(TrainingArea).filter(area => 
+          EXERCISE_HIERARCHY[currentTipoKey as TrainingType]?.[area] !== undefined
+        )
       : [],
     [currentTipoKey]
   );
   
   const availableEjercicioNames = useMemo(() => 
     currentTipoKey && currentAreaKey 
-      ? NEW_EXERCISE_HIERARCHY_CONST[currentTipoKey]?.[currentAreaKey] || []
+      ? EXERCISE_HIERARCHY[currentTipoKey as TrainingType]?.[currentAreaKey as TrainingArea] || []
       : [],
     [currentTipoKey, currentAreaKey]
   );
