@@ -10,5 +10,3 @@ export * from './training';
 export * from './objectives';
 export * from './tournaments';
 
-// Si necesitas los datos iniciales (probablemente no si usas Firebase)
-// export * from './initial-data';
