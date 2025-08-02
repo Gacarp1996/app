@@ -50,10 +50,8 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
   sessions 
 }) => {
   const [activeTab, setActiveTab] = useState<'individual' | 'group'>('individual');
-  const [refreshKey, setRefreshKey] = useState(Date.now());
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(participants[0]?.id || '');
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
-  const [individualLoading, setIndividualLoading] = useState(false);
   const [expandedRecommendations, setExpandedRecommendations] = useState<Set<string>>(new Set());
   const [trainingPlans, setTrainingPlans] = useState<{[playerId: string]: TrainingPlan}>({});
   const [realSessions, setRealSessions] = useState<TrainingSession[]>([]);
@@ -65,18 +63,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
   
   const [showLegend, setShowLegend] = useState(false);
 
-  // 🎨 FUNCIÓN HELPER: Formatear información del área con tipo padre
-  const formatAreaWithParent = (area: string, parentType: string | undefined, level: string) => {
-    if (!parentType) return area;
-    
-    // Si es una recomendación de TIPO, no necesitamos mostrar parentType porque es redundante
-    if (level === 'TIPO') return area;
-    
-    // Para áreas específicas, mostrar el contexto del tipo padre
-    return `${area} (${parentType})`;
-  };
-
-  // Función para obtener el label UI para mostrar (capitalizado)
+  // Función para obtener el label UI para mostrar
   const getUILabel = (value: string, type: 'tipo' | 'area'): string => {
     if (type === 'tipo' && value in UI_LABELS.TIPOS) {
       return UI_LABELS.TIPOS[value as TipoType];
@@ -84,44 +71,33 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     if (type === 'area' && value in UI_LABELS.AREAS) {
       return UI_LABELS.AREAS[value as AreaType];
     }
-    // Fallback: capitalizar la primera letra
     return value.charAt(0).toUpperCase() + value.slice(1);
   };
 
   // Función principal para generar recomendaciones bajo demanda
   const generateRecommendations = async () => {
-    console.log('🚀 [DEBUG] Generando recomendaciones...');
-    console.log('🚀 [DEBUG] Participantes:', participants);
-    console.log('🚀 [DEBUG] Sesiones reales disponibles:', realSessions.length);
-    console.log('🚀 [DEBUG] Planes de entrenamiento:', Object.keys(trainingPlans));
-    
     setRecommendationsLoading(true);
     
     try {
       // Generar recomendaciones individuales para el jugador seleccionado
-      console.log('📊 [DEBUG] Analizando jugador:', selectedPlayerId);
       const individualAnalysis = analyzePlayerExercises(selectedPlayerId);
-      console.log('📊 [DEBUG] Análisis individual:', individualAnalysis);
       setIndividualRecommendations(individualAnalysis);
       
       // Generar recomendaciones grupales si hay más de un participante
       if (participants.length > 1) {
-        console.log('👥 [DEBUG] Generando análisis grupal...');
         const groupAnalysis = generateGroupRecommendations();
-        console.log('👥 [DEBUG] Análisis grupal:', groupAnalysis);
         setGroupRecommendations(groupAnalysis);
       }
       
       setRecommendationsGenerated(true);
-      console.log('✅ [DEBUG] Recomendaciones generadas exitosamente');
     } catch (error) {
-      console.error('❌ Error generando recomendaciones:', error);
+      console.error('Error generando recomendaciones:', error);
     } finally {
       setRecommendationsLoading(false);
     }
   };
 
-  // Función para refrescar recomendaciones (regenerar)
+  // Función para refrescar recomendaciones
   const refreshRecommendations = async () => {
     setRecommendationsGenerated(false);
     setIndividualRecommendations(null);
@@ -153,7 +129,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       // Generar recomendaciones con los datos recargados
       await generateRecommendations();
     } catch (error) {
-      console.error('❌ Error recargando datos para regenerar recomendaciones:', error);
+      console.error('Error recargando datos:', error);
     } finally {
       setRecommendationsLoading(false);
     }
@@ -161,16 +137,8 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
 
   // Regenerar recomendaciones cuando cambie el jugador seleccionado
   useEffect(() => {
-    console.log('🔄 [EFFECT] selectedPlayerId cambió:', {
-      selectedPlayerId,
-      recommendationsGenerated,
-      hasRecommendations: individualRecommendations?.recommendations?.length > 0
-    });
-    
     if (recommendationsGenerated && selectedPlayerId) {
-      console.log('🔄 [EFFECT] Regenerando análisis para jugador:', selectedPlayerId);
       const individualAnalysis = analyzePlayerExercises(selectedPlayerId);
-      console.log('🔄 [EFFECT] Nuevo análisis individual:', individualAnalysis);
       setIndividualRecommendations(individualAnalysis);
     }
   }, [selectedPlayerId, recommendationsGenerated]);
@@ -184,13 +152,13 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
 
   // Cargar planes de entrenamiento y sesiones reales
   useEffect(() => {
-    setRefreshKey(Date.now());
     const loadRealData = async () => {
       if (academiaId && participants.length > 0) {
         try {
           // Cargar sesiones reales desde Firebase
           const realSessionsData = await getSessions(academiaId);
           setRealSessions(realSessionsData);
+          
           // Cargar planes de entrenamiento para cada participante
           const plansMap: {[playerId: string]: TrainingPlan} = {};
           for (const participant of participants) {
@@ -204,6 +172,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
             }
           }
           setTrainingPlans(plansMap);
+          
           // Generar preview de datos sin procesar recomendaciones
           generateDataPreview(realSessionsData, plansMap);
         } catch (error) {
@@ -211,6 +180,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
         }
       }
     };
+
     // Limpiar todos los estados dependientes de participantes
     setRecommendationsGenerated(false);
     setIndividualRecommendations(null);
@@ -218,6 +188,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     setDataPreview(null);
     setRealSessions([]);
     setTrainingPlans({});
+    
     if (academiaId && participants.length > 0) {
       loadRealData();
     }
@@ -240,8 +211,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       }, 0);
       
       const hasPlan = !!plans[participant.id];
-      
-      console.log(`🔍 [ACTIVE_SESSION] Participante ${participant.name}: ${playerSessions.length} sesiones, ${totalExercises} ejercicios en últimos ${analysisWindowDays} días`);
       
       return {
         playerId: participant.id,
@@ -269,61 +238,33 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     });
   };
 
-  // Función para analizar ejercicios de un jugador específico usando datos reales
+  // Función para analizar ejercicios de un jugador específico
   const analyzePlayerExercises = (playerId: string) => {
-    console.log('🔍 [DEBUG] analyzePlayerExercises - playerId:', playerId);
-    
     const player = participants.find(p => p.id === playerId);
     if (!player) {
-      console.log('❌ [DEBUG] Jugador no encontrado:', playerId);
       return { recommendations: [], totalExercises: 0, typeStats: {}, areaStats: {} };
     }
-
-    console.log('👤 [DEBUG] Jugador encontrado:', player.name);
 
     const analysisWindowDays = 30;
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - analysisWindowDays);
-    
-    console.log('📅 [DEBUG] Ventana de análisis:', {
-      days: analysisWindowDays,
-      from: thirtyDaysAgo.toLocaleDateString(),
-      to: new Date().toLocaleDateString()
-    });
     
     const playerSessions = realSessions.filter(session => {
       const sessionDate = new Date(session.fecha);
       return session.jugadorId === playerId && sessionDate >= thirtyDaysAgo;
     });
 
-    
-    console.log('📊 [DEBUG] Sesiones del jugador encontradas:', playerSessions.length);
-    console.log('📊 [DEBUG] Total de sesiones reales disponibles:', realSessions.length);
-    console.log('📊 [DEBUG] Sesiones del jugador:', playerSessions);
-    console.log('📊 [DEBUG] Primera sesión (si existe):', playerSessions[0]);
-
-
     // Extraer todos los ejercicios de las sesiones del jugador
     const allExercises: LoggedExercise[] = [];
     playerSessions.forEach(session => {
       if (session.ejercicios && Array.isArray(session.ejercicios)) {
-        console.log('🏃 [DEBUG] Sesión con ejercicios:', session.fecha, '- Ejercicios:', session.ejercicios.length);
         allExercises.push(...session.ejercicios);
-      } else {
-        console.log('⚠️ [DEBUG] Sesión sin ejercicios:', session.fecha);
       }
     });
 
-    console.log('🏃 [DEBUG] Total ejercicios extraídos:', allExercises.length);
-
     if (allExercises.length === 0) {
-      console.log('❌ [DEBUG] No hay ejercicios para analizar');
       return { recommendations: [], totalExercises: 0, typeStats: {}, areaStats: {} };
     }
-
-    console.log('🔍 [DEBUG] Primer ejercicio completo:', allExercises[0]);
-    console.log('🔍 [DEBUG] Tipos encontrados:', [...new Set(allExercises.map(e => e.tipo))]);
-    console.log('🔍 [DEBUG] Áreas encontradas:', [...new Set(allExercises.map(e => e.area))]);
 
     // No normalizar aquí - los datos ya deben venir correctos de la DB
     const normalizedExercises = allExercises.map(exercise => ({
@@ -335,7 +276,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
 
     const totalExercises = normalizedExercises.length;
 
-    // Calcular estadísticas por tipos - SIN NORMALIZACIÓN
+    // Calcular estadísticas por tipos
     const typeStats: any = {};
     const areaStats: any = {};
 
@@ -385,29 +326,19 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       areaStats[area].percentage = Math.round((areaStats[area].total / totalExercises) * 100);
     });
     
-    console.log('📊 [DEBUG] typeStats calculados:', typeStats);
-    console.log('📊 [DEBUG] areaStats calculados:', areaStats);
-    
     // Generar recomendaciones basadas en el plan de entrenamiento real del jugador
     const recommendations: Recommendation[] = [];
     const playerPlan = trainingPlans[playerId];
-
-    console.log('📋 [DEBUG] Plan del jugador:', playerPlan);
-    console.log('📋 [DEBUG] Estructura del plan.planificacion:', JSON.stringify(playerPlan?.planificacion, null, 2));
     
     if (playerPlan && playerPlan.planificacion) {
       // Recomendaciones por tipo basadas en el plan real
       Object.entries(typeStats).forEach(([tipo, stats]: [string, any]) => {
-        console.log(`🎯 [DEBUG] Comparando tipo "${tipo}" con plan`);
         const plannedType = playerPlan.planificacion[tipo as TipoType];
-        console.log(`🎯 [DEBUG] plannedType encontrado:`, plannedType);
         
         if (plannedType) {
           const plannedPercentage = plannedType.porcentajeTotal;
           const difference = Math.abs(stats.percentage - plannedPercentage);
         
-          console.log(`🎯 [DEBUG] Tipo ${tipo}: actual=${stats.percentage}%, planificado=${plannedPercentage}%, diferencia=${difference}%`);
-
           if (difference > 5) {
             recommendations.push({
               level: 'TIPO',
@@ -451,9 +382,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
           }
         }
       });
-      
-      console.log('💡 [DEBUG] Recomendaciones generadas:', recommendations);
-      console.log('💡 [DEBUG] Total de recomendaciones:', recommendations.length);
     } else {
       // Si no hay plan, usar valores por defecto
       Object.entries(typeStats).forEach(([tipo, stats]: [string, any]) => {
@@ -509,14 +437,13 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     };
   };
 
-  // Función para analizar sesiones de un jugador usando datos reales
+  // Función para analizar sesiones de un jugador
   const analyzePlayerSessions = (playerId: string) => {
     const player = participants.find(p => p.id === playerId);
     if (!player) {
       return { totalSessions: 0, dateRange: null };
     }
 
-    // Obtener sesiones reales del jugador de los últimos 30 días
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
@@ -529,7 +456,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       return { totalSessions: 0, dateRange: null };
     }
 
-    // Calcular rango de fechas
     const dates = playerSessions.map(session => new Date(session.fecha)).sort((a, b) => a.getTime() - b.getTime());
     const firstDate = dates[0];
     const lastDate = dates[dates.length - 1];
@@ -581,11 +507,11 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     return idealPercentages[type]?.[area] || 15; // Default 15% si no se encuentra
   };
 
-  // Función para generar recomendaciones grupales usando datos reales
+  // Función para generar recomendaciones grupales
   const generateGroupRecommendations = () => {
     if (participants.length < 2) return null;
     
-    // Analizar todos los participantes usando datos reales
+    // Analizar todos los participantes
     const participantsAnalysis = participants.map(participant => {
       const analysis = analyzePlayerExercises(participant.id);
       const sessions = analyzePlayerSessions(participant.id);
@@ -601,14 +527,14 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     const participantsWithData = participantsAnalysis.filter(p => p.analysis.totalExercises > 0);
     
     if (participantsWithData.length === 0) {
-      return null; // No hay datos suficientes
+      return null;
     }
 
     // Generar el análisis grupal basado en coincidencias
     return summarizeGroupRecommendations(participantsWithData);
   };
 
-  // 🧩 FUNCIÓN: Detectar coincidencias grupales
+  // Detectar coincidencias grupales
   const getGroupCoincidences = (allRecommendations: any[]) => {
     const coincidencesMap = new Map();
     
@@ -651,7 +577,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
         priority: coincidence.players.length >= 3 ? 'high' : 'medium'
       }))
       .sort((a, b) => {
-        // Priorizar por cantidad de jugadores afectados, luego por diferencia promedio
         if (b.playerCount !== a.playerCount) {
           return b.playerCount - a.playerCount;
         }
@@ -661,7 +586,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     return significantCoincidences;
   };
 
-  // 🎯 FUNCIÓN: Obtener top déficits por jugador
+  // Obtener top déficits por jugador
   const getTopDeficitsPerPlayer = (allRecommendations: any[]) => {
     return allRecommendations.map(rec => ({
       playerName: rec.playerName,
@@ -693,7 +618,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     })).filter(player => player.deficits.length > 0 || player.excesos.length > 0);
   };
 
-  // 🎯 FUNCIÓN PRINCIPAL: Orquestar análisis grupal
+  // Función principal: Orquestar análisis grupal
   const summarizeGroupRecommendations = (participantsWithData: any[]) => {
     // Generar recomendaciones individuales para cada jugador
     const allRecommendations = participantsWithData.map(participant => ({
@@ -735,7 +660,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     });
 
     return {
-      // Datos básicos
       analyzedPlayers: participantsWithData.length,
       totalPlayers: participants.length,
       sessionAnalysis: {
@@ -755,8 +679,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
         sessionsCount: p.sessions.totalSessions,
         planUsed: p.analysis.planUsed
       })),
-      
-      // NUEVAS FUNCIONALIDADES GRUPALES
       coincidencias,
       individuales,
       hasStrongCoincidences: coincidencias.length > 0,
@@ -764,7 +686,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     };
   };
 
-  // 💬 FUNCIÓN: Generar texto de recomendación
+  // Generar texto de recomendación
   const generateGroupRecommendationText = (coincidencias: any[], individuales: any[]) => {
     if (coincidencias.length > 0) {
       const topCoincidence = coincidencias[0];
@@ -772,11 +694,9 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       let area = getUILabel(topCoincidence.area, topCoincidence.level === 'TIPO' ? 'tipo' : 'area');
       let parentType = topCoincidence.parentType || '';
 
-      // Si la recomendación es reducir (exceso), sugerir el tipo alternativo
       if (topCoincidence.type === 'REDUCIR') {
         let alternativo = '';
         
-        // Comparar con valores de enum exactos
         if (parentType === TipoType.PELOTEO) {
           alternativo = getUILabel(TipoType.CANASTO, 'tipo');
         } else if (parentType === TipoType.CANASTO) {
@@ -798,19 +718,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     return "El grupo está balanceado. Mantener variedad en los ejercicios.";
   };
 
-  // LOG DE RENDERIZADO
-  console.log('🎨 [RENDER] ActiveSessionRecommendations', {
-    recommendationsGenerated,
-    recommendationsLoading,
-    individualRecommendations,
-    groupRecommendations,
-    dataPreview,
-    activeTab,
-    selectedPlayerId,
-    'individualRecommendations?.recommendations': individualRecommendations?.recommendations,
-    'individualRecommendations?.recommendations?.length': individualRecommendations?.recommendations?.length
-  });
-
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-700 p-4">
       <div className="flex items-center justify-between mb-4">
@@ -831,14 +738,12 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
             </svg>
           </button>
           
-          {/* Botón de ayuda para mostrar leyenda */}
           <button
             onClick={() => setShowLegend(!showLegend)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-300 shadow-md border-2 border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400
               ${showLegend ? 'bg-indigo-700 text-white scale-105' : 'bg-indigo-500/80 text-white animate-pulse'}
               hover:bg-indigo-600 hover:scale-105`}
             title="Guía de colores: ¿Qué significa cada color?"
-            style={{ minWidth: 0 }}
           >
             <svg className="w-5 h-5 mr-1 text-yellow-300 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="#facc15" />
@@ -849,21 +754,20 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
         </div>
       </div>
 
-      {/* Leyenda de colores (mostrar/ocultar) */}
+      {/* Leyenda de colores */}
       {showLegend && (
         <RecommendationLegend className="mb-4" />
       )}
 
       {/* Loading state */}
-      {(recommendationsLoading || individualLoading) && (
+      {recommendationsLoading && (
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
           <span className="ml-3 text-gray-400">Analizando recomendaciones...</span>
         </div>
       )}
 
-      {/* Contenido según tab activo */}
-      {/* Placeholder para cuando no hay recomendaciones generadas ni están cargando */}
+      {/* Placeholder inicial */}
       {!recommendationsLoading && !recommendationsGenerated && !dataPreview && (
         <div className="bg-gray-800/30 border border-gray-600/30 rounded-xl p-6 text-center">
           <span className="text-gray-400 text-2xl block mb-2">📊</span>
@@ -874,10 +778,9 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
         </div>
       )}
 
-      {/* Preview de datos y botón para generar recomendaciones */}
+      {/* Preview de datos y botón para generar */}
       {!recommendationsLoading && !recommendationsGenerated && dataPreview && (
         <div className="space-y-4">
-          {/* Preview de datos disponibles */}
           <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-2 border-blue-400/30 rounded-xl p-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="bg-blue-500/20 rounded-full p-3">
@@ -891,7 +794,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
               </div>
             </div>
             
-            {/* Estadísticas generales */}
             <div className="grid grid-cols-4 gap-3 mb-4">
               <div className="text-center bg-blue-500/10 rounded-lg p-3">
                 <div className="text-lg font-bold text-blue-400">{dataPreview.totalParticipants}</div>
@@ -911,7 +813,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
               </div>
             </div>
             
-            {/* Detalles por jugador */}
             <div className="bg-blue-500/5 rounded-lg p-3 border border-blue-500/20">
               <h5 className="text-xs font-semibold text-blue-400 mb-2">Detalle por jugador:</h5>
               <div className="space-y-2">
@@ -940,7 +841,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
               </div>
             </div>
             
-            {/* Estado y advertencias */}
             {dataPreview.playersWithData === 0 && (
               <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                 <div className="flex items-center gap-2">
@@ -966,7 +866,6 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
             )}
           </div>
           
-          {/* Botón para generar recomendaciones */}
           <div className="text-center">
             <button
               onClick={generateRecommendations}
@@ -999,36 +898,21 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
       {/* Contenido de recomendaciones generadas */}
       {!recommendationsLoading && recommendationsGenerated && (
         <div className="space-y-4">
-          {(() => {
-            console.log('🎯 [RENDER] Mostrando recomendaciones generadas');
-            return null;
-          })()}
-          
-          {/* DEBUG: Mostrar estado actual */}
-          <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 text-xs">
-            <p className="text-purple-400 font-bold mb-2">🐛 DEBUG - Estado Actual:</p>
-            <div className="text-purple-300 space-y-1">
-              <p>• recommendationsGenerated: {String(recommendationsGenerated)}</p>
-              <p>• activeTab: {activeTab}</p>
-              <p>• individualRecommendations: {individualRecommendations ? 'Cargado' : 'null'}</p>
-              <p>• recommendations.length: {individualRecommendations?.recommendations?.length || 0}</p>
-              <p>• selectedPlayerId: {selectedPlayerId}</p>
+          {/* Botón para regenerar */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-green-400 text-lg">✅</span>
+              <span className="text-green-400 font-semibold">Recomendaciones Generadas</span>
             </div>
-          </div>
-          
-          {/* Botón para volver a generar (único) */}
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-green-400 text-lg">✅</span>
-            <span className="text-green-400 font-semibold">Recomendaciones Generadas</span>
             <button
               onClick={refreshRecommendations}
-              className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
             >
               🔄 Regenerar
             </button>
           </div>
           
-          {/* Tabs para alternar entre vista individual y grupal (solo si hay recomendaciones) */}
+          {/* Tabs */}
           {participants.length > 1 && (
             <div className="flex mb-4 bg-gray-800 rounded-lg p-1">
               <button
@@ -1054,122 +938,116 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
             </div>
           )}
           
-          {/* CONTENIDO DE RECOMENDACIONES */}
-          {activeTab === 'individual' && individualRecommendations && (
+          {/* Vista Grupal */}
+          {activeTab === 'group' && participants.length > 1 && groupRecommendations && (
             <div className="space-y-4">
-              {(() => {
-                console.log('📊 [RENDER] Mostrando recomendaciones individuales:', individualRecommendations);
-                return null;
-              })()}
-              
-              {/* Selector de jugador para vista individual */}
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-gray-400">Jugador:</label>
-                <select
-                  value={selectedPlayerId}
-                  onChange={(e) => setSelectedPlayerId(e.target.value)}
-                  className="bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
-                >
-                  {participants.map(participant => (
-                    <option key={participant.id} value={participant.id}>
-                      {participant.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Resumen del análisis */}
-              <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                <h5 className="text-white font-semibold mb-2">Resumen del Análisis</h5>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-400">Sesiones analizadas:</span>
-                    <span className="text-white ml-2 font-medium">{individualRecommendations.sessionsAnalyzed || 0}</span>
+              {/* Header para recomendaciones grupales */}
+              <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-2 border-purple-400/30 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-500/20 rounded-full p-3">
+                    <span className="text-purple-400 text-xl">👥</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Total ejercicios:</span>
-                    <span className="text-white ml-2 font-medium">{individualRecommendations.totalExercises || 0}</span>
+                    <h3 className="text-purple-400 font-bold text-lg">Recomendaciones Grupales</h3>
+                    <p className="text-purple-300 text-sm">
+                      Análisis real de {groupRecommendations.analyzedPlayers} jugadores con datos ({groupRecommendations.sessionAnalysis.totalSessionsAnalyzed} sesiones totales)
+                    </p>
                   </div>
-                  <div>
-                    <span className="text-gray-400">Plan usado:</span>
-                    <span className="text-white ml-2 font-medium">{individualRecommendations.planUsed === 'real' ? 'Personalizado' : 'Por defecto'}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400">Recomendaciones:</span>
-                    <span className="text-white ml-2 font-medium">{individualRecommendations.recommendations?.length || 0}</span>
+                </div>
+                
+                {/* Mostrar información detallada de los datos */}
+                <div className="mt-3 p-3 bg-purple-500/5 rounded-lg border border-purple-500/20">
+                  <h4 className="text-xs font-semibold text-purple-400 mb-2">Jugadores analizados:</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {groupRecommendations.participantsWithData.map((participant: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between text-xs">
+                        <span className="text-purple-300">{participant.playerName}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-purple-400">{participant.totalExercises} ejercicios</span>
+                          <span className="text-purple-400">{participant.sessionsCount} sesiones</span>
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            participant.planUsed === 'real' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                          }`}>
+                            {participant.planUsed === 'real' ? 'Plan' : 'Default'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Lista de recomendaciones */}
-              {individualRecommendations.recommendations && individualRecommendations.recommendations.length > 0 ? (
-                <div className="space-y-3">
-                  <h5 className="text-white font-semibold">Ajustes Recomendados</h5>
-                  {individualRecommendations.recommendations.map((rec: Recommendation, index: number) => (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-lg border ${
-                        rec.type === 'INCREMENTAR' 
-                          ? 'bg-red-500/10 border-red-500/30' 
-                          : 'bg-yellow-500/10 border-yellow-500/30'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`font-semibold ${
-                              rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-yellow-400'
+              {/* Recomendaciones grupales - mostrar promedios reales */}
+              <div className="space-y-3">
+                {['Canasto', 'Peloteo'].map((tipo) => {
+                  const currentPercentage = groupRecommendations.groupAverages[tipo] || 0;
+                  const plannedPercentage = 50; // Meta por defecto
+                  const difference = Math.abs(currentPercentage - plannedPercentage);
+                  const isDeficit = currentPercentage < plannedPercentage;
+
+                  return (
+                    <div key={tipo} className="bg-gray-800/50 border border-gray-600/50 rounded-xl overflow-hidden">
+                      <div 
+                        className={`p-4 ${
+                          difference > 5 ? (isDeficit ? 'bg-red-500/20' : 'bg-green-500/20') : 'bg-blue-500/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`rounded-full p-3 ${
+                              difference > 5 ? (isDeficit ? 'bg-red-500/30' : 'bg-green-500/30') : 'bg-blue-500/30'
                             }`}>
-                              {rec.type === 'INCREMENTAR' ? '🔴 Incrementar' : '🟡 Reducir'}
-                            </span>
-                            <span className="text-white">
-                              {rec.level === 'TIPO' ? 'Tipo' : 'Área'}: {rec.area}
-                            </span>
+                              <span className="text-xl">
+                                {tipo === 'Canasto' ? '🧺' : '🎾'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className={`font-bold text-xl ${
+                                difference > 5 ? (isDeficit ? 'text-red-300' : 'text-green-300') : 'text-blue-300'
+                              }`}>
+                                {tipo}
+                              </span>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-sm text-gray-300">
+                                  Promedio Grupal: <strong className={difference > 5 ? (isDeficit ? 'text-red-400' : 'text-green-400') : 'text-blue-400'}>{currentPercentage}%</strong>
+                                </span>
+                                <span className="text-sm text-gray-300">
+                                  Meta: <strong>{plannedPercentage}%</strong>
+                                </span>
+                                <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
+                                  Datos reales
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-gray-300 text-sm mb-2">{rec.reason}</p>
-                          <div className="flex items-center gap-4 text-xs text-gray-400">
-                            <span>Actual: {rec.currentPercentage}%</span>
-                            <span>Plan: {rec.plannedPercentage}%</span>
-                            <span>Diferencia: {rec.difference}%</span>
-                            <span className={`px-2 py-1 rounded-full ${
-                              rec.priority === 'high' 
-                                ? 'bg-red-500/20 text-red-400' 
-                                : rec.priority === 'medium'
-                                ? 'bg-yellow-500/20 text-yellow-400'
-                                : 'bg-blue-500/20 text-blue-400'
-                            }`}>
-                              {rec.priority === 'high' ? 'Alta' : rec.priority === 'medium' ? 'Media' : 'Baja'} prioridad
+                          {difference > 5 && (
+                            <span className={`text-xl font-bold ${isDeficit ? 'text-red-400' : 'text-green-400'}`}>
+                              {isDeficit ? '+' : '-'}{difference.toFixed(1)}%
                             </span>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                  <p className="text-blue-400">
-                    ¡Excelente! El entrenamiento está bien balanceado según el plan.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Vista grupal */}
-          {activeTab === 'group' && groupRecommendations && (
-            <div className="space-y-4">
-              {(() => {
-                console.log('👥 [RENDER] Mostrando recomendaciones grupales:', groupRecommendations);
-                return null;
-              })()}
-              
-              {/* Recomendación principal */}
-              <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-lg p-4">
-                <p className="text-blue-300 text-lg font-medium">{groupRecommendations.recommendation}</p>
+                  );
+                })}
               </div>
 
-              {/* CASO A: Si hay coincidencias grupales */}
+              {/* Sugerencia práctica basada en datos reales */}
+              <div className="bg-gradient-to-r from-blue-500/15 to-cyan-500/15 border-2 border-blue-400/40 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-500/30 rounded-full p-2">
+                    <span className="text-blue-400 text-lg">💭</span>
+                  </div>
+                  <div>
+                    <p className="text-blue-400 font-semibold text-base">Estrategia Basada en Datos Reales</p>
+                    <p className="text-blue-300 text-sm mt-1">
+                      {groupRecommendations.recommendation}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Coincidencias grupales */}
               {groupRecommendations.hasStrongCoincidences && groupRecommendations.coincidencias.length > 0 && (
                 <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                   <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
@@ -1203,118 +1081,424 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                       </div>
                     ))}
                   </div>
-                  
-                  {/* Sugerencia opcional */}
-                  <div className="mt-4 pt-4 border-t border-gray-700">
-                    <p className="text-sm text-gray-400 italic">
-                      💬 Podés iniciar la sesión con ejercicios de "{groupRecommendations.coincidencias[0].area}" 
-                      que afecta a varios jugadores y luego alternar con tareas específicas.
-                    </p>
-                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Vista Individual */}
+          {(activeTab === 'individual' || participants.length === 1) && individualRecommendations && (
+            <div className="space-y-4">
+              {/* Selector de jugador mejorado */}
+              {participants.length > 1 && (
+                <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-2 border-purple-400/30 rounded-xl p-4">
+                  <label className="text-purple-400 font-semibold text-base mb-3 flex items-center gap-2">
+                    <span className="text-lg">👤</span>
+                    Seleccionar jugador:
+                  </label>
+                  <select
+                    value={selectedPlayerId}
+                    onChange={(e) => setSelectedPlayerId(e.target.value)}
+                    className="w-full bg-gray-800 border-2 border-purple-400/40 rounded-lg px-4 py-3 text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all"
+                  >
+                    {participants.map((participant) => (
+                      <option key={participant.id} value={participant.id}>
+                        {participant.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
 
-              {/* CASO B: Si NO hay coincidencias claras - Tabla de déficits individuales */}
-              {(!groupRecommendations.hasStrongCoincidences || groupRecommendations.coincidencias.length === 0) && 
-               groupRecommendations.individuales.length > 0 && (
-                <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                  <h5 className="text-white font-semibold mb-3">
-                    📊 Déficits individuales destacados
-                  </h5>
-                  <p className="text-gray-400 text-sm mb-4">
-                    No hay coincidencias grupales fuertes. Aquí están los principales déficits por jugador:
-                  </p>
-                  
-                  {/* Tabla compacta */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-700">
-                          <th className="text-left py-2 px-3 text-gray-400 font-medium">Jugador</th>
-                          <th className="text-left py-2 px-3 text-gray-400 font-medium">Déficit Principal</th>
-                          <th className="text-center py-2 px-3 text-gray-400 font-medium">Gap</th>
-                          <th className="text-left py-2 px-3 text-gray-400 font-medium">Segundo Déficit</th>
-                          <th className="text-center py-2 px-3 text-gray-400 font-medium">Gap</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {groupRecommendations.individuales.map((jugador: any) => (
-                          <tr key={jugador.playerId} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                            <td className="py-2 px-3 text-green-400 font-medium">{jugador.playerName}</td>
-                            
-                            {/* Déficit principal */}
-                            {jugador.deficits[0] ? (
-                              <>
-                                <td className="py-2 px-3 text-white">
-                                  {jugador.deficits[0].area} 
-                                  <span className="text-red-400 ml-1">(↑)</span>
-                                </td>
-                                <td className="py-2 px-3 text-center text-red-400 font-medium">
-                                  {jugador.deficits[0].diferencia}%
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="py-2 px-3 text-gray-500">-</td>
-                                <td className="py-2 px-3 text-center text-gray-500">-</td>
-                              </>
-                            )}
-                            
-                            {/* Segundo déficit */}
-                            {jugador.deficits[1] ? (
-                              <>
-                                <td className="py-2 px-3 text-white">
-                                  {jugador.deficits[1].area}
-                                  <span className="text-red-400 ml-1">(↑)</span>
-                                </td>
-                                <td className="py-2 px-3 text-center text-red-400 font-medium">
-                                  {jugador.deficits[1].diferencia}%
-                                </td>
-                              </>
-                            ) : jugador.excesos[0] ? (
-                              <>
-                                <td className="py-2 px-3 text-white">
-                                  {jugador.excesos[0].area}
-                                  <span className="text-yellow-400 ml-1">(↓)</span>
-                                </td>
-                                <td className="py-2 px-3 text-center text-yellow-400 font-medium">
-                                  {jugador.excesos[0].diferencia}%
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="py-2 px-3 text-gray-500">-</td>
-                                <td className="py-2 px-3 text-center text-gray-500">-</td>
-                              </>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              {/* Análisis de sesiones del jugador */}
+              {(() => {
+                const playerAnalysis = analyzePlayerSessions(selectedPlayerId);
+                const realAnalysis = individualRecommendations;
+                
+                return (
+                  <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-purple-500/20 rounded-full p-2">
+                        <span className="text-purple-400 text-lg">📊</span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-purple-400 text-base">
+                          Análisis Real de Datos {realAnalysis.planUsed === 'real' ? '🎯' : '⚠️'}
+                        </h4>
+                        <p className="text-purple-300 text-sm">
+                          Basado en {realAnalysis.totalExercises} ejercicios de {playerAnalysis.totalSessions} sesiones reales
+                          {realAnalysis.planUsed === 'real' ? ' con plan personalizado' : ' con valores por defecto'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center bg-purple-500/10 rounded-lg p-3">
+                        <div className="text-lg font-bold text-purple-400">{playerAnalysis.totalSessions}</div>
+                        <div className="text-xs text-purple-300">Sesiones</div>
+                      </div>
+                      <div className="text-center bg-purple-500/10 rounded-lg p-3">
+                        <div className="text-lg font-bold text-purple-400">{realAnalysis.totalExercises}</div>
+                        <div className="text-xs text-purple-300">Ejercicios</div>
+                      </div>
+                      <div className="text-center bg-purple-500/10 rounded-lg p-3">
+                        <div className="text-lg font-bold text-purple-400">{Object.keys(realAnalysis.typeStats).length}</div>
+                        <div className="text-xs text-purple-300">Tipos</div>
+                      </div>
+                    </div>
+                    
+                    {/* Indicador de fuente de datos */}
+                    <div className="mt-3 p-2 rounded border">
+                      {realAnalysis.totalExercises > 0 ? (
+                        <div className={`text-xs ${realAnalysis.planUsed === 'real' ? 'text-green-400 bg-green-500/10 border-green-500/20' : 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'}`}>
+                          {realAnalysis.planUsed === 'real' ? 
+                            '✅ Usando plan de entrenamiento personalizado del jugador' : 
+                            '⚠️ Plan no encontrado, usando valores por defecto'
+                          }
+                        </div>
+                      ) : (
+                        <div className="text-xs text-red-400 bg-red-500/10 border-red-500/20">
+                          ❌ No se encontraron ejercicios recientes para este jugador
+                        </div>
+                      )}
+                    </div>
+                    
+                    {playerAnalysis.dateRange && (
+                      <div className="mt-3 text-center">
+                        <div className="text-xs text-purple-400">
+                          Período: {playerAnalysis.dateRange.from} - {playerAnalysis.dateRange.to}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                );
+              })()}
 
-                  {/* Sugerencia opcional */}
-                  <div className="mt-4 pt-4 border-t border-gray-700">
-                    <p className="text-sm text-gray-400 italic">
-                      💬 Podés alternar ejercicios dentro de la sesión para cubrir los diferentes déficits individuales,
-                      adaptando según contexto, nivel y prioridades del grupo.
-                    </p>
+              {/* Recomendaciones jerárquicas por tipo */}
+              {(() => {
+                const realAnalysis = individualRecommendations;
+                const typeRecommendations: { [key: string]: any[] } = {};
+                const mainTypes = ['Canasto', 'Peloteo'];
+                
+                realAnalysis.recommendations.forEach((rec: any) => {
+                  if (rec.level === 'TIPO' && mainTypes.includes(rec.area)) {
+                    if (!typeRecommendations[rec.area]) {
+                      typeRecommendations[rec.area] = [];
+                    }
+                    typeRecommendations[rec.area].push(rec);
+                  } else if (rec.parentType && mainTypes.includes(rec.parentType)) {
+                    if (!typeRecommendations[rec.parentType]) {
+                      typeRecommendations[rec.parentType] = [];
+                    }
+                    typeRecommendations[rec.parentType].push(rec);
+                  }
+                });
+
+                // Agregar estadísticas de tipos sin recomendaciones para mostrar el estado
+                mainTypes.forEach(tipo => {
+                  const typeStats = realAnalysis.typeStats as { [key: string]: TypeStats };
+                  if (!typeRecommendations[tipo] && typeStats && typeStats[tipo]) {
+                    const stats = typeStats[tipo];
+                    const plannedPercentage = getIdealPercentageForType(tipo, selectedPlayerId);
+                    const difference = Math.abs(stats.percentage - plannedPercentage);
+                    
+                    if (!typeRecommendations[tipo]) {
+                      typeRecommendations[tipo] = [];
+                    }
+                    
+                    typeRecommendations[tipo].unshift({
+                      level: 'TIPO',
+                      type: stats.percentage < plannedPercentage ? 'INCREMENTAR' : 'REDUCIR',
+                      area: tipo,
+                      currentPercentage: stats.percentage,
+                      plannedPercentage: plannedPercentage,
+                      difference: difference,
+                      priority: difference > 15 ? 'high' : difference > 10 ? 'medium' : 'low',
+                      reason: `${stats.percentage < plannedPercentage ? 'Déficit' : 'Exceso'} en tipo ${tipo}: ${stats.percentage}% actual vs ${plannedPercentage}% planificado`,
+                      basedOnExercises: stats.total,
+                      details: stats,
+                      isStatus: difference <= 5
+                    });
+                  }
+                });
+
+                return (
+                  <div className="space-y-3">
+                    {mainTypes.filter(tipo => {
+                      const typeStatsTyped = realAnalysis.typeStats as { [key: string]: TypeStats };
+                      const hasStats = typeStatsTyped && typeStatsTyped[tipo] && typeStatsTyped[tipo].total > 0;
+                      const hasRecommendations = typeRecommendations[tipo] && typeRecommendations[tipo].length > 0;
+                      return hasStats || hasRecommendations;
+                    }).map((tipo) => {
+                      const recommendations = typeRecommendations[tipo] || [];
+                      const typeStatsTyped = realAnalysis.typeStats as { [key: string]: TypeStats };
+                      const typeStats = typeStatsTyped ? typeStatsTyped[tipo] : null;
+                      const plannedPercentage = getIdealPercentageForType(tipo, selectedPlayerId);
+                      const currentPercentage = typeStats ? typeStats.percentage : 0;
+                      const isDeficit = currentPercentage < plannedPercentage;
+                      const difference = Math.abs(currentPercentage - plannedPercentage);
+                      
+                      return (
+                        <div key={tipo} className="bg-gray-800/50 border border-gray-600/50 rounded-xl overflow-hidden">
+                          <div 
+                            className={`cursor-pointer p-4 transition-all duration-300 ${
+                              difference > 5 ? (isDeficit ? 'bg-red-500/20 border-red-500/30' : 'bg-green-500/20 border-green-500/30') : 'bg-blue-500/20 border-blue-500/30'
+                            } hover:bg-opacity-80`}
+                            onClick={() => {
+                              const newExpanded = new Set(expandedRecommendations);
+                              const typeKey = `type-${tipo}`;
+                              if (newExpanded.has(typeKey)) {
+                                newExpanded.delete(typeKey);
+                              } else {
+                                newExpanded.add(typeKey);
+                              }
+                              setExpandedRecommendations(newExpanded);
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`rounded-full p-3 ${
+                                  difference > 5 ? (isDeficit ? 'bg-red-500/30' : 'bg-green-500/30') : 'bg-blue-500/30'
+                                }`}>
+                                  <span className="text-xl">
+                                    {tipo === 'Canasto' ? '🧺' : '🎾'}
+                                    {difference > 5 ? (isDeficit ? '📈' : '📉') : '✅'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`font-bold text-xl ${
+                                      difference > 5 ? (isDeficit ? 'text-red-300' : 'text-green-300') : 'text-blue-300'
+                                    }`}>
+                                      {tipo}
+                                    </span>
+                                    <span className="text-xs px-2 py-1 bg-gray-600/50 text-gray-300 rounded font-medium">
+                                      {typeStats ? typeStats.total : 0} ejercicios
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-sm text-gray-300">
+                                      Actual: <strong className={difference > 5 ? (isDeficit ? 'text-red-400' : 'text-green-400') : 'text-blue-400'}>{currentPercentage}%</strong>
+                                    </span>
+                                    <span className="text-sm text-gray-300">
+                                      Meta: <strong>{plannedPercentage}%</strong>
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {difference > 5 && (
+                                  <span className={`text-xl font-bold ${isDeficit ? 'text-red-400' : 'text-green-400'}`}>
+                                    {isDeficit ? '+' : '-'}{difference.toFixed(1)}%
+                                  </span>
+                                )}
+                                <svg 
+                                  className={`w-5 h-5 transition-transform ${
+                                    expandedRecommendations.has(`type-${tipo}`) ? 'rotate-180' : ''
+                                  } ${difference > 5 ? (isDeficit ? 'text-red-300' : 'text-green-300') : 'text-blue-300'}`}
+                                  fill="none" 
+                                  viewBox="0 0 24 24" 
+                                  strokeWidth={2} 
+                                  stroke="currentColor"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Contenido expandible del tipo */}
+                          {expandedRecommendations.has(`type-${tipo}`) && (
+                            <div className="p-4 bg-gray-900/30 border-t border-gray-600/30">
+                              {/* Recomendación principal del tipo */}
+                              {recommendations.filter(rec => rec.level === 'TIPO').map((rec: any, index: number) => (
+                                <div key={`tipo-${index}`} className={`mb-4 p-3 rounded-lg border ${
+                                  rec.isStatus ? 'bg-blue-500/10 border-blue-500/20' :
+                                  rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'
+                                }`}>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-lg">🎯</span>
+                                      <span className={`font-semibold ${
+                                        rec.isStatus ? 'text-blue-400' :
+                                        rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'
+                                      }`}>
+                                        {rec.isStatus ? 'Estado Óptimo' : 
+                                         rec.type === 'INCREMENTAR' ? 'INCREMENTAR' : 'REDUCIR'} {tipo}
+                                      </span>
+                                    </div>
+                                    {!rec.isStatus && (
+                                      <span className={`font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'}`}>
+                                        {rec.type === 'INCREMENTAR' ? '+' : '-'}{rec.difference.toFixed(1)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className={`text-sm mt-1 ${
+                                    rec.isStatus ? 'text-blue-300' :
+                                    rec.type === 'INCREMENTAR' ? 'text-red-300' : 'text-green-300'
+                                  }`}>
+                                    {rec.reason}
+                                  </p>
+                                </div>
+                              ))}
+
+                              {/* Áreas organizadas verticalmente */}
+                              {(() => {
+                                const allAreas = {
+                                  'Canasto': ['Juego De Base', 'Juego De Red', 'Primeras Pelotas'],
+                                  'Peloteo': ['Juego De Base', 'Juego De Red', 'Puntos', 'Primeras Pelotas']
+                                };
+                                
+                                const areasForType = allAreas[tipo as keyof typeof allAreas] || [];
+                                
+                                return areasForType.length > 0 ? (
+                                  <div className="mb-4">
+                                    <h5 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+                                      <span>📍</span> Áreas de {tipo}
+                                    </h5>
+                                    <div className="space-y-2">
+                                      {areasForType.map((area) => {
+                                        const areaStats = typeStats?.areas?.[area];
+                                        const currentPercentage = areaStats?.percentage || 0;
+                                        const totalExercises = areaStats?.total || 0;
+                                        const plannedPercentage = getIdealPercentageForAreaInType(area, tipo, selectedPlayerId);
+                                        const difference = Math.abs(currentPercentage - plannedPercentage);
+                                        const isDeficit = currentPercentage < plannedPercentage;
+                                        
+                                        let bgColor, borderColor, textColor, statusText, statusIcon;
+                                        
+                                        if (totalExercises === 0) {
+                                          bgColor = 'bg-gray-500/10';
+                                          borderColor = 'border-gray-500/30';
+                                          textColor = 'text-gray-400';
+                                          statusText = 'Sin datos';
+                                          statusIcon = '⚪';
+                                        } else if (difference <= 5) {
+                                          bgColor = 'bg-blue-500/10';
+                                          borderColor = 'border-blue-500/30';
+                                          textColor = 'text-blue-400';
+                                          statusText = 'Óptimo';
+                                          statusIcon = '✅';
+                                        } else if (isDeficit) {
+                                          bgColor = 'bg-red-500/10';
+                                          borderColor = 'border-red-500/30';
+                                          textColor = 'text-red-400';
+                                          statusText = 'Incrementar';
+                                          statusIcon = '📈';
+                                        } else {
+                                          bgColor = 'bg-green-500/10';
+                                          borderColor = 'border-green-500/30';
+                                          textColor = 'text-green-400';
+                                          statusText = 'Reducir';
+                                          statusIcon = '📉';
+                                        }
+                                        
+                                        return (
+                                          <div key={area} className={`p-3 rounded-lg border ${bgColor} ${borderColor}`}>
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center gap-3">
+                                                <span className="text-lg">{statusIcon}</span>
+                                                <div>
+                                                  <div className="flex items-center gap-2">
+                                                    <span className={`font-medium ${textColor}`}>{area}</span>
+                                                    {totalExercises > 0 && (
+                                                      <span className="text-xs px-2 py-1 bg-gray-600/50 text-gray-300 rounded">
+                                                        {totalExercises} ejercicios
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  <div className="flex items-center gap-3 mt-1">
+                                                    <span className="text-xs text-gray-400">
+                                                      Actual: <span className={textColor}>{currentPercentage}%</span>
+                                                    </span>
+                                                    <span className="text-xs text-gray-400">
+                                                      Meta: <span className="text-gray-300">{plannedPercentage}%</span>
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <div className="text-right">
+                                                <div className={`text-sm font-semibold ${textColor}`}>
+                                                  {statusText}
+                                                </div>
+                                                {difference > 5 && totalExercises > 0 && (
+                                                  <div className={`text-xs ${textColor}`}>
+                                                    {isDeficit ? '+' : '-'}{difference.toFixed(1)}%
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Mostrar ejercicios específicos si existen */}
+                                            {areaStats && Object.keys(areaStats.exercises).length > 0 && (
+                                              <div className="mt-2 pt-2 border-t border-gray-600/30">
+                                                <div className="text-xs text-gray-400 mb-1">Ejercicios:</div>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {Object.entries(areaStats.exercises).map(([ejercicio, repeticiones]) => (
+                                                    <span key={ejercicio} className="text-xs px-2 py-1 bg-gray-700/50 text-gray-300 rounded">
+                                                      {ejercicio} ({repeticiones})
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ) : null;
+                              })()}
+
+                              {/* Recomendaciones por ejercicios */}
+                              {(() => {
+                                const exerciseRecs = recommendations.filter(rec => rec.level === 'EJERCICIO');
+                                return exerciseRecs.length > 0 ? (
+                                  <div>
+                                    <h5 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-2">
+                                      <span>🔧</span> Recomendaciones por Ejercicios
+                                    </h5>
+                                    <div className="space-y-2">
+                                      {exerciseRecs.slice(0, 3).map((rec: any, index: number) => (
+                                        <div key={`exercise-${index}`} className={`p-2 rounded border ${
+                                          rec.type === 'INCREMENTAR' ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'
+                                        }`}>
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <span>🔧</span>
+                                              <span className={`text-sm font-medium ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'}`}>
+                                                {rec.area}
+                                              </span>
+                                              {rec.parentArea && (
+                                                <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
+                                                  {rec.parentArea}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <span className={`text-sm font-bold ${rec.type === 'INCREMENTAR' ? 'text-red-400' : 'text-green-400'}`}>
+                                              {rec.basedOnExercises} veces
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                      {exerciseRecs.length > 3 && (
+                                        <div className="text-center text-xs text-gray-400 py-2">
+                                          +{exerciseRecs.length - 3} ejercicios más...
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : null;
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
-              {/* Información adicional minimalista */}
-              <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <span>
-                    Análisis basado en {groupRecommendations.sessionAnalysis.totalSessionsAnalyzed} sesiones 
-                    de los últimos 30 días
-                  </span>
-                  <span>
-                    {groupRecommendations.analyzedPlayers} jugadores analizados
-                  </span>
-                </div>
-              </div>
             </div>
           )}
         </div>
