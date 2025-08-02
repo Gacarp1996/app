@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
 import { Player } from '../../types';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../../constants/index';
+import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea, UI_LABELS } from '../../constants/training';
 import { getTrainingPlan, saveTrainingPlan, TrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { useAcademia } from '../../contexts/AcademiaContext';
 
@@ -48,19 +48,26 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
   const initializeEmptyPlan = () => {
     const newPlan: TrainingPlan['planificacion'] = {};
     
-    Object.keys(NEW_EXERCISE_HIERARCHY_CONST).forEach(tipo => {
+    // Usar los enums de tipos directamente
+    Object.values(TipoType).forEach(tipo => {
       newPlan[tipo] = {
         porcentajeTotal: 0,
         areas: {}
       };
       
-      Object.keys(NEW_EXERCISE_HIERARCHY_CONST[tipo]).forEach(area => {
+      // Obtener áreas válidas para este tipo
+      const areasForTipo = getAreasForTipo(tipo);
+      
+      areasForTipo.forEach(area => {
         newPlan[tipo].areas[area] = {
           porcentajeDelTotal: 0,
           ejercicios: {}
         };
         
-        NEW_EXERCISE_HIERARCHY_CONST[tipo][area].forEach(ejercicio => {
+        // Obtener ejercicios válidos para esta combinación tipo/área
+        const ejerciciosForArea = getEjerciciosForTipoArea(tipo, area);
+        
+        ejerciciosForArea.forEach(ejercicio => {
           newPlan[tipo].areas[area].ejercicios![ejercicio] = {
             porcentajeDelTotal: 0
           };
@@ -163,6 +170,18 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
     }
   };
 
+  // Función helper para obtener el label UI para mostrar
+  const getUILabel = (value: string, type: 'tipo' | 'area'): string => {
+    if (type === 'tipo' && value in UI_LABELS.TIPOS) {
+      return UI_LABELS.TIPOS[value as TipoType];
+    }
+    if (type === 'area' && value in UI_LABELS.AREAS) {
+      return UI_LABELS.AREAS[value as AreaType];
+    }
+    // Fallback: capitalizar primera letra
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
   if (loading) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title={`Plan de Entrenamiento - ${player.name}`}>
@@ -212,10 +231,10 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
         </div>
 
         {/* Planificación por tipo */}
-        {Object.keys(NEW_EXERCISE_HIERARCHY_CONST).map(tipo => (
+        {Object.values(TipoType).map(tipo => (
           <div key={tipo} className="border border-gray-700 rounded-lg p-4 space-y-4 bg-gray-900/50">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-green-400">{tipo}</h3>
+              <h3 className="text-lg font-semibold text-green-400">{getUILabel(tipo, 'tipo')}</h3>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -238,10 +257,10 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
                   </span> / {planificacion[tipo].porcentajeTotal}%
                 </div>
                 
-                {Object.keys(NEW_EXERCISE_HIERARCHY_CONST[tipo]).map(area => (
+                {getAreasForTipo(tipo).map(area => (
                   <div key={area} className="bg-gray-800/30 rounded-lg p-3 space-y-2 border border-gray-700/50">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-cyan-400">{area}</h4>
+                      <h4 className="font-medium text-cyan-400">{getUILabel(area, 'area')}</h4>
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
@@ -263,9 +282,9 @@ const TrainingPlanModal: React.FC<TrainingPlanModalProps> = ({ isOpen, onClose, 
                             {calculateEjerciciosTotalPercentage(tipo, area).toFixed(2)}%
                           </span> / {planificacion[tipo].areas[area].porcentajeDelTotal}%
                         </div>
-                        {NEW_EXERCISE_HIERARCHY_CONST[tipo][area].map(ejercicio => (
+                        {getEjerciciosForTipoArea(tipo, area).map(ejercicio => (
                           <div key={ejercicio} className="flex items-center justify-between py-1 px-2 hover:bg-gray-800/50 rounded">
-                            <span className="text-sm text-gray-300">{ejercicio}</span>
+                            <span className="text-sm text-gray-300 capitalize">{ejercicio}</span>
                             <div className="flex items-center gap-1">
                               <input
                                 type="number"

@@ -1,9 +1,9 @@
 // hooks/useTrainingRecommendations.ts
 import { useState, useEffect, useMemo } from 'react';
 import { Player, TrainingSession } from '../types';
+import { TipoType, AreaType } from '../constants/training';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
 import { getTrainingPlan, TrainingPlan } from '../Database/FirebaseTrainingPlans';
-import { EXERCISE_HIERARCHY, NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants/index';
 
 // Tipo flexible para sesiones que puede manejar ambas estructuras
 type FlexibleSession = TrainingSession | {
@@ -40,7 +40,7 @@ interface UseTrainingRecommendationsProps {
   players: Player[];
   sessions: FlexibleSession[];
   academiaId: string;
-  analysisWindowDays?: number; // Por defecto 7 días
+  analysisWindowDays?: number; // Por defecto 30 días
   maxSessionsToAnalyze?: number; // Por defecto 7 sesiones
 }
 
@@ -48,7 +48,7 @@ export const useTrainingRecommendations = ({
   players,
   sessions,
   academiaId,
-  analysisWindowDays = 30, // ✅ CAMBIADO: Sincronizado con usePlanningAnalysis (30 días)
+  analysisWindowDays = 30,
   maxSessionsToAnalyze = 7
 }: UseTrainingRecommendationsProps) => {
   const [recommendations, setRecommendations] = useState<Record<string, TrainingRecommendations>>({});
@@ -73,7 +73,6 @@ export const useTrainingRecommendations = ({
         error: 'Jugador no encontrado'
       };
       
-      // GUARDAR en el estado inmediatamente
       setRecommendations(prev => ({
         ...prev,
         [playerId]: notFoundResult
@@ -110,11 +109,10 @@ export const useTrainingRecommendations = ({
       
       console.log('📋 Plan de entrenamiento:', hasActivePlan ? (adaptedPlan ? 'ADAPTADO' : 'PROPIO') : 'NO');
 
-      // 2. Obtener las sesiones del jugador de los últimos 30 días (sincronizado con usePlanningAnalysis)
+      // 2. Obtener las sesiones del jugador de los últimos 30 días
       console.log('🔍 Filtrando sesiones para jugador:', playerId);
       console.log('📅 Analizando sesiones de los últimos', analysisWindowDays, 'días');
       
-      // Calcular fecha límite (hace 30 días desde hoy)
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - analysisWindowDays);
       console.log('📅 Fecha límite para análisis:', cutoffDate.toISOString().split('T')[0]);
@@ -136,14 +134,9 @@ export const useTrainingRecommendations = ({
           isPlayerInSession = sessionAny.participants.some((p: any) => p.playerId === playerId);
         }
         
-        // 🔍 LOG específico para debugging Augusto
-        if (playerId === 'C05TLtQ0CZjwuHk1bP4m') {
-          console.log(`🔍 [RECOMMENDATIONS] Sesión ${sessionAny.id}: {jugadorIdBuscado: '${playerId}', jugadorIdSesion: '${sessionAny.jugadorId}', coincide: ${isPlayerInSession}, fecha: '${sessionAny.fecha}', ejercicios: ${sessionAny.ejercicios?.length || 0}}`);
-        }
-        
         if (!isPlayerInSession) return false;
         
-        // Verificar que la sesión esté dentro de los últimos 7 días
+        // Verificar que la sesión esté dentro del rango
         const sessionDate = new Date(sessionAny.fecha || sessionAny.date);
         const isWithinDateRange = sessionDate >= cutoffDate;
         
@@ -162,17 +155,6 @@ export const useTrainingRecommendations = ({
       const hasSessions = playerSessions.length > 0;
       
       console.log(`🏃 Sesiones encontradas en los últimos ${analysisWindowDays} días: ${playerSessions.length}`);
-      
-      // 🔍 LOG específico para contar ejercicios de Augusto
-      if (playerId === 'C05TLtQ0CZjwuHk1bP4m') {
-        let totalEjercicios = 0;
-        playerSessions.forEach((session: any, index) => {
-          const ejerciciosEnSesion = session.ejercicios?.length || 0;
-          totalEjercicios += ejerciciosEnSesion;
-          console.log(`📋 [RECOMMENDATIONS] Sesión ${index + 1} (${session.fecha}): ${ejerciciosEnSesion} ejercicios`);
-        });
-        console.log(`📊 [RECOMMENDATIONS] TOTAL ejercicios Augusto: ${totalEjercicios}`);
-      }
       
       if (playerSessions.length > 0) {
         const firstSession = playerSessions[0] as any;
@@ -198,7 +180,6 @@ export const useTrainingRecommendations = ({
           error: null
         };
         
-        // GUARDAR en el estado inmediatamente
         setRecommendations(prev => ({
           ...prev,
           [playerId]: basicResult
@@ -209,12 +190,12 @@ export const useTrainingRecommendations = ({
 
       console.log('✅ Generando recomendaciones...');
 
-      // 4. Calcular estadísticas actuales basadas en las sesiones de los últimos 7 días
+      // 4. Calcular estadísticas actuales basadas en las sesiones
       console.log('📊 Calculando estadísticas actuales...');
       const actualStats = calculateActualTrainingStats(playerSessions as any[]);
       console.log('📊 Estadísticas actuales:', actualStats);
       
-      // 5. Comparar con el plan y generar recomendaciones (trainingPlan ya no puede ser null aquí)
+      // 5. Comparar con el plan y generar recomendaciones
       console.log('🔄 Comparando con plan de entrenamiento...');
       console.log('📋 Plan a usar:', trainingPlan);
       const recommendations = generateRecommendations(trainingPlan!, actualStats);
@@ -235,7 +216,6 @@ export const useTrainingRecommendations = ({
         summary: result.summary 
       });
       
-      // GUARDAR en el estado inmediatamente
       setRecommendations(prev => ({
         ...prev,
         [playerId]: result
@@ -255,7 +235,6 @@ export const useTrainingRecommendations = ({
         error: 'Error al analizar el historial de entrenamientos'
       };
       
-      // GUARDAR en el estado inmediatamente
       setRecommendations(prev => ({
         ...prev,
         [playerId]: errorResult
@@ -263,50 +242,6 @@ export const useTrainingRecommendations = ({
       
       return errorResult;
     }
-  };
-
-  // Función auxiliar para normalizar nombres de tipos y áreas
-  const normalizeKey = (key: string): string => {
-    // Normalizar nombres comunes que pueden variar
-    const normalizations: Record<string, string> = {
-      // Tipos de entrenamiento
-      'Pelota viva': 'Peloteo',
-      'pelota viva': 'Peloteo',
-      'PELOTA VIVA': 'Peloteo',
-      
-      // Áreas de entrenamiento
-      'Primeras pelotas': 'Primeras pelotas',
-      'primeras pelotas': 'Primeras pelotas',
-      'PRIMERAS PELOTAS': 'Primeras pelotas',
-      'Primeras Pelotas': 'Primeras pelotas', // Con mayúscula inicial
-      
-      'Canasto': 'Canasto',
-      'canasto': 'Canasto',
-      'CANASTO': 'Canasto',
-      
-      'Fondo': 'Juego de base',
-      'fondo': 'Juego de base',
-      'FONDO': 'Juego de base',
-      
-      'Juego de base': 'Juego de base',
-      'juego de base': 'Juego de base',
-      'JUEGO DE BASE': 'Juego de base',
-      
-      'Red': 'Juego de red',  // ✅ AGREGADO: Normalizar "Red" a "Juego de red"
-      'red': 'Juego de red',
-      'RED': 'Juego de red',
-      'Juego de red': 'Juego de red',
-      'juego de red': 'Juego de red',
-      'JUEGO DE RED': 'Juego de red',
-      
-      'Puntos': 'Puntos',
-      'puntos': 'Puntos',
-      'PUNTOS': 'Puntos'
-    };
-    
-    const normalized = normalizations[key] || key;
-    console.log(`🔧 Normalización: "${key}" → "${normalized}"`);
-    return normalized;
   };
 
   // Función para calcular estadísticas actuales basadas en sesiones de entrenamiento
@@ -342,30 +277,17 @@ export const useTrainingRecommendations = ({
       totalExercises += exercises.length;
       
       exercises.forEach((ejercicio: any, exIndex) => {
-        // Primero normalizar los valores del ejercicio usando nuestra función de normalización
-        const normalizedTipo = normalizeKey(ejercicio.tipo);
-        const normalizedArea = normalizeKey(ejercicio.area);
-        
-        // ✅ CORREGIDO: Usar directamente los valores normalizados como keys
-        const tipoKey = normalizedTipo;
-        const areaKey = normalizedArea;
+        // Los valores ya vienen correctos de la DB, no necesitamos normalizar
+        const tipoKey = ejercicio.tipo;
+        const areaKey = ejercicio.area;
 
         // Convertir tiempo a minutos
         const timeInMinutes = parseTimeToMinutes(ejercicio.tiempoCantidad);
         totalMinutes += timeInMinutes;
 
         console.log(`     🏃 Ejercicio ${exIndex + 1}: ${tipoKey}-${areaKey}-${ejercicio.ejercicio} (${timeInMinutes}min)`);
-        console.log(`       🔧 Original: ${ejercicio.tipo}-${ejercicio.area} → Normalizado: ${tipoKey}-${areaKey}`);
-        console.log(`       🔍 Normalización aplicada: tipo="${ejercicio.tipo}"→"${normalizedTipo}", area="${ejercicio.area}"→"${normalizedArea}"`);
         
-        // ✅ LOG ESPECÍFICO para debug de Canasto + Red
-        if (ejercicio.tipo === "Canasto" && ejercicio.area === "Red") {
-          console.log(`       🎯 CASO ESPECÍFICO DETECTADO: Canasto + Red`);
-          console.log(`       🎯 tipoKey final: "${tipoKey}"`);
-          console.log(`       🎯 areaKey final: "${areaKey}"`);
-        }
-
-        // Crear estructura jerárquica igual que usePlanningAnalysis
+        // Crear estructura jerárquica
         if (!stats[tipoKey]) stats[tipoKey] = {};
         if (!stats[tipoKey][areaKey]) stats[tipoKey][areaKey] = {};
         if (!stats[tipoKey][areaKey][ejercicio.ejercicio]) {
@@ -376,7 +298,7 @@ export const useTrainingRecommendations = ({
       });
     });
 
-    // Convertir a porcentajes usando la misma estructura que usePlanningAnalysis
+    // Convertir a porcentajes
     const percentages: Record<string, number> = {};
     
     if (totalMinutes > 0) {
@@ -399,11 +321,6 @@ export const useTrainingRecommendations = ({
           });
           
           percentages[`tipo.${tipo}.area.${area}`] = (areaTotal / totalMinutes) * 100;
-          
-          // ✅ LOG ESPECÍFICO para Canasto + Juego de red
-          if (tipo === "Canasto" && area === "Juego de red") {
-            console.log(`   🎯 ESTADÍSTICA REAL generada: "tipo.${tipo}.area.${area}" = ${((areaTotal / totalMinutes) * 100).toFixed(2)}%`);
-          }
           
           // Ejercicios específicos
           Object.keys(stats[tipo][area]).forEach(ejercicio => {
@@ -474,9 +391,8 @@ export const useTrainingRecommendations = ({
     // Comparar estadísticas actuales vs planificadas
     Object.entries(plannedStats).forEach(([key, plannedPercentage]) => {
       const currentPercentage = actualStats[key] || 0;
-      const difference = currentPercentage - plannedPercentage; // CORRECCIÓN: real - planificado
+      const difference = currentPercentage - plannedPercentage;
       
-      // LOGGING DETALLADO para cada comparación
       console.log(`🔍 Comparando ${key}:`);
       console.log(`   📋 Planificado: ${plannedPercentage.toFixed(2)}%`);
       console.log(`   📊 Real: ${currentPercentage.toFixed(2)}%`);
@@ -498,37 +414,34 @@ export const useTrainingRecommendations = ({
           displayName += ` (${specificExercise})`;
         }
         
-        // Solo generar recomendaciones para diferencias significativas (≥10%) y sin prioridad "low"
-        if (Math.abs(difference) >= 10) {
-          // Determinar el tipo de recomendación basado en si hay exceso o déficit
-          let recommendationType: 'REDUCIR' | 'INCREMENTAR';
-          let recommendationText: string;
-          
-          if (difference > 0) {
-            // Se está haciendo MÁS de lo planificado (exceso)
-            recommendationType = 'REDUCIR';
-            recommendationText = `REDUCIR ${displayName} (exceso de ${Math.round(difference)}%)`;
-          } else {
-            // Se está haciendo MENOS de lo planificado (déficit)
-            recommendationType = 'INCREMENTAR';
-            recommendationText = `INCREMENTAR ${displayName} (déficit de ${Math.round(Math.abs(difference))}%)`;
-          }
-          
-          console.log(`   📝 Generando recomendación: ${recommendationType} ${displayName}`);
-          console.log(`   🎯 Detalles: real=${currentPercentage.toFixed(1)}%, planificado=${plannedPercentage.toFixed(1)}%, diferencia=${difference.toFixed(1)}%`);
-          
-          recommendations.push({
-            category: categoryName,
-            subcategory: subcategory,
-            exercise: exercise,
-            currentPercentage: Math.round(currentPercentage * 10) / 10,
-            plannedPercentage: Math.round(plannedPercentage * 10) / 10,
-            difference: Math.round(difference * 10) / 10,
-            priority: Math.abs(difference) >= 25 ? 'high' : 'medium', // Solo rojo (≥25%) o amarillo (<25%)
-            recommendation: recommendationText,
-            type: recommendationType
-          });
+        // Determinar el tipo de recomendación basado en si hay exceso o déficit
+        let recommendationType: 'REDUCIR' | 'INCREMENTAR';
+        let recommendationText: string;
+        
+        if (difference > 0) {
+          // Se está haciendo MÁS de lo planificado (exceso)
+          recommendationType = 'REDUCIR';
+          recommendationText = `REDUCIR ${displayName} (exceso de ${Math.round(difference)}%)`;
+        } else {
+          // Se está haciendo MENOS de lo planificado (déficit)
+          recommendationType = 'INCREMENTAR';
+          recommendationText = `INCREMENTAR ${displayName} (déficit de ${Math.round(Math.abs(difference))}%)`;
         }
+        
+        console.log(`   📝 Generando recomendación: ${recommendationType} ${displayName}`);
+        console.log(`   🎯 Detalles: real=${currentPercentage.toFixed(1)}%, planificado=${plannedPercentage.toFixed(1)}%, diferencia=${difference.toFixed(1)}%`);
+        
+        recommendations.push({
+          category: categoryName,
+          subcategory: subcategory,
+          exercise: exercise,
+          currentPercentage: Math.round(currentPercentage * 10) / 10,
+          plannedPercentage: Math.round(plannedPercentage * 10) / 10,
+          difference: Math.round(difference * 10) / 10,
+          priority: Math.abs(difference) >= 25 ? 'high' : 'medium',
+          recommendation: recommendationText,
+          type: recommendationType
+        });
       } else {
         console.log(`   ✅ Dentro del rango aceptable`);
       }
@@ -537,9 +450,9 @@ export const useTrainingRecommendations = ({
     console.log(`💡 Total de recomendaciones generadas: ${recommendations.length}`);
     
     // Mostrar solo desequilibrios significativos (≥10% de diferencia)
-    // Priorizar por magnitud absoluta - los desequilibrios más grandes van primero
+    // Priorizar por magnitud absoluta
     return recommendations
-      .filter(rec => Math.abs(rec.difference) >= 10) // Solo diferencias significativas ≥10%
+      .filter(rec => Math.abs(rec.difference) >= 10)
       .sort((a, b) => {
         // Ordenar por magnitud absoluta de la diferencia (más importante primero)
         const absA = Math.abs(a.difference);
@@ -555,7 +468,7 @@ export const useTrainingRecommendations = ({
         
         return 0;
       })
-      .slice(0, 5); // Permitir hasta 5 recomendaciones para que el filtro de grupos funcione
+      .slice(0, 5); // Permitir hasta 5 recomendaciones
   };
 
   // Función para convertir la estructura de planificación a porcentajes planos
@@ -568,29 +481,12 @@ export const useTrainingRecommendations = ({
     Object.entries(plan.planificacion).forEach(([tipo, tipoData]) => {
       console.log(`🔄 DEBUGGING - Procesando tipo ${tipo} (${tipoData.porcentajeTotal}%)`);
       
-      // ✅ NORMALIZAR también las claves del plan
-      const tipoNormalizado = normalizeKey(tipo);
-      
-      // ✅ LOG ESPECÍFICO para debug de Canasto
-      if (tipo === "Canasto" || tipoNormalizado === "Canasto") {
-        console.log(`   🎯 PLAN CANASTO detectado - tipo original: "${tipo}", normalizado: "${tipoNormalizado}"`);
-        console.log(`   🎯 PLAN CANASTO detectado - áreas disponibles:`, Object.keys(tipoData.areas));
-      }
-      
-      // Generar estadísticas por TIPO (igual que el análisis de planificación)
-      percentages[`tipo.${tipoNormalizado}`] = tipoData.porcentajeTotal;
+      // Generar estadísticas por TIPO
+      percentages[`tipo.${tipo}`] = tipoData.porcentajeTotal;
       
       Object.entries(tipoData.areas).forEach(([area, areaData]) => {
-        // ✅ NORMALIZAR también las áreas del plan
-        const areaNormalizada = normalizeKey(area);
-        
-        // ✅ LOG ESPECÍFICO para debug de áreas de Canasto
-        if (tipo === "Canasto" || tipoNormalizado === "Canasto") {
-          console.log(`   🎯 PLAN CANASTO área: original="${area}", normalizada="${areaNormalizada}" → ${areaData.porcentajeDelTotal}%`);
-        }
-        
-        // Generar estadísticas por TIPO+ÁREA (igual que el análisis de planificación)
-        const tipoAreaKey = `tipo.${tipoNormalizado}.area.${areaNormalizada}`;
+        // Generar estadísticas por TIPO+ÁREA
+        const tipoAreaKey = `tipo.${tipo}.area.${area}`;
         percentages[tipoAreaKey] = areaData.porcentajeDelTotal;
         
         console.log(`   ${tipo} -> ${area}: ${areaData.porcentajeDelTotal.toFixed(2)}%`);
@@ -598,7 +494,7 @@ export const useTrainingRecommendations = ({
         // También generar ejercicios específicos si existen
         if (areaData.ejercicios) {
           Object.entries(areaData.ejercicios).forEach(([ejercicio, ejercicioData]) => {
-            const ejercicioKey = `tipo.${tipoNormalizado}.area.${areaNormalizada}.ejercicio.${ejercicio}`;
+            const ejercicioKey = `tipo.${tipo}.area.${area}.ejercicio.${ejercicio}`;
             percentages[ejercicioKey] = ejercicioData.porcentajeDelTotal;
             
             console.log(`     ${tipo} -> ${area} -> ${ejercicio}: ${ejercicioData.porcentajeDelTotal.toFixed(2)}%`);

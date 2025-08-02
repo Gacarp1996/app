@@ -18,7 +18,7 @@ interface TrainingSessionPageProps {
   allPlayers: Player[];
   allObjectives: Objective[];
   allTournaments: Tournament[];
-  onDataChange: () => Promise<void>; // 
+  onDataChange: () => Promise<void>;
   academiaId: string;
   sessions?: any[];
 }
@@ -59,18 +59,18 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     isAddSpecificExerciseModalOpen,
     enabledSurveyQuestions,
     
-    // Estados del formulario
-    currentTipoKey,
-    currentAreaKey,
-    currentEjercicioName,
+    // Estados del formulario - CAMBIO: Nombres actualizados sin "Key"
+    currentTipo,
+    currentArea,
+    currentEjercicio,
     currentEjercicioEspecifico,
     tiempoCantidad,
     intensidad,
     
-    // Opciones disponibles
-    availableTipoKeys,
-    availableAreaKeys,
-    availableEjercicioNames,
+    // Opciones disponibles - CAMBIO: Nombres actualizados sin "Keys"
+    availableTipos,
+    availableAreas,
+    availableEjercicios,
     availableSpecificExercises,
     
     // Valores computados
@@ -84,7 +84,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     setAskForSurveys,
     setObservaciones,
     setIsAddSpecificExerciseModalOpen,
-    setCurrentEjercicioName,
+    setCurrentEjercicio,
     setCurrentEjercicioEspecifico,
     setTiempoCantidad,
     setIntensidad,
@@ -200,9 +200,9 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
           isOpen={isAddSpecificExerciseModalOpen}
           onClose={() => setIsAddSpecificExerciseModalOpen(false)}
           onSubmit={handleSubmitSpecificExercise}
-          currentTipo={currentTipoKey}
-          currentArea={currentAreaKey}
-          currentEjercicio={currentEjercicioName}
+          currentTipo={currentTipo}
+          currentArea={currentArea}
+          currentEjercicio={currentEjercicio}
         />
         
         {/* Modal de encuestas post-entrenamiento */}
@@ -355,17 +355,17 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
               </div>
             )}
 
-            {/* Formulario de ejercicio mejorado para desktop */}
+            {/* Formulario de ejercicio mejorado para desktop - CAMBIO: Props actualizadas */}
             <ExerciseForm
-              currentTipoKey={currentTipoKey}
-              currentAreaKey={currentAreaKey}
-              currentEjercicioName={currentEjercicioName}
+              currentTipo={currentTipo}
+              currentArea={currentArea}
+              currentEjercicio={currentEjercicio}
               currentEjercicioEspecifico={currentEjercicioEspecifico}
               tiempoCantidad={tiempoCantidad}
               intensidad={intensidad}
-              availableTipoKeys={availableTipoKeys}
-              availableAreaKeys={availableAreaKeys}
-              availableEjercicioNames={availableEjercicioNames}
+              availableTipos={availableTipos}
+              availableAreas={availableAreas}
+              availableEjercicios={availableEjercicios}
               availableSpecificExercises={availableSpecificExercises}
               onTipoChange={handleTipoChange}
               onAreaChange={handleAreaChange}

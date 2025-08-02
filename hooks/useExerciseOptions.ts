@@ -1,29 +1,29 @@
 import { useMemo } from 'react';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants/index';
+import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea, isTipoType, isAreaType } from '../constants/training';
 
-export const useExerciseOptions = (currentTipoKey: string, currentAreaKey: string) => {
-  const availableTipoKeys = useMemo(() => 
-    Object.keys(NEW_EXERCISE_HIERARCHY_CONST), 
+export const useExerciseOptions = (currentTipo: string, currentArea: string) => {
+  const availableTipos = useMemo(() => 
+    Object.values(TipoType), 
     []
   );
   
-  const availableAreaKeys = useMemo(() => 
-    currentTipoKey 
-      ? Object.keys(NEW_EXERCISE_HIERARCHY_CONST[currentTipoKey] || {}) 
+  const availableAreas = useMemo(() => 
+    currentTipo && isTipoType(currentTipo)
+      ? getAreasForTipo(currentTipo)
       : [],
-    [currentTipoKey]
+    [currentTipo]
   );
   
-  const availableEjercicioNames = useMemo(() => 
-    currentTipoKey && currentAreaKey 
-      ? NEW_EXERCISE_HIERARCHY_CONST[currentTipoKey]?.[currentAreaKey] || []
+  const availableEjercicios = useMemo(() => 
+    currentTipo && currentArea && isTipoType(currentTipo) && isAreaType(currentArea)
+      ? getEjerciciosForTipoArea(currentTipo, currentArea)
       : [],
-    [currentTipoKey, currentAreaKey]
+    [currentTipo, currentArea]
   );
   
   return {
-    availableTipoKeys,
-    availableAreaKeys,
-    availableEjercicioNames
+    availableTipos,
+    availableAreas,
+    availableEjercicios
   };
 };

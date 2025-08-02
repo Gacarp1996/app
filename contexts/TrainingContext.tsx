@@ -1,19 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Player } from '../types';
+import { Player, SessionExercise } from '../types';
 import { useAcademia } from './AcademiaContext';
-
-export interface SessionExercise {
-  id: string;
-  tipo: any;
-  area: any;
-  ejercicio: string;
-  ejercicioEspecifico?: string;
-  tiempoCantidad: string;
-  intensidad: number;
-  loggedForPlayerId: string;
-  loggedForPlayerName: string;
-}
 
 interface TrainingContextType {
   isSessionActive: boolean;
@@ -157,3 +145,6 @@ export const useTraining = (): TrainingContextType => {
   if (!context) throw new Error('useTraining debe ser usado dentro de un TrainingProvider');
   return context;
 };
+
+// Re-exportar el tipo SessionExercise para conveniencia
+export type { SessionExercise } from '../types';

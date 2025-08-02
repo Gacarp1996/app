@@ -1,14 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Player, Objective, TrainingSession, Tournament, LoggedExercise, SpecificExercise } from '../types';
-import { useTraining, SessionExercise } from '../contexts/TrainingContext';
+import { Player, Objective, TrainingSession, Tournament, LoggedExercise, SpecificExercise, SessionExercise } from '../types';
+import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea } from '../constants/training';
+import { useTraining } from '../contexts/TrainingContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { addSession, updateSession } from '../Database/FirebaseSessions';
 import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
-import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants/index';
-import { useExerciseOptions } from './useExerciseOptions';
 
 interface UseTrainingSessionProps {
   allPlayers: Player[];
@@ -16,8 +15,8 @@ interface UseTrainingSessionProps {
   allTournaments: Tournament[];
   onDataChange: () => void;
   academiaId: string;
-  editSessionId?: string | null; // ID de sesión a editar
-  originalSession?: TrainingSession | null; // Sesión original
+  editSessionId?: string | null;
+  originalSession?: TrainingSession | null;
 }
 
 export const useTrainingSession = ({
@@ -42,10 +41,10 @@ export const useTrainingSession = ({
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
   const modalOpenedOnceRef = useRef(false);
   
-  // Estados del formulario de ejercicio
-  const [currentTipoKey, setCurrentTipoKey] = useState<string>('');
-  const [currentAreaKey, setCurrentAreaKey] = useState<string>('');
-  const [currentEjercicioName, setCurrentEjercicioName] = useState<string>('');
+  // Estados del formulario de ejercicio - ahora con tipos fuertes
+  const [currentTipo, setCurrentTipo] = useState<TipoType | ''>('');
+  const [currentArea, setCurrentArea] = useState<AreaType | ''>('');
+  const [currentEjercicio, setCurrentEjercicio] = useState<string>('');
   const [currentEjercicioEspecifico, setCurrentEjercicioEspecifico] = useState<string>('');
   const [tiempoCantidad, setTiempoCantidad] = useState<string>('');
   const [intensidad, setIntensidad] = useState<number>(5);
@@ -72,20 +71,30 @@ export const useTrainingSession = ({
   const [isSurveyConfirmationModalOpen, setIsSurveyConfirmationModalOpen] = useState(false);
   const [isSurveyExitConfirmModalOpen, setIsSurveyExitConfirmModalOpen] = useState(false);
 
-  // Hook para las opciones de ejercicio
-  const { availableTipoKeys, availableAreaKeys, availableEjercicioNames } = useExerciseOptions(currentTipoKey, currentAreaKey);
+  // Opciones disponibles basadas en la selección actual
+  const availableTipos = useMemo(() => Object.values(TipoType), []);
+  
+  const availableAreas = useMemo(() => {
+    if (!currentTipo) return [];
+    return getAreasForTipo(currentTipo as TipoType);
+  }, [currentTipo]);
+  
+  const availableEjercicios = useMemo(() => {
+    if (!currentTipo || !currentArea) return [];
+    return getEjerciciosForTipoArea(currentTipo as TipoType, currentArea as AreaType);
+  }, [currentTipo, currentArea]);
   
   // Ejercicios específicos disponibles para la selección actual
   const availableSpecificExercises = useMemo(() => {
-    if (!currentTipoKey || !currentAreaKey || !currentEjercicioName) {
+    if (!currentTipo || !currentArea || !currentEjercicio) {
       return [];
     }
     return specificExercises.filter(exercise => 
-      exercise.tipo === currentTipoKey && 
-      exercise.area === currentAreaKey && 
-      exercise.ejercicio === currentEjercicioName
+      exercise.tipo === currentTipo && 
+      exercise.area === currentArea && 
+      exercise.ejercicio === currentEjercicio
     );
-  }, [specificExercises, currentTipoKey, currentAreaKey, currentEjercicioName]);
+  }, [specificExercises, currentTipo, currentArea, currentEjercicio]);
 
   // Valores computados
   const playerNamesDisplay = useMemo(() => participants.map(p => p.name).join(', '), [participants]);
@@ -197,26 +206,26 @@ export const useTrainingSession = ({
 
   // Handlers para el formulario de ejercicio
   const handleTipoChange = (value: string) => {
-    setCurrentTipoKey(value);
-    setCurrentAreaKey('');
-    setCurrentEjercicioName('');
+    setCurrentTipo(value as TipoType);
+    setCurrentArea('');
+    setCurrentEjercicio('');
     setCurrentEjercicioEspecifico('');
   };
 
   const handleAreaChange = (value: string) => {
-    setCurrentAreaKey(value);
-    setCurrentEjercicioName('');
+    setCurrentArea(value as AreaType);
+    setCurrentEjercicio('');
     setCurrentEjercicioEspecifico('');
   };
 
   const handleEjercicioChange = (value: string) => {
-    setCurrentEjercicioName(value);
+    setCurrentEjercicio(value);
     setCurrentEjercicioEspecifico('');
   };
 
   // Handlers para ejercicios específicos
   const handleAddSpecificExercise = () => {
-    if (!currentTipoKey || !currentAreaKey || !currentEjercicioName) {
+    if (!currentTipo || !currentArea || !currentEjercicio) {
       alert('Por favor, selecciona tipo, área y ejercicio antes de crear un ejercicio específico.');
       return;
     }
@@ -227,9 +236,9 @@ export const useTrainingSession = ({
     const newSpecificExercise: SpecificExercise = {
       id: crypto.randomUUID(),
       name: exerciseName,
-      tipo: currentTipoKey,
-      area: currentAreaKey,
-      ejercicio: currentEjercicioName
+      tipo: currentTipo as TipoType,
+      area: currentArea as AreaType,
+      ejercicio: currentEjercicio
     };
     
     setSpecificExercises(prev => [...prev, newSpecificExercise]);
@@ -238,7 +247,7 @@ export const useTrainingSession = ({
 
   const handleAddExerciseToSession = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentTipoKey || !currentAreaKey || !currentEjercicioName || !tiempoCantidad || activePlayerIds.size === 0) {
+    if (!currentTipo || !currentArea || !currentEjercicio || !tiempoCantidad || activePlayerIds.size === 0) {
       alert('Por favor, completa todos los campos y selecciona al menos un jugador.');
       return;
     }
@@ -247,9 +256,9 @@ export const useTrainingSession = ({
       if (player) {
         const newExercise: SessionExercise = {
           id: crypto.randomUUID(),
-          tipo: NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP[currentTipoKey],
-          area: NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP[currentAreaKey],
-          ejercicio: currentEjercicioName,
+          tipo: currentTipo as TipoType,
+          area: currentArea as AreaType,
+          ejercicio: currentEjercicio,
           ejercicioEspecifico: currentEjercicioEspecifico || undefined,
           tiempoCantidad,
           intensidad,
@@ -259,7 +268,7 @@ export const useTrainingSession = ({
         addExercise(newExercise);
       }
     });
-    setCurrentEjercicioName('');
+    setCurrentEjercicio('');
     setCurrentEjercicioEspecifico('');
     setTiempoCantidad('');
     setIntensidad(5);
@@ -338,8 +347,8 @@ export const useTrainingSession = ({
           // Asegurar que todos los campos requeridos estén presentes
           const exercise: LoggedExercise = {
             id: rest.id || '',
-            tipo: rest.tipo || 'PELOTEO',
-            area: rest.area || 'Técnica',
+            tipo: rest.tipo,
+            area: rest.area,
             ejercicio: rest.ejercicio || '',
             ejercicioEspecifico: rest.ejercicioEspecifico,
             tiempoCantidad: rest.tiempoCantidad || '',
@@ -414,7 +423,7 @@ export const useTrainingSession = ({
     navigate('/players');
   };
 
-  // Handler para encuestas - OPCIÓN 3: SIN VERIFICACIÓN DE ENCUESTAS EXISTENTES
+  // Handler para encuestas
   const handleSurveySubmit = async (playerId: string, responses: {
     cansancioFisico?: number;
     concentracion?: number;
@@ -460,7 +469,7 @@ export const useTrainingSession = ({
         return;
       }
 
-      // OPCIÓN 3: Guardar encuesta directamente sin verificación
+      // Guardar encuesta directamente sin verificación
       // Filtrar solo las respuestas válidas (no undefined)
       const validResponses: any = {};
       Object.entries(responses).forEach(([key, value]) => {
@@ -546,17 +555,17 @@ export const useTrainingSession = ({
     originalSession,
     
     // Estados del formulario
-    currentTipoKey,
-    currentAreaKey,
-    currentEjercicioName,
+    currentTipo,
+    currentArea,
+    currentEjercicio,
     currentEjercicioEspecifico,
     tiempoCantidad,
     intensidad,
     
     // Opciones disponibles
-    availableTipoKeys,
-    availableAreaKeys,
-    availableEjercicioNames,
+    availableTipos,
+    availableAreas,
+    availableEjercicios,
     availableSpecificExercises,
     
     // Valores computados
@@ -572,7 +581,7 @@ export const useTrainingSession = ({
     setIsAddSpecificExerciseModalOpen,
     
     // Setters del formulario
-    setCurrentEjercicioName,
+    setCurrentEjercicio,
     setCurrentEjercicioEspecifico,
     setTiempoCantidad,
     setIntensidad,

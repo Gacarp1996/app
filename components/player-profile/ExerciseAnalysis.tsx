@@ -259,7 +259,7 @@ const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
                           {Object.entries(session.areaPercentages).map(([combinedKey, percentage]) => {
                             const [tipo, areaName] = combinedKey.split(' - ');
                             const isCanasto = tipo.toLowerCase().includes('canasto');
-                            const isPelotaViva = tipo.toLowerCase().includes('pelota viva');
+                            const isPelotaViva = tipo.toLowerCase().includes('Peloteo');
                             
                             return (
                               <div key={combinedKey} className={`text-center rounded-lg p-3 ${

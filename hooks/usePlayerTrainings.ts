@@ -1,8 +1,8 @@
 // hooks/usePlayerTrainings.ts - Optimizado con skipExecution
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { TrainingSession, PostTrainingSurvey, ChartDataPoint, IntensityDataPoint, TrainingType, TrainingArea } from '../types';
+import { TrainingSession, PostTrainingSurvey, ChartDataPoint, IntensityDataPoint } from '../types';
+import { TipoType, AreaType } from '../constants/training';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
-import { EXERCISE_HIERARCHY } from '../constants/index';
 import { parseTimeToMinutes, getDefaultDateRange, METRIC_CONFIG } from '../components/player-profile/utils';
 
 interface UsePlayerTrainingsProps {
@@ -10,7 +10,7 @@ interface UsePlayerTrainingsProps {
   academiaId: string;
   sessions: TrainingSession[];
   activeTab: string;
-  skipExecution?: boolean; // NUEVO PARÁMETRO
+  skipExecution?: boolean;
 }
 
 export const usePlayerTrainings = ({ 
@@ -18,7 +18,7 @@ export const usePlayerTrainings = ({
   academiaId, 
   sessions, 
   activeTab,
-  skipExecution = false // NUEVO PARÁMETRO CON DEFAULT
+  skipExecution = false
 }: UsePlayerTrainingsProps) => {
   // Estados de filtros
   const defaultDates = getDefaultDateRange();
@@ -48,7 +48,7 @@ export const usePlayerTrainings = ({
 
   // OPTIMIZACIÓN: Solo cargar encuestas cuando realmente se necesiten
   const loadPlayerSurveys = useCallback(async () => {
-    if (!playerId || surveysLoaded || skipExecution) return; // AGREGAR skipExecution
+    if (!playerId || surveysLoaded || skipExecution) return;
     
     setSurveysLoading(true);
     try {
@@ -71,11 +71,11 @@ export const usePlayerTrainings = ({
     } finally {
       setSurveysLoading(false);
     }
-  }, [playerId, academiaId, startDate, endDate, surveysLoaded, skipExecution]); // AGREGAR skipExecution
+  }, [playerId, academiaId, startDate, endDate, surveysLoaded, skipExecution]);
 
   // OPTIMIZACIÓN: Solo ejecutar effects cuando NO se debe saltar la ejecución
   useEffect(() => {
-    if (!skipExecution && activeTab === 'trainings' && playerId) { // AGREGAR !skipExecution
+    if (!skipExecution && activeTab === 'trainings' && playerId) {
       // Cargar encuestas con debounce
       const timeoutId = setTimeout(() => {
         loadPlayerSurveys();
@@ -83,11 +83,11 @@ export const usePlayerTrainings = ({
 
       return () => clearTimeout(timeoutId);
     }
-  }, [skipExecution, activeTab, playerId, loadPlayerSurveys]); // AGREGAR skipExecution
+  }, [skipExecution, activeTab, playerId, loadPlayerSurveys]);
 
   // OPTIMIZACIÓN: Memoización pesada de sesiones filtradas
   const dateFilteredSessions = useMemo(() => {
-    if (!startDate || !endDate || !playerId || skipExecution) return []; // AGREGAR skipExecution
+    if (!startDate || !endDate || !playerId || skipExecution) return [];
     
     const userTimezoneOffset = new Date().getTimezoneOffset() * 60000;
     const start = new Date(new Date(startDate).getTime() + userTimezoneOffset);
@@ -100,20 +100,20 @@ export const usePlayerTrainings = ({
         return s.jugadorId === playerId && sessionDate >= start && sessionDate <= end;
       })
       .sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [sessions, playerId, startDate, endDate, skipExecution]); // AGREGAR skipExecution
+  }, [sessions, playerId, startDate, endDate, skipExecution]);
 
   // OPTIMIZACIÓN: Memoización de entrenamientos para fecha seleccionada
   const trainingsForSelectedDate = useMemo(() => {
-    if (!selectedDate || !playerId || skipExecution) return []; // AGREGAR skipExecution
+    if (!selectedDate || !playerId || skipExecution) return [];
     return sessions.filter(s => 
       s.jugadorId === playerId &&
       new Date(s.fecha).toDateString() === selectedDate.toDateString()
     );
-  }, [selectedDate, sessions, playerId, skipExecution]); // AGREGAR skipExecution
+  }, [selectedDate, sessions, playerId, skipExecution]);
 
   // OPTIMIZACIÓN: Cálculos de drill down con memoización
   const drillDownData = useMemo((): ChartDataPoint[] => {
-    if (skipExecution) return []; // AGREGAR skipExecution
+    if (skipExecution) return [];
     
     const timeSums: Record<string, number> = {};
     
@@ -126,7 +126,7 @@ export const usePlayerTrainings = ({
       return Object.entries(timeSums).map(([name, value]) => ({ name, value, type: 'TrainingType' })); 
     }
     else if (drillDownPath.length === 1) { 
-      const type = drillDownPath[0] as TrainingType; 
+      const type = drillDownPath[0] as TipoType; 
       setAreaChartTitle(`${type}: Por Área (minutos)`); 
       dateFilteredSessions.forEach(s => s.ejercicios.forEach(ex => { 
         if(ex.tipo === type) {
@@ -147,11 +147,11 @@ export const usePlayerTrainings = ({
       })); 
       return Object.entries(timeSums).map(([name, value]) => ({ name, value, type: 'Exercise' })); 
     }
-  }, [dateFilteredSessions, drillDownPath, skipExecution]); // AGREGAR skipExecution
+  }, [dateFilteredSessions, drillDownPath, skipExecution]);
 
   // OPTIMIZACIÓN: Datos de intensidad con memoización
   const intensityChartData = useMemo((): IntensityDataPoint[] => {
-    if (skipExecution) return []; // AGREGAR skipExecution
+    if (skipExecution) return [];
     
     let title = "Progresión de Intensidad (General)";
     
@@ -159,7 +159,7 @@ export const usePlayerTrainings = ({
     const sessionsWithAvg = dateFilteredSessions.map(session => {
         let relevantExercises = session.ejercicios;
         if(drillDownPath.length === 1) { 
-          const type = drillDownPath[0] as TrainingType; 
+          const type = drillDownPath[0] as TipoType; 
           relevantExercises = session.ejercicios.filter(ex => ex.tipo === type); 
           title = `Intensidad (${type})`;
         }
@@ -205,7 +205,7 @@ export const usePlayerTrainings = ({
       return {
         fecha: displayDate,
         intensidad: parseFloat(avgDailyIntensity.toFixed(1)),
-        sessionsCount: sessions.length // Para mostrar en tooltip si se desea
+        sessionsCount: sessions.length
       };
     });
 
@@ -233,11 +233,11 @@ export const usePlayerTrainings = ({
 
     setIntensityChartTitle(title);
     return sortedData;
-  }, [dateFilteredSessions, drillDownPath, skipExecution, userTimeZone]); // AGREGAR userTimeZone
+  }, [dateFilteredSessions, drillDownPath, skipExecution, userTimeZone]);
 
   // OPTIMIZACIÓN: Datos de radar con memoización
   const radarData = useMemo(() => {
-    if (!playerSurveys || playerSurveys.length === 0 || skipExecution) return []; // AGREGAR skipExecution
+    if (!playerSurveys || playerSurveys.length === 0 || skipExecution) return [];
 
     const totals = playerSurveys.reduce((acc, survey) => ({
       cansancioFisico: acc.cansancioFisico + survey.cansancioFisico,
@@ -259,7 +259,7 @@ export const usePlayerTrainings = ({
       { metric: 'Actitud', value: parseFloat((totals.actitudMental / count).toFixed(1)), fullMark: 5 },
       { metric: 'Sensaciones', value: parseFloat((totals.sensacionesTenisticas / count).toFixed(1)), fullMark: 5 }
     ];
-  }, [playerSurveys, skipExecution]); // AGREGAR skipExecution
+  }, [playerSurveys, skipExecution]);
 
   // OPTIMIZACIÓN: Función memoizada para datos de gráficos individuales
   const prepareIndividualChartData = useCallback((metricKey: string) => {
@@ -299,7 +299,6 @@ export const usePlayerTrainings = ({
       return {
         fecha: displayDate,
         value: parseFloat(average.toFixed(1)),
-        // Información adicional para el tooltip (opcional)
         surveysCount: surveys.length
       };
     });
@@ -329,32 +328,39 @@ export const usePlayerTrainings = ({
 
   // Handlers optimizados (solo activos cuando NO se salta la ejecución)
   const handlePieSliceClick = useCallback((dataPoint: ChartDataPoint) => {
-    if (skipExecution) return; // AGREGAR skipExecution
+    if (skipExecution) return;
     if (!dataPoint.name || (drillDownPath.length > 1 && dataPoint.type === 'Exercise')) return;
-    if (drillDownPath.length < 2) {
-      const currentType = drillDownPath[0] as TrainingType;
-      if (drillDownPath.length === 0 || EXERCISE_HIERARCHY[currentType]?.[dataPoint.name as TrainingArea]) {
+    
+    // Solo permitir drill down si es un tipo o área válida
+    if (drillDownPath.length === 0) {
+      // Verificar si es un tipo válido
+      if (Object.values(TipoType).includes(dataPoint.name as TipoType)) {
+        setDrillDownPath([dataPoint.name]);
+      }
+    } else if (drillDownPath.length === 1) {
+      // Verificar si es un área válida
+      if (Object.values(AreaType).includes(dataPoint.name as AreaType)) {
         setDrillDownPath(prev => [...prev, dataPoint.name]);
       }
     }
-  }, [drillDownPath, skipExecution]); // AGREGAR skipExecution
+  }, [drillDownPath, skipExecution]);
 
   const handleBreadcrumbClick = useCallback((index: number) => {
-    if (skipExecution) return; // AGREGAR skipExecution
+    if (skipExecution) return;
     setDrillDownPath(drillDownPath.slice(0, index));
-  }, [drillDownPath, skipExecution]); // AGREGAR skipExecution
+  }, [drillDownPath, skipExecution]);
 
   const resetDateFilters = useCallback(() => {
-    if (skipExecution) return; // AGREGAR skipExecution
+    if (skipExecution) return;
     const defaultDates = getDefaultDateRange();
     setStartDate(defaultDates.start);
     setEndDate(defaultDates.end);
     // Reset surveys when dates change
     setSurveysLoaded(false);
-  }, [skipExecution]); // AGREGAR skipExecution
+  }, [skipExecution]);
 
   const handleDateClick = useCallback((date: Date) => {
-    if (skipExecution) return; // AGREGAR skipExecution
+    if (skipExecution) return;
     const trainingsOnDay = sessions.some(s => 
       s.jugadorId === playerId && 
       new Date(s.fecha).toDateString() === date.toDateString()
@@ -363,7 +369,7 @@ export const usePlayerTrainings = ({
       setSelectedDate(date);
       setIsTrainingsModalOpen(true);
     }
-  }, [sessions, playerId, skipExecution]); // AGREGAR skipExecution
+  }, [sessions, playerId, skipExecution]);
 
   return {
     // Estados de filtros

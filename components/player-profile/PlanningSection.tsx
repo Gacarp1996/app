@@ -1,7 +1,12 @@
 // components/player-profile/PlanningSection.tsx - Con selección automática
 import React from 'react';
 import { TrainingPlan } from '../../Database/FirebaseTrainingPlans';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../../constants';
+import { 
+  TipoType, 
+  AreaType, 
+  getAreasForTipo, 
+  getEjerciciosForTipoArea 
+} from '../../constants/training';
 
 interface PlanningSectionProps {
   planLoading: boolean;
@@ -137,11 +142,12 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
 
           {/* Planificación por tipo - Grid en desktop */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {Object.keys(NEW_EXERCISE_HIERARCHY_CONST).map(tipo => {
+            {Object.values(TipoType).map(tipo => {
               const tipoHasDetail = hasDetailAtLevel(tipo);
               const areasTotal = calculateAreasTotalPercentage(tipo);
               const tipoPorcentaje = planificacion[tipo]?.porcentajeTotal || 0;
               const isAreasExceeded = areasTotal > tipoPorcentaje + 0.01;
+              const areas = getAreasForTipo(tipo as TipoType);
               
               return (
                 <div key={tipo} className="border border-gray-700 rounded-lg p-4 lg:p-6 space-y-4 bg-gray-800/30">
@@ -186,11 +192,12 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                         </div>
                       )}
                       
-                      {Object.keys(NEW_EXERCISE_HIERARCHY_CONST[tipo]).map(area => {
+                      {areas.map(area => {
                         const areaHasDetail = hasDetailAtLevel(tipo, area);
                         const ejerciciosTotal = calculateEjerciciosTotalPercentage(tipo, area);
                         const areaPorcentaje = planificacion[tipo]?.areas[area]?.porcentajeDelTotal || 0;
                         const isEjerciciosExceeded = ejerciciosTotal > areaPorcentaje + 0.01;
+                        const ejercicios = getEjerciciosForTipoArea(tipo as TipoType, area as AreaType);
                         
                         return (
                           <div key={area} className="bg-gray-900/50 rounded-lg p-3 lg:p-4 space-y-2 border border-gray-700">
@@ -234,7 +241,7 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                                     }
                                   </div>
                                 )}
-                                {NEW_EXERCISE_HIERARCHY_CONST[tipo][area].map(ejercicio => (
+                                {ejercicios.map(ejercicio => (
                                   <div key={ejercicio} className="flex items-center justify-between py-1">
                                     <span className="text-sm text-gray-400">{ejercicio}</span>
                                     <div className="flex items-center gap-1">

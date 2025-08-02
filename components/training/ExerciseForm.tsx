@@ -1,16 +1,17 @@
 import React from 'react';
 import { SpecificExercise } from '@/types';
+import { TipoType, AreaType, UI_LABELS } from '@/constants/training';
 
 interface ExerciseFormProps {
-  currentTipoKey: string;
-  currentAreaKey: string;
-  currentEjercicioName: string;
+  currentTipo: TipoType | '';
+  currentArea: AreaType | '';
+  currentEjercicio: string;
   currentEjercicioEspecifico: string;
   tiempoCantidad: string;
   intensidad: number;
-  availableTipoKeys: string[];
-  availableAreaKeys: string[];
-  availableEjercicioNames: string[];
+  availableTipos: TipoType[];
+  availableAreas: AreaType[];
+  availableEjercicios: string[];
   availableSpecificExercises: SpecificExercise[];
   onTipoChange: (value: string) => void;
   onAreaChange: (value: string) => void;
@@ -23,15 +24,15 @@ interface ExerciseFormProps {
 }
 
 const ExerciseForm: React.FC<ExerciseFormProps> = ({
-  currentTipoKey,
-  currentAreaKey,
-  currentEjercicioName,
+  currentTipo,
+  currentArea,
+  currentEjercicio,
   currentEjercicioEspecifico,
   tiempoCantidad,
   intensidad,
-  availableTipoKeys,
-  availableAreaKeys,
-  availableEjercicioNames,
+  availableTipos,
+  availableAreas,
+  availableEjercicios,
   availableSpecificExercises,
   onTipoChange,
   onAreaChange,
@@ -50,42 +51,52 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
         <div>
           <label className="block text-sm lg:text-base font-medium text-gray-400 mb-2">Tipo</label>
           <select 
-            value={currentTipoKey} 
+            value={currentTipo} 
             onChange={e => onTipoChange(e.target.value)} 
             className="w-full p-3 lg:p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
           >
             <option value="">Selecciona tipo</option>
-            {availableTipoKeys.map(tipo => (<option key={tipo} value={tipo}>{tipo}</option>))}
+            {availableTipos.map(tipo => (
+              <option key={tipo} value={tipo}>
+                {UI_LABELS.TIPOS[tipo]}
+              </option>
+            ))}
           </select>
         </div>
         <div>
           <label className="block text-sm lg:text-base font-medium text-gray-400 mb-2">Área</label>
           <select 
-            value={currentAreaKey} 
+            value={currentArea} 
             onChange={e => onAreaChange(e.target.value)} 
-            disabled={!currentTipoKey} 
+            disabled={!currentTipo} 
             className="w-full p-3 lg:p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <option value="">Selecciona área</option>
-            {availableAreaKeys.map(area => (<option key={area} value={area}>{area}</option>))}
+            {availableAreas.map(area => (
+              <option key={area} value={area}>
+                {UI_LABELS.AREAS[area]}
+              </option>
+            ))}
           </select>
         </div>
         <div>
           <label className="block text-sm lg:text-base font-medium text-gray-400 mb-2">Ejercicio</label>
           <select 
-            value={currentEjercicioName} 
+            value={currentEjercicio} 
             onChange={e => onEjercicioChange(e.target.value)} 
-            disabled={!currentAreaKey} 
+            disabled={!currentArea} 
             className="w-full p-3 lg:p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <option value="">Selecciona ejercicio</option>
-            {availableEjercicioNames.map(exName => (<option key={exName} value={exName}>{exName}</option>))}
+            {availableEjercicios.map(ejercicio => (
+              <option key={ejercicio} value={ejercicio}>{ejercicio}</option>
+            ))}
           </select>
         </div>
       </div>
 
       {/* Sección de ejercicios específicos */}
-      {currentEjercicioName && (
+      {currentEjercicio && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <label className="block text-sm lg:text-base font-medium text-gray-400">Ejercicio Específico (Opcional)</label>

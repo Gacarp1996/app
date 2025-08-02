@@ -2,52 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { TrainingSession, Player, LoggedExercise } from '../types';
 import { TrainingPlan, getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { getSessions } from '../Database/FirebaseSessions';
-import { NEW_EXERCISE_HIERARCHY_MAPPING } from '../constants/index';
 import { SessionExercise } from '../contexts/TrainingContext';
-
-// Función auxiliar para normalizar nombres de tipos y áreas
-const normalizeKey = (key: string): string => {
-  // Normalizar nombres comunes que pueden variar
-  const normalizations: Record<string, string> = {
-    // Tipos de entrenamiento
-    'Pelota viva': 'Peloteo',
-    'pelota viva': 'Peloteo',
-    'PELOTA VIVA': 'Peloteo',
-    
-    // Áreas de entrenamiento
-    'Primeras pelotas': 'Primeras pelotas',
-    'primeras pelotas': 'Primeras pelotas',
-    'PRIMERAS PELOTAS': 'Primeras pelotas',
-    'Primeras Pelotas': 'Primeras pelotas',
-    
-    'Canasto': 'Canasto',
-    'canasto': 'Canasto',
-    'CANASTO': 'Canasto',
-    
-    'Fondo': 'Juego de base',
-    'fondo': 'Juego de base',
-    'FONDO': 'Juego de base',
-    
-    'Juego de base': 'Juego de base',
-    'juego de base': 'Juego de base',
-    'JUEGO DE BASE': 'Juego de base',
-    
-    'Red': 'Juego de red',  // ✅ Normalizar "Red" a "Juego de red"
-    'red': 'Juego de red',
-    'RED': 'Juego de red',
-    'Juego de red': 'Juego de red',
-    'juego de red': 'Juego de red',
-    'JUEGO DE RED': 'Juego de red',
-    
-    'Puntos': 'Puntos',
-    'puntos': 'Puntos',
-    'PUNTOS': 'Puntos'
-  };
-  
-  const normalized = normalizations[key] || key;
-  console.log(`🔧 [PLANNING] Normalización: "${key}" → "${normalized}"`);
-  return normalized;
-};
 
 export interface AnalysisNode {
   name: string;
@@ -127,18 +82,6 @@ export const usePlanningAnalysis = ({
           const isPlayerMatch = session.jugadorId === player.id;
           const isInRange = sessionDate >= fechaInicio;
           
-          // ✅ LOG ESPECÍFICO para debug de sesiones de Augusto
-          if (player.name === "Augusto Peralta") {
-            console.log(`🔍 [PLANNING] Sesión ${session.id}:`, {
-              jugadorIdBuscado: player.id,
-              jugadorIdSesion: session.jugadorId,
-              coincide: isPlayerMatch,
-              fecha: session.fecha,
-              enRango: isInRange,
-              ejercicios: session.ejercicios?.length || 0
-            });
-          }
-          
           if (isPlayerMatch) {
             console.log('📊 [PLANNING] Sesión del jugador:', {
               fecha: session.fecha,
@@ -207,77 +150,21 @@ export const usePlanningAnalysis = ({
     const stats: Record<string, Record<string, Record<string, number>>> = {};
     let totalMinutes = 0;
 
-    // Procesar sesiones guardadas
-    sessions.forEach((session, sessionIndex) => {
-      console.log(`📋 [PLANNING] Procesando sesión ${sessionIndex + 1}:`, {
-        fecha: session.fecha,
-        ejercicios: session.ejercicios.length
-      });
-
-      session.ejercicios.forEach((ejercicio, exerciseIndex) => {
-        const tiempo = parseFloat(ejercicio.tiempoCantidad.replace(/[^\d.]/g, '')) || 0;
-        totalMinutes += tiempo;
-
-        console.log(`🏃 [PLANNING] Ejercicio histórico ${exerciseIndex + 1}:`, {
-          tipo: ejercicio.tipo,
-          area: ejercicio.area,
-          ejercicio: ejercicio.ejercicio,
-          tiempo: tiempo
-        });
-
-        const tipoKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP).find(
-          key => NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP[key] === ejercicio.tipo
-        ) || normalizeKey(ejercicio.tipo);
-        
-        const areaKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP).find(
-          key => NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP[key] === ejercicio.area
-        ) || normalizeKey(ejercicio.area);
-
-        console.log(`🔄 [PLANNING] Mapeo histórico:`, {
-          tipoOriginal: ejercicio.tipo,
-          tipoMapeado: tipoKey,
-          areaOriginal: ejercicio.area,
-          areaMapeada: areaKey
-        });
-
-        if (!stats[tipoKey]) stats[tipoKey] = {};
-        if (!stats[tipoKey][areaKey]) stats[tipoKey][areaKey] = {};
-        if (!stats[tipoKey][areaKey][ejercicio.ejercicio]) {
-          stats[tipoKey][areaKey][ejercicio.ejercicio] = 0;
-        }
-
-        stats[tipoKey][areaKey][ejercicio.ejercicio] += tiempo;
-      });
-    });
-
-    // NUEVO: Procesar ejercicios de la sesión actual
-    console.log('🔥 [PLANNING] Procesando ejercicios de sesión actual:', currentSessionAsLoggedExercises.length);
-    
-    currentSessionAsLoggedExercises.forEach((ejercicio, exerciseIndex) => {
+    // Función helper para procesar ejercicios
+    const processExercise = (ejercicio: LoggedExercise, index: number, source: 'histórico' | 'actual') => {
       const tiempo = parseFloat(ejercicio.tiempoCantidad.replace(/[^\d.]/g, '')) || 0;
       totalMinutes += tiempo;
 
-      console.log(`🏃 [PLANNING] Ejercicio actual ${exerciseIndex + 1}:`, {
+      console.log(`🏃 [PLANNING] Ejercicio ${source} ${index + 1}:`, {
         tipo: ejercicio.tipo,
         area: ejercicio.area,
         ejercicio: ejercicio.ejercicio,
         tiempo: tiempo
       });
 
-      const tipoKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP).find(
-        key => NEW_EXERCISE_HIERARCHY_MAPPING.TYPE_MAP[key] === ejercicio.tipo
-      ) || normalizeKey(ejercicio.tipo);
-      
-      const areaKey = Object.keys(NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP).find(
-        key => NEW_EXERCISE_HIERARCHY_MAPPING.AREA_MAP[key] === ejercicio.area
-      ) || normalizeKey(ejercicio.area);
-
-      console.log(`🔄 [PLANNING] Mapeo actual:`, {
-        tipoOriginal: ejercicio.tipo,
-        tipoMapeado: tipoKey,
-        areaOriginal: ejercicio.area,
-        areaMapeada: areaKey
-      });
+      // Los valores ya vienen correctos de la DB, no necesitamos mapear
+      const tipoKey = ejercicio.tipo;
+      const areaKey = ejercicio.area;
 
       if (!stats[tipoKey]) stats[tipoKey] = {};
       if (!stats[tipoKey][areaKey]) stats[tipoKey][areaKey] = {};
@@ -286,6 +173,25 @@ export const usePlanningAnalysis = ({
       }
 
       stats[tipoKey][areaKey][ejercicio.ejercicio] += tiempo;
+    };
+
+    // Procesar sesiones guardadas
+    sessions.forEach((session, sessionIndex) => {
+      console.log(`📋 [PLANNING] Procesando sesión ${sessionIndex + 1}:`, {
+        fecha: session.fecha,
+        ejercicios: session.ejercicios.length
+      });
+
+      session.ejercicios.forEach((ejercicio, exerciseIndex) => {
+        processExercise(ejercicio, exerciseIndex, 'histórico');
+      });
+    });
+
+    // Procesar ejercicios de la sesión actual
+    console.log('🔥 [PLANNING] Procesando ejercicios de sesión actual:', currentSessionAsLoggedExercises.length);
+    
+    currentSessionAsLoggedExercises.forEach((ejercicio, exerciseIndex) => {
+      processExercise(ejercicio, exerciseIndex, 'actual');
     });
 
     console.log('⏱️ [PLANNING] Total minutos calculados:', totalMinutes);

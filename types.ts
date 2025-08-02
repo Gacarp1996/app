@@ -1,3 +1,5 @@
+import { TipoType, AreaType } from './constants/training';
+
 export interface Player {
   id: string;
   name: string;
@@ -15,8 +17,6 @@ export interface Player {
   frecuenciaSemanal?: string;
 }
 
-// --- MODIFICADO ---
-// Se actualizan los estados posibles para un objetivo.
 export type ObjectiveEstado = 'actual-progreso' | 'consolidacion' | 'incorporado';
 
 export interface Objective {
@@ -26,12 +26,6 @@ export interface Objective {
   cuerpoObjetivo?: string; 
   estado: ObjectiveEstado; 
 }
-
-export enum TrainingType {
-  CANASTO = "Canasto", // Basket drill
-  PELOTA_VIVA = "Pelota viva", // Live ball
-}
-
 
 export interface TrainingSession {
   id: string;
@@ -44,8 +38,8 @@ export interface TrainingSession {
 
 export interface LoggedExercise {
   id: string;
-  tipo: TrainingType;
-  area: TrainingArea; 
+  tipo: TipoType;
+  area: AreaType; 
   ejercicio: string;
   ejercicioEspecifico?: string;
   tiempoCantidad: string;
@@ -55,16 +49,9 @@ export interface LoggedExercise {
 export interface SpecificExercise {
   id: string;
   name: string;
-  tipo: string;
-  area: string;
+  tipo: TipoType;
+  area: AreaType;
   ejercicio: string;
-}
-
-export enum TrainingArea {
-  JUEGO_DE_BASE = "Juego de base",
-  RED = "Red", // "Juego de red" maps to this
-  PRIMERAS_PELOTAS = "Primeras Pelotas",
-  PUNTOS = "Puntos",
 }
 
 export interface ChartDataPoint {
@@ -85,16 +72,15 @@ export interface Tournament {
   jugadorId: string;
   nombreTorneo: string;
   gradoImportancia: TournamentImportance;
-  fechaInicio: string; // ISO date string
-  fechaFin: string; // ISO date string
+  fechaInicio: string;
+  fechaFin: string;
 }
 
-// Tipos para la encuesta post-entrenamiento
 export interface PostTrainingSurvey {
   id: string;
   jugadorId: string;
   sessionId: string;
-  fecha: string; // ISO date string
+  fecha: string;
   cansancioFisico: number; // 1-5
   concentracion: number; // 1-5
   actitudMental: number; // 1-5
@@ -109,9 +95,6 @@ export interface SurveyDataPoint {
   sensacionesTenisticas: number;
 }
 
-
-
-// Tipos para Academia
 export type TipoEntidad = 'academia' | 'grupo-entrenamiento';
 
 export interface Academia {
@@ -124,36 +107,29 @@ export interface Academia {
   limiteJugadores?: number;
 }
 
-
-
-// Tipos para valoraciones de torneos disputados
 export type RendimientoJugador = 'Muy malo' | 'Malo' | 'Bueno' | 'Muy bueno' | 'Excelente';
 
-// Interfaz para torneos disputados (ACTUALIZADA SIN CONFORMIDAD GENERAL)
 export interface DisputedTournament {
   id: string;
   jugadorId: string;
   nombreTorneo: string;
-  fechaInicio: string; // ISO date string
-  fechaFin: string; // ISO date string
-  resultado: string; // "Primera ronda de clasificación", "Campeón", etc.
+  fechaInicio: string;
+  fechaFin: string;
+  resultado: string;
   nivelDificultad: number; // 1-5
   rendimientoJugador: RendimientoJugador;
-  observaciones?: string; // Campo opcional
-  fechaRegistro?: string; // Cuándo se registró el resultado
-  torneoFuturoId?: string; // Si el torneo fue "convertido" desde un torneo futuro
+  observaciones?: string;
+  fechaRegistro?: string;
+  torneoFuturoId?: string;
 }
 
-// Para estadísticas y gráficos (ACTUALIZADA)
 export interface TournamentPerformanceData {
   fecha: string;
-  rendimiento: number; // 1-5 (mapeado desde RendimientoJugador)
+  rendimiento: number; // 1-5
   dificultad: number;
   resultado: string;
   nombreTorneo: string;
 }
-
-// ===== TIPOS PARA CONFIGURACIÓN DE ACADEMIA =====
 
 export interface AcademiaConfig {
   id: string;
@@ -167,4 +143,81 @@ export interface AcademiaConfig {
   };
   fechaCreacion: string;
   fechaActualizacion: string;
+}
+
+// Tipos adicionales para el contexto de entrenamiento
+export interface SessionExercise extends LoggedExercise {
+  loggedForPlayerId: string;
+  loggedForPlayerName: string;
+}
+
+// Tipos para planes de entrenamiento
+export interface TrainingPlanArea {
+  porcentajeDelTotal: number;
+  ejercicios?: {
+    [ejercicioName: string]: {
+      porcentajeDelTotal: number;
+    };
+  };
+}
+
+export interface TrainingPlanTipo {
+  porcentajeTotal: number;
+  areas: {
+    [area in AreaType]?: TrainingPlanArea;
+  };
+}
+
+export interface TrainingPlan {
+  id: string;
+  jugadorId: string;
+  academiaId: string;
+  planificacion: {
+    [tipo in TipoType]?: TrainingPlanTipo;
+  };
+  fechaCreacion: string;
+  fechaActualizacion: string;
+}
+
+// Tipos para análisis y estadísticas
+export interface TrainingStats {
+  tipo: TipoType;
+  area: AreaType;
+  ejercicio: string;
+  tiempoTotal: number;
+  porcentaje: number;
+  sesiones: number;
+}
+
+export interface PlayerTrainingAnalysis {
+  playerId: string;
+  playerName: string;
+  totalSessions: number;
+  totalExercises: number;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+  stats: TrainingStats[];
+}
+
+// Type guards
+export function isLoggedExercise(obj: any): obj is LoggedExercise {
+  return obj &&
+    typeof obj.id === 'string' &&
+    Object.values(TipoType).includes(obj.tipo) &&
+    Object.values(AreaType).includes(obj.area) &&
+    typeof obj.ejercicio === 'string' &&
+    typeof obj.tiempoCantidad === 'string' &&
+    typeof obj.intensidad === 'number';
+}
+
+export function isTrainingSession(obj: any): obj is TrainingSession {
+  return obj &&
+    typeof obj.id === 'string' &&
+    typeof obj.jugadorId === 'string' &&
+    typeof obj.entrenadorId === 'string' &&
+    typeof obj.fecha === 'string' &&
+    Array.isArray(obj.ejercicios) &&
+    obj.ejercicios.every(isLoggedExercise);
 }

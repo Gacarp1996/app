@@ -6,7 +6,7 @@ import {
   saveTrainingPlan, 
   validateFlexiblePlan as validatePlan 
 } from '../Database/FirebaseTrainingPlans';
-import { NEW_EXERCISE_HIERARCHY_CONST } from '../constants/index';
+import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea } from '../constants/training';
 
 interface UseTrainingPlanProps {
   playerId: string | undefined;
@@ -50,20 +50,27 @@ export const useTrainingPlan = ({ playerId, academiaId, activeTab }: UseTraining
   const initializeEmptyPlan = () => {
     const newPlan: TrainingPlan['planificacion'] = {};
     
-    Object.keys(NEW_EXERCISE_HIERARCHY_CONST).forEach(tipo => {
+    // Usar los enums de tipos directamente
+    Object.values(TipoType).forEach(tipo => {
       newPlan[tipo] = {
         porcentajeTotal: 0,
         areas: {}
       };
       
-      Object.keys(NEW_EXERCISE_HIERARCHY_CONST[tipo]).forEach(area => {
+      // Obtener áreas válidas para este tipo
+      const areasForTipo = getAreasForTipo(tipo);
+      
+      areasForTipo.forEach(area => {
         newPlan[tipo].areas[area] = {
           porcentajeDelTotal: 0,
           ejercicios: {}
         };
         
-        if (NEW_EXERCISE_HIERARCHY_CONST[tipo][area] && Array.isArray(NEW_EXERCISE_HIERARCHY_CONST[tipo][area])) {
-          NEW_EXERCISE_HIERARCHY_CONST[tipo][area].forEach(ejercicio => {
+        // Obtener ejercicios válidos para esta combinación tipo/área
+        const ejerciciosForArea = getEjerciciosForTipoArea(tipo, area);
+        
+        if (ejerciciosForArea && ejerciciosForArea.length > 0) {
+          ejerciciosForArea.forEach(ejercicio => {
             if (!newPlan[tipo].areas[area].ejercicios) {
               newPlan[tipo].areas[area].ejercicios = {};
             }
