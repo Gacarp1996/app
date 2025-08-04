@@ -4,6 +4,7 @@ import { TrainingSession, LoggedExercise } from '../types';
 import { TipoType, AreaType } from '../constants/training';
 import { getSessions } from '../Database/FirebaseSessions';
 import { getTrainingPlan, TrainingPlan } from '../Database/FirebaseTrainingPlans';
+import { useAcademia } from '../contexts/AcademiaContext'; // ✅ NUEVO IMPORT
 
 interface Recommendation {
   level: 'TIPO' | 'AREA' | 'EJERCICIO';
@@ -38,15 +39,18 @@ interface Participant {
   name: string;
 }
 
+// ✅ INTERFACE SIMPLIFICADA - SIN academiaId
 interface UseActiveSessionRecommendationsProps {
   participants: Participant[];
-  academiaId: string;
 }
 
 export const useActiveSessionRecommendations = ({
-  participants,
-  academiaId
+  participants
 }: UseActiveSessionRecommendationsProps) => {
+  // ✅ USAR CONTEXTO PARA OBTENER academiaId
+  const { academiaActual } = useAcademia();
+  const academiaId = academiaActual?.id || '';
+  
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [trainingPlans, setTrainingPlans] = useState<{[playerId: string]: TrainingPlan}>({});
   const [realSessions, setRealSessions] = useState<TrainingSession[]>([]);
@@ -722,9 +726,9 @@ export const useActiveSessionRecommendations = ({
   const generateGroupRecommendationText = (coincidencias: any[], individuales: any[]) => {
     if (coincidencias.length > 0) {
       const topCoincidence = coincidencias[0];
-      let action = topCoincidence.type === 'INCREMENTAR' ? 'incrementar' : 'reducir';
-      let area = topCoincidence.area;
-      let parentType = topCoincidence.parentType || '';
+      const action = topCoincidence.type === 'INCREMENTAR' ? 'incrementar' : 'reducir';
+      const area = topCoincidence.area;
+      const parentType = topCoincidence.parentType || '';
 
       if (topCoincidence.type === 'REDUCIR') {
         let alternativo = '';

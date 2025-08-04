@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAcademia } from '../../contexts/AcademiaContext';
+import { usePlayer } from '../../contexts/PlayerContext';
 import { getTrainedPlayersByCoach, getSessions } from '../../Database/FirebaseSessions';
-import { getPlayers } from '../../Database/FirebasePlayers';
 import { getObjectives } from '../../Database/FirebaseObjectives';
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
@@ -11,9 +11,6 @@ import TrainedPlayersWidget from '@/components/dashboard/TrainedPlayersWidget';
 import PlayerStatusWidget from '@/components/dashboard/PlayerStatusWidget';
 import PlanningResumeWidget from '@/components/dashboard/PlanningResumeWidget';
 import WeeklySatisfactionWidget from '@/components/dashboard/WeeklySatisfactionWidget';
-
-// Importar widgets
-
 
 // Interfaces locales
 interface TrainedPlayerData {
@@ -44,6 +41,7 @@ interface WeeklySatisfaction {
 const useAcademyCoachDashboard = () => {
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
+  const { players: allPlayersFromContext } = usePlayer();
   
   // Estados
   const [trainedPlayers, setTrainedPlayers] = useState<TrainedPlayerData[]>([]);
@@ -70,10 +68,10 @@ const useAcademyCoachDashboard = () => {
   });
 
   useEffect(() => {
-    if (currentUser && academiaActual) {
+    if (currentUser && academiaActual && allPlayersFromContext.length > 0) {
       loadDashboardData();
     }
-  }, [currentUser, academiaActual, dateRange]);
+  }, [currentUser, academiaActual, dateRange, allPlayersFromContext]);
 
   const loadDashboardData = async () => {
     if (!currentUser || !academiaActual) return;
@@ -82,18 +80,16 @@ const useAcademyCoachDashboard = () => {
     setError(null);
     
     try {
-      // Cargar datos en paralelo
-      const [trainedPlayersData, players] = await Promise.all([
-        // Jugadores entrenados por este coach en el rango de fechas
-        getTrainedPlayersByCoach(
-          academiaActual.id,
-          currentUser.uid,
-          dateRange.start,
-          dateRange.end
-        ),
-        // Todos los jugadores de la academia
-        getPlayers(academiaActual.id)
-      ]);
+      // Cargar datos del coach
+      const trainedPlayersData = await getTrainedPlayersByCoach(
+        academiaActual.id,
+        currentUser.uid,
+        dateRange.start,
+        dateRange.end
+      );
+
+      // Usar jugadores del contexto
+      const players = allPlayersFromContext;
 
       // Filtrar solo jugadores activos
       const activePlayers = players.filter(p => p.estado === 'activo');

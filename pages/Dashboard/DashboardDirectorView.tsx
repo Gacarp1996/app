@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useAcademia } from '../../contexts/AcademiaContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePlayer } from '../../contexts/PlayerContext';
 import { getSessions } from '../../Database/FirebaseSessions';
 import { getAcademiaUsers, AcademiaUser } from '../../Database/FirebaseRoles';
-import { getPlayers } from '../../Database/FirebasePlayers';
 import { getObjectives } from '../../Database/FirebaseObjectives';
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
 import { TrainingSession, Player, Objective, PostTrainingSurvey } from '../../types';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import ActiveTrainersWidget from '@/components/dashboard/ActiveTrainersWidget';
-
 import TodayTrainingsWidget from '@/components/dashboard/TodayTrainingsWidget';
 import WeeklySatisfactionWidget from '@/components/dashboard/WeeklySatisfactionWidget';
 import PlanningResumeWidget from '@/components/dashboard/PlanningResumeWidget';
 import PlayerStatusWidget from '@/components/dashboard/PlayerStatusWidget';
 import { UpcomingCompetitionsWidget } from '@/components/dashboard/UpcomingCompetitionsWidget';
-
 
 // Interfaces para los datos de los widgets
 interface ActiveTrainer {
@@ -47,6 +45,7 @@ interface WeeklySatisfaction {
 const useDirectorDashboardData = () => {
   const { academiaActual } = useAcademia();
   const { currentUser } = useAuth();
+  const { players: allPlayersFromContext } = usePlayer();
   
   const [activeTrainers, setActiveTrainers] = useState<ActiveTrainer[]>([]);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>({
@@ -68,10 +67,10 @@ const useDirectorDashboardData = () => {
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
 
   useEffect(() => {
-    if (academiaActual) {
+    if (academiaActual && allPlayersFromContext.length > 0) {
       loadDashboardData();
     }
-  }, [academiaActual]);
+  }, [academiaActual, allPlayersFromContext]);
 
   const loadDashboardData = async () => {
     if (!academiaActual) return;
@@ -81,11 +80,13 @@ const useDirectorDashboardData = () => {
     
     try {
       // Cargar datos base en paralelo
-      const [sessions, users, players] = await Promise.all([
+      const [sessions, users] = await Promise.all([
         getSessions(academiaActual.id),
-        getAcademiaUsers(academiaActual.id),
-        getPlayers(academiaActual.id)
+        getAcademiaUsers(academiaActual.id)
       ]);
+
+      // Usar jugadores del contexto
+      const players = allPlayersFromContext;
 
       // Filtrar solo jugadores activos
       const activePlayers = players.filter(p => p.estado === 'activo');

@@ -3,19 +3,20 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { TrainingSession, Player, PostTrainingSurvey } from '../types';
 import { getSurveyBySessionId, addPostTrainingSurvey, updateSurvey } from '../Database/FirebaseSurveys';
 import { useAcademia } from '../contexts/AcademiaContext';
+import { usePlayer } from '../contexts/PlayerContext';
 import { useTraining } from '../contexts/TrainingContext';
 import { UI_LABELS } from '../constants/training';
 import PostTrainingSurveyModal from '@/components/training/PostTrainingSurveyModal';
 
 interface SessionDetailPageProps {
   sessions: TrainingSession[];
-  players: Player[];
 }
 
-const SessionDetailPage: React.FC<SessionDetailPageProps> = ({ sessions, players }) => {
+const SessionDetailPage: React.FC<SessionDetailPageProps> = ({ sessions }) => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { academiaActual } = useAcademia();
+  const { players } = usePlayer();
   const { loadSessionForEdit } = useTraining();
   
   const [survey, setSurvey] = useState<PostTrainingSurvey | null>(null);

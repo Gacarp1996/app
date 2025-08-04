@@ -1,16 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Player, Academia } from '../types';
-import { addPlayer, updatePlayer } from '../Database/FirebasePlayers';
+import { Academia } from '../types';
+import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
 
+
+// ✅ INTERFACE SIMPLIFICADA
 interface PlayersListPageProps {
-  players: Player[];
-  onDataChange: () => void;
-  academiaId: string;
   academiaActual?: Academia;
 }
 
-const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange, academiaId, academiaActual }) => {
+const PlayersListPage: React.FC<PlayersListPageProps> = ({ academiaActual }) => {
+  // ✅ USAR PLAYER CONTEXT
+  const { 
+    players, 
+    loadingPlayers, 
+    addPlayer: addPlayerToContext, 
+    updatePlayer: updatePlayerInContext 
+  } = usePlayer();
+  
   const [newPlayerName, setNewPlayerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
@@ -31,16 +38,20 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange
       }
     }
 
-    const newPlayer: Omit<Player, "id"> = {
-      name: newPlayerName.trim(),
-      estado: 'activo',
-    };
-    await addPlayer(academiaId, newPlayer);
-    setNewPlayerName('');
-    onDataChange(); 
+    // ✅ USAR FUNCIÓN DEL CONTEXTO
+    try {
+      await addPlayerToContext({
+        name: newPlayerName.trim(),
+        estado: 'activo',
+      });
+      setNewPlayerName('');
+    } catch (error) {
+      console.error('Error agregando jugador:', error);
+      alert('Error al agregar el jugador');
+    }
   };
 
-  const handleStartEdit = (player: Player) => {
+  const handleStartEdit = (player: any) => {
     setEditingPlayerId(player.id);
     setEditingName(player.name);
   };
@@ -55,10 +66,16 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange
       alert('El nombre no puede estar vacío.');
       return;
     }
-    await updatePlayer(academiaId, playerId, { name: editingName.trim() });
-    setEditingPlayerId(null);
-    setEditingName('');
-    onDataChange();
+    
+    // ✅ USAR FUNCIÓN DEL CONTEXTO
+    try {
+      await updatePlayerInContext(playerId, { name: editingName.trim() });
+      setEditingPlayerId(null);
+      setEditingName('');
+    } catch (error) {
+      console.error('Error actualizando jugador:', error);
+      alert('Error al actualizar el jugador');
+    }
   };
 
   const filteredPlayers = useMemo(() => {
@@ -69,6 +86,18 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ players, onDataChange
         player.name && player.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
   }, [players, searchTerm]);
+
+  // ✅ MOSTRAR LOADING SI ESTÁ CARGANDO
+  if (loadingPlayers) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto"></div>
+          <p className="mt-4 text-gray-400">Cargando jugadores...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">

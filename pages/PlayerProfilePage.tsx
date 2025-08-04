@@ -2,6 +2,8 @@
 import React, { useState, useMemo, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Player, Objective, TrainingSession, Tournament } from '../types';
+import { usePlayer } from '../contexts/PlayerContext';
+import { useAcademia } from '../contexts/AcademiaContext';
 
 import Modal from '../components/shared/Modal';
 import TrainingsOnDateModal from '../components/training/TrainingOnDateModal';
@@ -36,12 +38,10 @@ import { usePlayerTournaments } from '../hooks/usePlayerTournaments';
 import { formatDate } from '../components/player-profile/utils';
 
 interface PlayerProfilePageProps {
-  players: Player[];
   objectives: Objective[];
   sessions: TrainingSession[];
   tournaments: Tournament[];
   onDataChange: () => void;
-  academiaId: string;
 }
 
 // LOADING COMPONENT REUTILIZABLE
@@ -66,14 +66,15 @@ const TabLoadingSkeleton: React.FC<{ message?: string }> = ({ message = "Cargand
 );
 
 const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ 
-  players, 
   objectives, 
   sessions, 
   tournaments, 
-  onDataChange, 
-  academiaId 
+  onDataChange
 }) => {
   const { playerId } = useParams<{ playerId: string }>();
+  const { players } = usePlayer();
+  const { academiaActual } = useAcademia();
+  const academiaId = academiaActual?.id || '';
   
   // Estados de UI
   const [activeTab, setActiveTab] = useState<Tab>("perfil");
@@ -87,10 +88,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
     profileSetters, 
     handlers: profileHandlers 
   } = usePlayerProfile({ 
-    players, 
-    playerId, 
-    academiaId, 
-    onDataChange 
+    playerId
   });
 
   // HOOKS CONDICIONALES - Solo se ejecutan cuando el tab está activo
@@ -106,15 +104,11 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
     playerId, 
     academiaId, 
     activeTab
-    // Removido skipExecution - no existe en este hook
   });
 
   const tournamentsHook = usePlayerTournaments({ 
     playerId, 
-    academiaId, 
-    activeTab, 
-    onDataChange
-    // Removido skipExecution - no existe en este hook
+    activeTab
   });
 
   // Datos calculados básicos (solo cuando son necesarios)

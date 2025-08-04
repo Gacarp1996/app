@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Player, Objective, Tournament } from '../types';
 import { useTrainingSession } from '../hooks/useTrainingSession';
+import { usePlayer } from '../contexts/PlayerContext';
+import { useAcademia } from '../contexts/AcademiaContext';
 import PostTrainingSurveyModal from '../components/training/PostTrainingSurveyModal';
 import SurveyConfirmationModal from '../components/training/SurveyConfirmationModal';
 import SurveyExitConfirmModal from '../components/training/SurveyExitConfirmModal';
@@ -15,11 +17,8 @@ import ObjectiveModal from '@/components/player-profile/ObjectiveModal';
 import ActiveSessionRecommendations from '../components/training/ActiveSessionRecommendations';
 
 interface TrainingSessionPageProps {
-  allPlayers: Player[];
   allObjectives: Objective[];
   allTournaments: Tournament[];
-  onDataChange: () => Promise<void>;
-  academiaId: string;
   sessions?: any[];
 }
 
@@ -27,6 +26,9 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { playerId } = useParams();
+  const { players: allPlayers } = usePlayer();
+  const { academiaActual } = useAcademia();
+  const academiaId = academiaActual?.id || '';
   
   // Detectar si estamos en modo edición
   const editSessionId = searchParams.get('edit');
@@ -35,11 +37,11 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
   // Estado para tracking de navegación
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
-  const { sessions = [], academiaId } = props;
+  const { sessions = [] } = props;
   
   // Encontrar la sesión original si estamos editando
   const originalSession = isEditMode ? sessions.find(s => s.id === editSessionId) : null;
-  const originalPlayer = originalSession ? props.allPlayers.find(p => p.id === originalSession.jugadorId) : null;
+  const originalPlayer = originalSession ? allPlayers.find(p => p.id === originalSession.jugadorId) : null;
 
   const {
     // Estados
@@ -59,7 +61,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     isAddSpecificExerciseModalOpen,
     enabledSurveyQuestions,
     
-    // Estados del formulario - CAMBIO: Nombres actualizados sin "Key"
+    // Estados del formulario
     currentTipo,
     currentArea,
     currentEjercicio,
@@ -67,7 +69,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     tiempoCantidad,
     intensidad,
     
-    // Opciones disponibles - CAMBIO: Nombres actualizados sin "Keys"
+    // Opciones disponibles
     availableTipos,
     availableAreas,
     availableEjercicios,
@@ -108,12 +110,12 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     handleConfirmExitSurveys,
     handleCancelExitSurveys,
     
-    // Props para componentes
-    allPlayers,
+    // Props para componentes (ya viene del hook actualizado)
     allObjectives,
     allTournaments,
   } = useTrainingSession({
-    ...props,
+    allObjectives: props.allObjectives,
+    allTournaments: props.allTournaments,
     editSessionId,
     originalSession
   });
@@ -342,9 +344,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
             {/* Panel de recomendaciones de entrenamiento */}
             <ActiveSessionRecommendations
               participants={participants}
-              academiaId={academiaId}
-              sessions={sessions}
-            />
+                          />
             
             {/* Mostrar objetivos cuando hay un solo jugador seleccionado */}
             {singleActivePlayer && objectivesForSingleActivePlayer.length > 0 && (
@@ -355,7 +355,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
               </div>
             )}
 
-            {/* Formulario de ejercicio mejorado para desktop - CAMBIO: Props actualizadas */}
+            {/* Formulario de ejercicio mejorado para desktop */}
             <ExerciseForm
               currentTipo={currentTipo}
               currentArea={currentArea}

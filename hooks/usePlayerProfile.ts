@@ -2,22 +2,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Player } from '../types';
-import { updatePlayer } from '../Database/FirebasePlayers';
+import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
+import { useAcademia } from '../contexts/AcademiaContext'; // ✅ NUEVO IMPORT
 
+// ✅ INTERFACE SIMPLIFICADA
 interface UsePlayerProfileProps {
-  players: Player[];
   playerId: string | undefined;
-  academiaId: string;
-  onDataChange: () => void;
 }
 
 export const usePlayerProfile = ({ 
-  players, 
-  playerId, 
-  academiaId, 
-  onDataChange 
+  playerId
 }: UsePlayerProfileProps) => {
   const navigate = useNavigate();
+  
+  // ✅ USAR CONTEXTOS
+  const { players, updatePlayer: updatePlayerContext } = usePlayer();
+  const { academiaActual } = useAcademia();
   
   // Estados del jugador
   const [player, setPlayer] = useState<Player | null>(null);
@@ -59,8 +59,8 @@ export const usePlayerProfile = ({
   // Handlers
   const handleArchivePlayer = async () => {
     if (player) {
-      await updatePlayer(academiaId, player.id, { estado: 'archivado' });
-      onDataChange();
+      // ✅ USAR updatePlayerContext EN LUGAR DE updatePlayer
+      await updatePlayerContext(player.id, { estado: 'archivado' });
       navigate('/players');
     }
   };
@@ -80,8 +80,8 @@ export const usePlayerProfile = ({
       lesionesPasadas,
       frecuenciaSemanal,
     };
-    await updatePlayer(academiaId, player.id, profileData);
-    onDataChange();
+    // ✅ USAR updatePlayerContext
+    await updatePlayerContext(player.id, profileData);
     alert("Perfil actualizado.");
   };
 

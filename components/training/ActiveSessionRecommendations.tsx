@@ -9,23 +9,20 @@ interface Participant {
   name: string;
 }
 
+// ✅ INTERFACE SIMPLIFICADA - Eliminamos academiaId y sessions
 interface ActiveSessionRecommendationsProps {
   participants: Participant[];
-  academiaId: string;
-  sessions: TrainingSession[]; // Mantenido por compatibilidad
 }
 
 const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> = ({ 
-  participants, 
-  academiaId, 
-  sessions 
+  participants
 }) => {
   const [activeTab, setActiveTab] = useState<'individual' | 'group'>('individual');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(participants[0]?.id || '');
   const [expandedRecommendations, setExpandedRecommendations] = useState<Set<string>>(new Set());
   const [showLegend, setShowLegend] = useState(false);
 
-  // Usar el hook para toda la lógica
+  // ✅ USAR EL HOOK SIN academiaId
   const {
     recommendationsGenerated,
     individualRecommendations,
@@ -38,7 +35,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     analyzePlayerSessions,
     getIdealPercentageForType,
     getIdealPercentageForAreaInType
-  } = useActiveSessionRecommendations({ participants, academiaId });
+  } = useActiveSessionRecommendations({ participants });
 
   // Función para obtener el label UI para mostrar
   const getUILabel = (value: string, type: 'tipo' | 'area'): string => {

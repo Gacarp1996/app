@@ -1,6 +1,5 @@
 // Database/FirebaseUpcomingCompetitions.ts
 import { getTournaments } from './FirebaseTournaments';
-import { getPlayers } from './FirebasePlayers';
 import { Tournament, Player } from '../types';
 
 export interface PlayerCompetition {
@@ -12,13 +11,14 @@ export interface PlayerCompetition {
   tournamentId: string;
 }
 
-export const getUpcomingCompetitions = async (academiaId: string): Promise<PlayerCompetition[]> => {
+// ✅ CAMBIO: Agregar players como parámetro
+export const getUpcomingCompetitions = async (
+  academiaId: string,
+  players: Player[]  // Nuevo parámetro
+): Promise<PlayerCompetition[]> => {
   try {
-    // Obtener torneos y jugadores en paralelo
-    const [tournaments, players] = await Promise.all([
-      getTournaments(academiaId),
-      getPlayers(academiaId)
-    ]);
+    // Solo obtener torneos
+    const tournaments = await getTournaments(academiaId);
 
     const now = new Date();
     const upcomingCompetitions: PlayerCompetition[] = [];
@@ -62,13 +62,14 @@ export const getUpcomingCompetitions = async (academiaId: string): Promise<Playe
   }
 };
 
-// Función para obtener competencias de un jugador específico (útil para coaches)
+// ✅ CAMBIO: Actualizar las demás funciones
 export const getPlayerUpcomingCompetitions = async (
   academiaId: string, 
-  playerId: string
+  playerId: string,
+  players: Player[]  // Nuevo parámetro
 ): Promise<PlayerCompetition[]> => {
   try {
-    const allCompetitions = await getUpcomingCompetitions(academiaId);
+    const allCompetitions = await getUpcomingCompetitions(academiaId, players);
     return allCompetitions.filter(comp => comp.playerId === playerId);
   } catch (error) {
     console.error('Error obteniendo competencias del jugador:', error);
@@ -76,13 +77,13 @@ export const getPlayerUpcomingCompetitions = async (
   }
 };
 
-// Función para obtener competencias de múltiples jugadores (útil para coaches que entrenan jugadores específicos)
 export const getMultiplePlayersUpcomingCompetitions = async (
   academiaId: string, 
-  playerIds: string[]
+  playerIds: string[],
+  players: Player[]  // Nuevo parámetro
 ): Promise<PlayerCompetition[]> => {
   try {
-    const allCompetitions = await getUpcomingCompetitions(academiaId);
+    const allCompetitions = await getUpcomingCompetitions(academiaId, players);
     return allCompetitions.filter(comp => playerIds.includes(comp.playerId));
   } catch (error) {
     console.error('Error obteniendo competencias de múltiples jugadores:', error);
@@ -90,15 +91,14 @@ export const getMultiplePlayersUpcomingCompetitions = async (
   }
 };
 
-// Función específica para obtener competencias de jugadores entrenados por un coach específico
 export const getCoachPlayersUpcomingCompetitions = async (
   academiaId: string, 
-  coachId: string
+  coachId: string,
+  players: Player[]  // Nuevo parámetro
 ): Promise<PlayerCompetition[]> => {
   try {
-    // Aquí podrías obtener la lista de jugadores que entrena este coach
-    // Por ahora, devolvemos todas las competencias (se puede filtrar después)
-    const allCompetitions = await getUpcomingCompetitions(academiaId);
+    // Aquí podrías filtrar solo los jugadores del coach si tienes esa información
+    const allCompetitions = await getUpcomingCompetitions(academiaId, players);
     return allCompetitions;
   } catch (error) {
     console.error('Error obteniendo competencias del coach:', error);

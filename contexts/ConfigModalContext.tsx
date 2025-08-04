@@ -13,6 +13,8 @@ interface ConfigModalContextType {
   closeAdvancedModal: () => void;
 }
 
+const x = 5;
+
 const ConfigModalContext = createContext<ConfigModalContextType | undefined>(undefined);
 
 export const ConfigModalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

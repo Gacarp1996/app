@@ -3,13 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Player } from '../types';
 import { MAX_PLAYERS_PER_SESSION } from '../constants/index';
 import { useTraining } from '../contexts/TrainingContext';
+import { usePlayer } from '../contexts/PlayerContext';
 
 interface StartTrainingPageProps {
-  players: Player[];
+  // Sin props necesarias
 }
 
-const StartTrainingPage: React.FC<StartTrainingPageProps> = ({ players }) => {
+const StartTrainingPage: React.FC<StartTrainingPageProps> = () => {
   const { startSession, isSessionActive, endSession, loadSession, participants } = useTraining();
+  const { players } = usePlayer();
   const navigate = useNavigate();
   
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());

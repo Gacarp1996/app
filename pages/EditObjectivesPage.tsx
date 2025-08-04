@@ -3,17 +3,20 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Player, Objective, ObjectiveEstado } from '../types';
 import { MAX_ACTIVE_OBJECTIVES, OBJECTIVE_ESTADOS } from '../constants/index';
 import { addObjective, updateObjective, deleteObjective } from '../Database/FirebaseObjectives';
+import { usePlayer } from '../contexts/PlayerContext';
+import { useAcademia } from '../contexts/AcademiaContext';
 
 interface EditObjectivesPageProps {
-  players: Player[];
   allObjectives: Objective[];
   onDataChange: () => void;
-  academiaId: string;
 }
 
-const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ players, allObjectives, onDataChange, academiaId }) => {
+const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ allObjectives, onDataChange }) => {
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
+  const { players } = usePlayer();
+  const { academiaActual } = useAcademia();
+  const academiaId = academiaActual?.id || '';
 
   const [player, setPlayer] = useState<Player | null>(null);
   const [newObjectiveText, setNewObjectiveText] = useState('');
@@ -37,7 +40,7 @@ const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ players, allObj
     if (!newObjectiveText.trim()) {
         alert('El texto del objetivo no puede estar vacío.');
         return;
-    };
+    }
     if (actualObjectivesCount >= MAX_ACTIVE_OBJECTIVES) {
       alert(`No puedes tener más de ${MAX_ACTIVE_OBJECTIVES} objetivos en 'Actual/En Progreso'.`);
       return;

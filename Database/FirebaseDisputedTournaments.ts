@@ -45,7 +45,7 @@ export const getPlayerDisputedTournaments = async (
 ): Promise<DisputedTournament[]> => {
   try {
     const disputedTournamentsCollection = collection(db, "academias", academiaId, "disputedTournaments");
-    let q = query(
+    const q = query(
       disputedTournamentsCollection, 
       where("jugadorId", "==", playerId),
       orderBy("fechaFin", "desc")

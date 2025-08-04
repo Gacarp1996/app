@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
+import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
 import { getTrainedPlayersByCoach } from '../Database/FirebaseSessions';
-import { getPlayers } from '../Database/FirebasePlayers';
 import { getUserRoleInAcademia } from '../Database/FirebaseRoles';
 import { Player } from '../types';
 
@@ -28,6 +28,7 @@ interface CoachDashboardData {
 export const useCoachDashboardData = (customDateRange?: { start: Date; end: Date }) => {
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
+  const { players: allPlayers } = usePlayer(); // ✅ USAR PLAYERS DEL CONTEXTO
   
   // Estado por defecto: últimos 30 días
   const defaultEndDate = new Date();
@@ -41,7 +42,7 @@ export const useCoachDashboardData = (customDateRange?: { start: Date; end: Date
   
   const [data, setData] = useState<CoachDashboardData>({
     trainedPlayers: [],
-    allPlayers: [],
+    allPlayers: [], // Se actualizará con players del contexto
     loading: true,
     error: null,
     dateRange,
@@ -52,7 +53,7 @@ export const useCoachDashboardData = (customDateRange?: { start: Date; end: Date
     if (currentUser && academiaActual) {
       loadCoachData();
     }
-  }, [currentUser, academiaActual, dateRange.start, dateRange.end]);
+  }, [currentUser, academiaActual, dateRange.start, dateRange.end, allPlayers]); // ✅ AGREGAR allPlayers como dependencia
 
   const loadCoachData = async () => {
     if (!currentUser || !academiaActual) return;
@@ -69,25 +70,23 @@ export const useCoachDashboardData = (customDateRange?: { start: Date; end: Date
           ...prev,
           loading: false,
           isCoach: false,
-          error: 'Usuario no es entrenador'
+          error: 'Usuario no es entrenador',
+          allPlayers: allPlayers // ✅ USAR PLAYERS DEL CONTEXTO
         }));
         return;
       }
 
-      // Cargar datos en paralelo
-      const [trainedPlayersData, allPlayers] = await Promise.all([
-        getTrainedPlayersByCoach(
-          academiaActual.id,
-          currentUser.uid,
-          dateRange.start,
-          dateRange.end
-        ),
-        getPlayers(academiaActual.id)
-      ]);
+      // ✅ SOLO CARGAR DATOS DE SESIONES, NO PLAYERS
+      const trainedPlayersData = await getTrainedPlayersByCoach(
+        academiaActual.id,
+        currentUser.uid,
+        dateRange.start,
+        dateRange.end
+      );
 
       setData({
         trainedPlayers: trainedPlayersData,
-        allPlayers,
+        allPlayers: allPlayers, // ✅ USAR PLAYERS DEL CONTEXTO
         loading: false,
         error: null,
         dateRange,
@@ -99,7 +98,8 @@ export const useCoachDashboardData = (customDateRange?: { start: Date; end: Date
       setData(prev => ({
         ...prev,
         loading: false,
-        error: 'Error cargando los datos'
+        error: 'Error cargando los datos',
+        allPlayers: allPlayers // ✅ USAR PLAYERS DEL CONTEXTO
       }));
     }
   };

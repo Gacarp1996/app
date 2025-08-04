@@ -9,20 +9,24 @@ import {
   deleteDisputedTournament, 
   convertToDisputedTournament 
 } from '../Database/FirebaseDisputedTournaments';
+import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
+import { useAcademia } from '../contexts/AcademiaContext'; // ✅ NUEVO IMPORT
 
+// ✅ INTERFACE SIMPLIFICADA
 interface UsePlayerTournamentsProps {
   playerId: string | undefined;
-  academiaId: string;
   activeTab: string;
-  onDataChange: () => void;
 }
 
 export const usePlayerTournaments = ({ 
   playerId, 
-  academiaId, 
-  activeTab, 
-  onDataChange 
+  activeTab
 }: UsePlayerTournamentsProps) => {
+  // ✅ USAR CONTEXTOS
+  const { refreshPlayers } = usePlayer();
+  const { academiaActual } = useAcademia();
+  const academiaId = academiaActual?.id || '';
+  
   // Estados de torneos
   const [isTournamentModalOpen, setIsTournamentModalOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
@@ -67,14 +71,16 @@ export const usePlayerTournaments = ({
     } else {
       await addTournament(academiaId, { ...data, jugadorId: playerId! });
     }
-    onDataChange();
+    // ✅ USAR refreshPlayers EN LUGAR DE onDataChange
+    refreshPlayers();
     setIsTournamentModalOpen(false);
   };
 
   const handleDeleteTournament = async (id: string) => {
     if (window.confirm("¿Seguro?")) {
       await deleteTournament(academiaId, id);
-      onDataChange();
+      // ✅ USAR refreshPlayers
+      refreshPlayers();
     }
   };
 
@@ -102,7 +108,6 @@ export const usePlayerTournaments = ({
       if (editingDisputedTournament) {
         await updateDisputedTournament(academiaId, editingDisputedTournament.id, data);
       } else if (tournamentToConvert) {
-        // ACTUALIZADO: Removido conformidadGeneral
         await convertToDisputedTournament(academiaId, tournamentToConvert, {
           resultado: data.resultado,
           nivelDificultad: data.nivelDificultad,
@@ -113,7 +118,8 @@ export const usePlayerTournaments = ({
         await addDisputedTournament(academiaId, { ...data, jugadorId: playerId! });
       }
       await loadDisputedTournaments();
-      onDataChange();
+      // ✅ USAR refreshPlayers
+      refreshPlayers();
     } catch (error) {
       console.error('Error al guardar torneo disputado:', error);
       alert('Error al guardar el torneo disputado');

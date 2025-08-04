@@ -5,33 +5,31 @@ import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea } from '.
 import { useTraining } from '../contexts/TrainingContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
+import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
 import { addSession, updateSession } from '../Database/FirebaseSessions';
 import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
 
+// ✅ INTERFACE SIMPLIFICADA
 interface UseTrainingSessionProps {
-  allPlayers: Player[];
   allObjectives: Objective[];
   allTournaments: Tournament[];
-  onDataChange: () => void;
-  academiaId: string;
   editSessionId?: string | null;
   originalSession?: TrainingSession | null;
 }
 
 export const useTrainingSession = ({
-  allPlayers,
   allObjectives,
   allTournaments,
-  onDataChange,
-  academiaId,
   editSessionId,
   originalSession
 }: UseTrainingSessionProps) => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
+  const { players: allPlayers, refreshPlayers } = usePlayer(); // ✅ USAR PLAYER CONTEXT
   const { participants, setParticipants, exercises, addExercise, endSession, loadSession } = useTraining();
+  const academiaId = academiaActual?.id || ''; // ✅ OBTENER academiaId DEL CONTEXTO
 
   // Estados
   const [isLoading, setIsLoading] = useState(true);
@@ -317,7 +315,8 @@ export const useTrainingSession = ({
       await updateSession(academiaActual.id, originalSession.id, updatedSession);
       
       alert('Entrenamiento actualizado exitosamente');
-      onDataChange();
+      // ✅ USAR refreshPlayers EN LUGAR DE onDataChange
+      refreshPlayers();
       endSession();
       
       // Volver al perfil del jugador
@@ -418,7 +417,8 @@ export const useTrainingSession = ({
     
     setSessionIds(sessionIdsMap);
     alert(`Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es).`);
-    onDataChange();
+    // ✅ USAR refreshPlayers
+    refreshPlayers();
     endSession();
     navigate('/players');
   };
@@ -495,7 +495,8 @@ export const useTrainingSession = ({
         setIsSurveyModalOpen(false);
         
         // Finalizar sesión sin mostrar alert
-        onDataChange();
+        // ✅ USAR refreshPlayers
+        refreshPlayers();
         endSession();
         navigate('/players');
       }
@@ -606,7 +607,7 @@ export const useTrainingSession = ({
     handleCancelExitSurveys,
     
     // Props para componentes
-    allPlayers,
+    allPlayers, // ✅ MANTENIDO PARA COMPATIBILIDAD CON COMPONENTES
     allObjectives,
     allTournaments,
   };

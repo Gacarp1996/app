@@ -1,6 +1,7 @@
 // components/dashboard/widgets/UpcomingCompetitionsWidget.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePlayer } from '../../contexts/PlayerContext';
 import { getUpcomingCompetitions, getMultiplePlayersUpcomingCompetitions, PlayerCompetition } from '../../Database/FirebaseUpcomingCompetitions';
 
 interface UpcomingCompetitionsWidgetProps {
@@ -15,12 +16,15 @@ export const UpcomingCompetitionsWidget: React.FC<UpcomingCompetitionsWidgetProp
   title = "Próximas Competencias"
 }) => {
   const navigate = useNavigate();
+  const { players } = usePlayer();
   const [competitions, setCompetitions] = useState<PlayerCompetition[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadUpcomingCompetitions();
-  }, [academiaId, playerIds]);
+    if (players.length > 0) {
+      loadUpcomingCompetitions();
+    }
+  }, [academiaId, playerIds, players]);
 
   const loadUpcomingCompetitions = async () => {
     try {
@@ -29,9 +33,9 @@ export const UpcomingCompetitionsWidget: React.FC<UpcomingCompetitionsWidgetProp
       let competitionsData: PlayerCompetition[];
       
       if (playerIds && playerIds.length > 0) {
-        competitionsData = await getMultiplePlayersUpcomingCompetitions(academiaId, playerIds);
+        competitionsData = await getMultiplePlayersUpcomingCompetitions(academiaId, playerIds, players);
       } else {
-        competitionsData = await getUpcomingCompetitions(academiaId);
+        competitionsData = await getUpcomingCompetitions(academiaId, players);
       }
       
       setCompetitions(competitionsData);

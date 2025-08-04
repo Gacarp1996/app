@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { useAcademia } from '../contexts/AcademiaContext';
+import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
 import { getSessions } from '../Database/FirebaseSessions';
 import { getAcademiaUsers, AcademiaUser } from '../Database/FirebaseRoles';
-import { getPlayers } from '../Database/FirebasePlayers';
 import { getObjectives } from '../Database/FirebaseObjectives';
 import { getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../Database/FirebaseSurveys';
@@ -36,6 +35,7 @@ interface WeeklySatisfaction {
 
 export const useDashboardData = () => {
   const { academiaActual } = useAcademia();
+  const { players: allPlayers, loadingPlayers } = usePlayer(); // ✅ USAR PLAYERS DEL CONTEXTO
   
   const [activeTrainers, setActiveTrainers] = useState<ActiveTrainer[]>([]);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>({
@@ -53,10 +53,11 @@ export const useDashboardData = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (academiaActual) {
+    // ✅ ESPERAR A QUE SE CARGUEN LOS PLAYERS
+    if (academiaActual && !loadingPlayers) {
       loadDashboardData();
     }
-  }, [academiaActual]);
+  }, [academiaActual, allPlayers, loadingPlayers]); // ✅ AGREGAR allPlayers y loadingPlayers como dependencias
 
   const loadDashboardData = async () => {
     if (!academiaActual) return;
@@ -65,15 +66,15 @@ export const useDashboardData = () => {
     setError(null);
     
     try {
-      // Cargar datos base en paralelo
-      const [sessions, users, players] = await Promise.all([
+      // ✅ CARGAR SOLO SESIONES Y USUARIOS (NO PLAYERS)
+      const [sessions, users] = await Promise.all([
         getSessions(academiaActual.id),
-        getAcademiaUsers(academiaActual.id),
-        getPlayers(academiaActual.id)
+        getAcademiaUsers(academiaActual.id)
       ]);
 
+      // ✅ USAR allPlayers DEL CONTEXTO
       // Filtrar solo jugadores activos
-      const activePlayers = players.filter(p => p.estado === 'activo');
+      const activePlayers = allPlayers.filter(p => p.estado === 'activo');
 
       // Procesar datos para cada widget
       await Promise.all([
@@ -126,6 +127,7 @@ export const useDashboardData = () => {
   };
 
   // Widget 2: Jugadores Activos
+  // ✅ YA RECIBE players COMO PARÁMETRO, NO NECESITA CAMBIOS
   const processPlayerStatus = async (players: Player[]) => {
     if (!academiaActual) return;
 
@@ -184,6 +186,7 @@ export const useDashboardData = () => {
   };
 
   // Widget 4: Satisfacción Semanal
+  // ✅ YA RECIBE players COMO PARÁMETRO, NO NECESITA CAMBIOS
   const processWeeklySatisfaction = async (players: Player[]) => {
     if (!academiaActual || players.length === 0) {
       setWeeklySatisfaction({
@@ -275,7 +278,7 @@ export const useDashboardData = () => {
     playerStatus,
     todayTrainings,
     weeklySatisfaction,
-    loading,
+    loading: loading || loadingPlayers, // ✅ INCLUIR loadingPlayers
     error,
     refreshData: loadDashboardData
   };

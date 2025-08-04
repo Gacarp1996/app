@@ -1,24 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Objective, Player } from '../types';
+import { Objective } from '../types';
 import { updateObjective } from '../Database/FirebaseObjectives'; 
 import { useTraining } from '../contexts/TrainingContext';
+import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
+import { useAcademia } from '../contexts/AcademiaContext'; // ✅ NUEVO IMPORT
 
+// ✅ INTERFACE SIMPLIFICADA
 interface ObjectiveDetailPageProps {
   allObjectives: Objective[];
-  players: Player[];
   onDataChange: () => void;
-  academiaId: string; // NUEVO - necesario para las llamadas a Firebase
 }
 
-const ObjectiveDetailPage: React.FC<ObjectiveDetailPageProps> = ({ allObjectives, players, onDataChange, academiaId }) => {
+const ObjectiveDetailPage: React.FC<ObjectiveDetailPageProps> = ({ allObjectives, onDataChange }) => {
   const { objectiveId } = useParams<{ objectiveId: string }>();
   const navigate = useNavigate();
   
+  // ✅ USAR CONTEXTOS
+  const { players } = usePlayer();
+  const { academiaActual } = useAcademia();
   const { isSessionActive, participants } = useTraining();
 
   const [objective, setObjective] = useState<Objective | null>(null);
-  const [player, setPlayer] = useState<Player | null>(null);
+  const [player, setPlayer] = useState<any>(null); // Cambiado a any temporalmente
   const [editText, setEditText] = useState('');
   const [editBody, setEditBody] = useState('');
 
@@ -44,7 +48,7 @@ const ObjectiveDetailPage: React.FC<ObjectiveDetailPageProps> = ({ allObjectives
 
   const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!objective) return;
+    if (!objective || !academiaActual) return;
     if (!editText.trim()) {
         alert('El título del objetivo no puede estar vacío.');
         return;
@@ -55,8 +59,8 @@ const ObjectiveDetailPage: React.FC<ObjectiveDetailPageProps> = ({ allObjectives
       cuerpoObjetivo: editBody.trim() ? editBody.trim() : undefined
     };
 
-    // MODIFICADO - ahora incluye academiaId
-    await updateObjective(academiaId, objective.id, updatedData);
+    // ✅ USAR academiaActual.id del contexto
+    await updateObjective(academiaActual.id, objective.id, updatedData);
     onDataChange();
     alert('Objetivo actualizado con éxito.');
 
