@@ -2,6 +2,13 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 import { useNavigate } from 'react-router-dom';
 import { Player, SessionExercise } from '../types';
 import { useAcademia } from './AcademiaContext';
+import useLocalStorage from '../hooks/useLocalStorage';
+
+interface TrainingSessionData {
+  participants: Player[];
+  exercises: SessionExercise[];
+  timestamp?: string;
+}
 
 interface TrainingContextType {
   isSessionActive: boolean;
@@ -22,79 +29,65 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
   const [participants, setParticipants] = useState<Player[]>([]);
   const [exercises, setExercises] = useState<SessionExercise[]>([]);
-  const [isInitialized, setIsInitialized] = useState(false);
   const navigate = useNavigate();
   const { academiaActual } = useAcademia();
+  
+  // Usar useLocalStorage para persistencia automática
+  const storageKey = academiaActual?.id ? `inProgressTrainingSession_${academiaActual.id}` : null;
+  
+  const [sessionData, setSessionData] = useLocalStorage<TrainingSessionData | null>(
+    storageKey || 'tempTrainingSession',
+    null
+  );
 
-  const getStorageKey = useCallback(() => {
-    if (!academiaActual?.id) return null;
-    return `inProgressTrainingSession_${academiaActual.id}`;
-  }, [academiaActual]);
-
+  // Sincronizar el estado local con localStorage cuando cambie sessionData
   useEffect(() => {
-    if (!isInitialized && academiaActual) {
-      const storageKey = getStorageKey();
-      if (storageKey) {
-        const savedSession = localStorage.getItem(storageKey);
-        if (savedSession) {
-          try {
-            const parsedSession = JSON.parse(savedSession);
-            if (parsedSession.participants && Array.isArray(parsedSession.participants) && parsedSession.participants.length > 0) {
-              setIsSessionActive(true);
-            }
-          } catch (error) {
-            console.error('Error al verificar sesión guardada:', error);
-            localStorage.removeItem(storageKey);
-          }
-        }
-      }
-      setIsInitialized(true);
+    if (sessionData && sessionData.participants && sessionData.participants.length > 0) {
+      setParticipants(sessionData.participants);
+      setExercises(sessionData.exercises || []);
+      setIsSessionActive(true);
     }
-  }, [academiaActual, getStorageKey, isInitialized]);
+  }, []); // Solo ejecutar al montar
 
+  // Actualizar sessionData cuando cambien participants o exercises
   useEffect(() => {
-    if (!isInitialized) return;
-
-    const storageKey = getStorageKey();
-    if (!storageKey) return;
-
     if (participants.length > 0 || exercises.length > 0) {
-      const sessionData = JSON.stringify({ participants, exercises });
-      localStorage.setItem(storageKey, sessionData);
+      setSessionData({
+        participants,
+        exercises,
+        timestamp: new Date().toISOString()
+      });
+      setIsSessionActive(true);
     } else if (participants.length === 0 && exercises.length === 0 && !isSessionActive) {
-      localStorage.removeItem(storageKey);
+      setSessionData(null);
     }
-  }, [participants, exercises, getStorageKey, isInitialized, isSessionActive]);
+  }, [participants, exercises]);
 
   const loadSession = useCallback(() => {
-    const storageKey = getStorageKey();
-    if (!storageKey) return false;
-
+    if (!sessionData) return false;
+    
     try {
-      const savedSession = localStorage.getItem(storageKey);
-      if (savedSession) {
-        const { participants: savedParticipants, exercises: savedExercises } = JSON.parse(savedSession);
-        if (savedParticipants && Array.isArray(savedParticipants) && savedParticipants.length > 0) {
-          setParticipants(savedParticipants);
-          setExercises(savedExercises || []);
-          setIsSessionActive(true);
-          return true;
-        }
+      if (sessionData.participants && sessionData.participants.length > 0) {
+        setParticipants(sessionData.participants);
+        setExercises(sessionData.exercises || []);
+        setIsSessionActive(true);
+        return true;
       }
     } catch (error) {
       console.error('Error al cargar sesión:', error);
-      const storageKey = getStorageKey();
-      if (storageKey) {
-        localStorage.removeItem(storageKey);
-      }
     }
     return false;
-  }, [getStorageKey]);
+  }, [sessionData]);
 
   const loadSessionForEdit = (players: Player[], exercises: SessionExercise[]) => {
     setParticipants(players);
     setExercises(exercises);
     setIsSessionActive(true);
+    setSessionData({
+      participants: players,
+      exercises: exercises,
+      timestamp: new Date().toISOString()
+    });
   };
 
   const startSession = useCallback((players: Player[]) => {
@@ -103,24 +96,35 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setParticipants(players);
     setExercises([]);
     setIsSessionActive(true);
+    setSessionData({
+      participants: players,
+      exercises: [],
+      timestamp: new Date().toISOString()
+    });
 
     const playerIds = players.map(p => p.id).join(',');
     navigate(`/training/${playerIds}`);
-  }, [navigate]);
+  }, [navigate, setSessionData]);
 
   const addExercise = useCallback((exercise: SessionExercise) => {
-    setExercises(prev => [...prev, exercise]);
-  }, []);
+    setExercises(prev => {
+      const newExercises = [...prev, exercise];
+      // También actualizar sessionData inmediatamente
+      setSessionData(current => current ? {
+        ...current,
+        exercises: newExercises,
+        timestamp: new Date().toISOString()
+      } : null);
+      return newExercises;
+    });
+  }, [setSessionData]);
 
   const endSession = useCallback(() => {
-    const storageKey = getStorageKey();
-    if (storageKey) {
-      localStorage.removeItem(storageKey);
-    }
     setParticipants([]);
     setExercises([]);
     setIsSessionActive(false);
-  }, [getStorageKey]);
+    setSessionData(null);
+  }, [setSessionData]);
 
   return (
     <TrainingContext.Provider value={{ 
@@ -146,5 +150,4 @@ export const useTraining = (): TrainingContextType => {
   return context;
 };
 
-// Re-exportar el tipo SessionExercise para conveniencia
 export type { SessionExercise } from '../types';

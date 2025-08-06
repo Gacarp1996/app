@@ -7,11 +7,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useSession } from '../contexts/SessionContext';
-import { useObjective } from '../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
+import { useObjective } from '../contexts/ObjectiveContext';
 import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
 
-// ✅ INTERFACE ACTUALIZADA - Sin allObjectives
 interface UseTrainingSessionProps {
   allTournaments: Tournament[];
   editSessionId?: string | null;
@@ -27,7 +26,7 @@ export const useTrainingSession = ({
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
   const { players: allPlayers, refreshPlayers } = usePlayer();
-  const { objectives: allObjectives } = useObjective(); // ✅ OBTENER DEL CONTEXTO
+  const { objectives: allObjectives } = useObjective();
   
   const { 
     addSession: addSessionToContext,
@@ -273,14 +272,14 @@ export const useTrainingSession = ({
     setIntensidad(5);
   };
 
-  // ✅ OPTIMIZACIÓN: Función para guardar sesiones directamente (con useCallback)
+  // Función para guardar sesiones directamente (con useCallback)
   const saveSessionsDirectly = useCallback(async (sessionsToSave: Omit<TrainingSession, 'id'>[]) => {
     if (!currentUser || !academiaActual) {
       alert('Error: No se puede identificar al entrenador.');
       return;
     }
 
-    // ✅ Guardar todas las sesiones en paralelo
+    // Guardar todas las sesiones en paralelo
     const sessionPromises = sessionsToSave.map(async (session) => {
       const sessionWithTrainer = {
         ...session,
@@ -310,19 +309,21 @@ export const useTrainingSession = ({
     setSessionIds(sessionIdsMap);
     alert(`Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es).`);
     
-    // ✅ Navegar primero
+    // ✅ LIMPIAR LA SESIÓN SOLO DESPUÉS DEL GUARDADO EXITOSO
+    endSession();
+    
+    // Navegar
     navigate('/players');
     
-    // ✅ Operaciones de limpieza diferidas
+    // Operaciones de actualización diferidas
     setTimeout(async () => {
       await refreshSessionsInContext();
       await refreshPlayers();
-      endSession();
     }, 100);
     
   }, [currentUser, academiaActual, addSessionToContext, navigate, refreshSessionsInContext, refreshPlayers, endSession]);
 
-  // ✅ OPTIMIZACIÓN: Función para actualizar sesión existente (con useCallback)
+  // Función para actualizar sesión existente (con useCallback)
   const handleUpdateExistingSession = useCallback(async () => {
     if (!originalSession || !currentUser || !academiaActual) {
       alert('Error: Faltan datos necesarios para actualizar la sesión.');
@@ -342,20 +343,22 @@ export const useTrainingSession = ({
         entrenadorId: currentUser.uid
       };
 
-      // ✅ Actualizar sesión
+      // Actualizar sesión
       await updateSessionInContext(originalSession.id, updatedSession);
       
       alert('Entrenamiento actualizado exitosamente');
       
-      // ✅ Navegar inmediatamente
+      // ✅ LIMPIAR LA SESIÓN SOLO DESPUÉS DE LA ACTUALIZACIÓN EXITOSA
+      endSession();
+      
+      // Navegar inmediatamente
       const player = allPlayers.find(p => p.id === originalSession.jugadorId);
       navigate(player ? `/player/${player.id}` : '/players');
       
-      // ✅ Operaciones de limpieza diferidas
+      // Operaciones de actualización diferidas
       setTimeout(async () => {
         await refreshSessionsInContext();
         await refreshPlayers();
-        endSession();
       }, 100);
       
     } catch (error) {
@@ -427,12 +430,12 @@ export const useTrainingSession = ({
       }
     } else {
       alert("Entrenamiento finalizado. No se guardaron datos nuevos.");
-      endSession();
+      // NO limpiar la sesión aquí porque no se guardó nada
       navigate('/players');
     }
   };
 
-  // ✅ OPTIMIZACIÓN: Handler para encuestas (con useCallback)
+  // Handler para encuestas (con useCallback)
   const handleSurveySubmit = useCallback(async (playerId: string, responses: {
     cansancioFisico?: number;
     concentracion?: number;
@@ -447,7 +450,7 @@ export const useTrainingSession = ({
 
       let currentSessionIds = sessionIds;
       
-      // ✅ Si es la primera encuesta, guardar todas las sesiones en paralelo
+      // Si es la primera encuesta, guardar todas las sesiones en paralelo
       if (currentSessionIds.size === 0) {
         const sessionPromises = pendingSessionsToSave.map(async (session) => {
           const sessionWithTrainer = {
@@ -504,15 +507,18 @@ export const useTrainingSession = ({
       if (currentSurveyPlayerIndex < pendingSurveyPlayers.length - 1) {
         setCurrentSurveyPlayerIndex(prev => prev + 1);
       } else {
-        // ✅ Todas las encuestas completadas - navegación optimizada
+        // ✅ TODAS LAS ENCUESTAS COMPLETADAS - LIMPIAR LA SESIÓN
         setIsSurveyModalOpen(false);
+        
+        // Limpiar la sesión solo después de completar todas las encuestas
+        endSession();
+        
         navigate('/players');
         
-        // ✅ Operaciones diferidas
+        // Operaciones de actualización diferidas
         setTimeout(async () => {
           await refreshSessionsInContext();
           await refreshPlayers();
-          endSession();
         }, 100);
       }
     } catch (error) {
@@ -622,6 +628,5 @@ export const useTrainingSession = ({
     // Props para componentes
     allPlayers,
     allTournaments,
-    // ✅ YA NO RETORNAMOS allObjectives
   };
 };
