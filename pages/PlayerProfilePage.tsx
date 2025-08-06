@@ -1,10 +1,11 @@
-// pages/PlayerProfilePage.tsx - MIGRADO A SESSIONCONTEXT
+// pages/PlayerProfilePage.tsx - MIGRADO A SESSIONCONTEXT Y OBJECTIVECONTEXT
 import React, { useState, useMemo, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Player, Objective, Tournament } from '../types';
+import { Player, Tournament } from '../types'; // ✅ Ya no necesita Objective
 import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
-import { useSession } from '../contexts/SessionContext'; // ✅ NUEVO IMPORT
+import { useSession } from '../contexts/SessionContext';
+import { useObjective } from '../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
 
 import Modal from '../components/shared/Modal';
 import TrainingsOnDateModal from '../components/training/TrainingOnDateModal';
@@ -38,9 +39,8 @@ import { usePlayerTournaments } from '../hooks/usePlayerTournaments';
 // UTILIDADES
 import { formatDate } from '../components/player-profile/utils';
 
-// ✅ INTERFACE ACTUALIZADA - Sin sessions prop
+// ✅ INTERFACE ACTUALIZADA - Ya no necesita objectives
 interface PlayerProfilePageProps {
-  objectives: Objective[];
   tournaments: Tournament[];
   onDataChange: () => void;
 }
@@ -67,7 +67,6 @@ const TabLoadingSkeleton: React.FC<{ message?: string }> = ({ message = "Cargand
 );
 
 const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ 
-  objectives, 
   tournaments, 
   onDataChange
 }) => {
@@ -78,6 +77,9 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
   
   // ✅ USAR SessionContext
   const { getSessionsByPlayer } = useSession();
+  
+  // ✅ USAR ObjectiveContext
+  const { getObjectivesByPlayer, getObjectivesByState } = useObjective();
   
   // Estados de UI
   const [activeTab, setActiveTab] = useState<Tab>("perfil");
@@ -100,7 +102,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
     return getSessionsByPlayer(playerId);
   }, [playerId, getSessionsByPlayer]);
 
-  // HOOKS CONDICIONALES - Ahora sin pasar sessions como prop
+  // HOOKS CONDICIONALES
   const trainingsHook = usePlayerTrainings({ 
     playerId, 
     academiaId, 
@@ -119,16 +121,16 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
     activeTab
   });
 
-  // Datos calculados básicos (solo cuando son necesarios)
+  // ✅ OBTENER OBJETIVOS DEL JUGADOR DESDE EL CONTEXTO
   const playerAllObjectives = useMemo(() => {
-    if (!objectives || !Array.isArray(objectives) || (activeTab !== "objectives" && activeTab !== "perfil")) return [];
-    return objectives.filter(obj => obj.jugadorId === playerId);
-  }, [objectives, playerId, activeTab]);
+    if (!playerId || (activeTab !== "objectives" && activeTab !== "perfil")) return [];
+    return getObjectivesByPlayer(playerId);
+  }, [playerId, activeTab, getObjectivesByPlayer]);
 
-  const playerActualObjectivesCount = useMemo(() => 
-    playerAllObjectives.filter(obj => obj.estado === 'actual-progreso').length, 
-    [playerAllObjectives]
-  );
+  const playerActualObjectivesCount = useMemo(() => {
+    if (!playerId) return 0;
+    return getObjectivesByState(playerId, 'actual-progreso').length;
+  }, [playerId, getObjectivesByState]);
 
   const playerTournaments = useMemo(() => {
     if (activeTab !== "tournaments") return [];
@@ -296,7 +298,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
               )}
             </div>
 
-            {/* ✅ TrainingCalendarSection ya no necesita sessions prop */}
+            {/* TrainingCalendarSection ya no necesita sessions prop */}
             <Suspense fallback={<TabLoadingSkeleton message="Cargando calendario..." />}>
               <TrainingCalendarSection
                 playerId={playerId!}

@@ -1,17 +1,18 @@
-// src/App.tsx
+// src/App.tsx - ACTUALIZADO con ObjectiveProvider
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AcademiaProvider, useAcademia } from './contexts/AcademiaContext';
 import { ConfigModalProvider } from './contexts/ConfigModalContext';
-import { PlayerProvider } from './contexts/PlayerContext'; // ✅ NUEVO IMPORT
+import { PlayerProvider } from './contexts/PlayerContext';
+import { ObjectiveProvider } from './contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
 import ProtectedRoute from './components/shared/protectedRoute';
 import LoginPage from './pages/LoginPage';
 import AcademiaSelectPage from './pages/AcademiaSelectPage';
 import AppWithAcademia from './components/shared/AppWithAcademia';
 import { SessionProvider } from './contexts/SessionContext';
-
 
 // Componente que maneja la lógica de rutas después de la autenticación
 const AuthenticatedApp: React.FC = () => {
@@ -68,11 +69,13 @@ const App: React.FC = () => {
         <AuthProvider>
           <AcademiaProvider>
             <ConfigModalProvider>
-             <PlayerProvider>
-              <SessionProvider>
-               <AuthenticatedApp />
-              </SessionProvider>
-             </PlayerProvider>
+              <PlayerProvider>
+                <ObjectiveProvider> {/* ✅ NUEVO PROVIDER */}
+                  <SessionProvider>
+                    <AuthenticatedApp />
+                  </SessionProvider>
+                </ObjectiveProvider>
+              </PlayerProvider>
             </ConfigModalProvider>
           </AcademiaProvider>
         </AuthProvider>

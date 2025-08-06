@@ -1,24 +1,24 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Player, Objective, TrainingSession, Tournament, LoggedExercise, SpecificExercise, SessionExercise } from '../types';
+import { Player, TrainingSession, Tournament, LoggedExercise, SpecificExercise, SessionExercise } from '../types';
 import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea } from '../constants/training';
 import { useTraining } from '../contexts/TrainingContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useSession } from '../contexts/SessionContext';
+import { useObjective } from '../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
 import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
 
+// ✅ INTERFACE ACTUALIZADA - Sin allObjectives
 interface UseTrainingSessionProps {
-  allObjectives: Objective[];
   allTournaments: Tournament[];
   editSessionId?: string | null;
   originalSession?: TrainingSession | null;
 }
 
 export const useTrainingSession = ({
-  allObjectives,
   allTournaments,
   editSessionId,
   originalSession
@@ -27,6 +27,7 @@ export const useTrainingSession = ({
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
   const { players: allPlayers, refreshPlayers } = usePlayer();
+  const { objectives: allObjectives } = useObjective(); // ✅ OBTENER DEL CONTEXTO
   
   const { 
     addSession: addSessionToContext,
@@ -620,7 +621,7 @@ export const useTrainingSession = ({
     
     // Props para componentes
     allPlayers,
-    allObjectives,
     allTournaments,
+    // ✅ YA NO RETORNAMOS allObjectives
   };
 };

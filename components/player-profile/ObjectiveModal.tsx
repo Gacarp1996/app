@@ -1,21 +1,26 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-
-
+import { useObjective } from '../../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
 import TrainingRecommendations from '../training/TrainingRecommendations';
 import Modal from '../shared/Modal';
-import { Objective, Player, Tournament } from '@/types';
+import { Player, Tournament } from '@/types'; // ✅ Ya no necesita Objective
 
+// ✅ INTERFACE ACTUALIZADA - Sin allObjectives
 interface ObjectiveModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedPlayers: Player[];
-  allObjectives: Objective[];
   allTournaments: Tournament[];
 }
 
-const ObjectiveModal: React.FC<ObjectiveModalProps> = ({ isOpen, onClose, selectedPlayers, allObjectives, allTournaments }) => {
+const ObjectiveModal: React.FC<ObjectiveModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  selectedPlayers, 
+  allTournaments 
+}) => {
   const navigate = useNavigate();
+  const { objectives: allObjectives } = useObjective(); // ✅ OBTENER DEL CONTEXTO
 
   const handleObjectiveClick = (objectiveId: string) => {
     navigate(`/objective/${objectiveId}/edit`);

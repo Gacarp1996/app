@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAcademia } from '../../contexts/AcademiaContext';
 import { usePlayer } from '../../contexts/PlayerContext';
-import { useSession } from '../../contexts/SessionContext'; // ✅ NUEVO IMPORT
-import { getObjectives } from '../../Database/FirebaseObjectives';
+import { useSession } from '../../contexts/SessionContext'; 
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
 import { Player, TrainingSession, Objective, PostTrainingSurvey } from '../../types';
@@ -11,6 +10,7 @@ import TrainedPlayersWidget from '@/components/dashboard/TrainedPlayersWidget';
 import PlayerStatusWidget from '@/components/dashboard/PlayerStatusWidget';
 import PlanningResumeWidget from '@/components/dashboard/PlanningResumeWidget';
 import WeeklySatisfactionWidget from '@/components/dashboard/WeeklySatisfactionWidget';
+import { useObjective } from '../../contexts/ObjectiveContext';
 
 // Interfaces locales
 interface TrainedPlayerData {
@@ -42,6 +42,7 @@ const useAcademyCoachDashboard = () => {
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
   const { players: allPlayersFromContext } = usePlayer();
+  const { objectives } = useObjective();
   
   // ✅ USAR SessionContext
   const {
@@ -145,8 +146,8 @@ const useAcademyCoachDashboard = () => {
     
     for (const player of coachPlayers) {
       try {
-        const objectives = await getObjectives(academiaActual.id);
         const hasObjectives = objectives.some((obj: Objective) => obj.jugadorId === player.id);
+       
         
         const trainingPlan = await getTrainingPlan(academiaActual.id, player.id);
         const hasTrainingPlan = trainingPlan !== null;

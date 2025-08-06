@@ -5,6 +5,8 @@ import { MAX_PLAYERS_PER_SESSION } from '../constants/index';
 import { useTraining } from '../contexts/TrainingContext';
 import { usePlayer } from '../contexts/PlayerContext';
 
+
+
 interface StartTrainingPageProps {
   // Sin props necesarias
 }

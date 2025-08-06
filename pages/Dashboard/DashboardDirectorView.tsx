@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAcademia } from '../../contexts/AcademiaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayer } from '../../contexts/PlayerContext';
-import { useSession } from '../../contexts/SessionContext'; // ✅ NUEVO IMPORT
+import { useSession } from '../../contexts/SessionContext'; 
 import { getAcademiaUsers, AcademiaUser } from '../../Database/FirebaseRoles';
-import { getObjectives } from '../../Database/FirebaseObjectives';
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
 import { TrainingSession, Player, Objective, PostTrainingSurvey } from '../../types';
@@ -15,6 +14,7 @@ import WeeklySatisfactionWidget from '@/components/dashboard/WeeklySatisfactionW
 import PlanningResumeWidget from '@/components/dashboard/PlanningResumeWidget';
 import PlayerStatusWidget from '@/components/dashboard/PlayerStatusWidget';
 import { UpcomingCompetitionsWidget } from '@/components/dashboard/UpcomingCompetitionsWidget';
+import { useObjective } from '../../contexts/ObjectiveContext';
 
 // Interfaces para los datos de los widgets
 interface ActiveTrainer {
@@ -46,6 +46,7 @@ const useDirectorDashboardData = () => {
   const { academiaActual } = useAcademia();
   const { currentUser } = useAuth();
   const { players: allPlayersFromContext } = usePlayer();
+  const { objectives } = useObjective();
   
   // ✅ USAR SessionContext
   const { 
@@ -160,7 +161,6 @@ const useDirectorDashboardData = () => {
     for (const player of players) {
       try {
         // Verificar si tiene objetivos
-        const objectives = await getObjectives(academiaActual.id);
         const hasObjectives = objectives.some((obj: Objective) => obj.jugadorId === player.id);
         
         // Verificar si tiene plan de entrenamiento

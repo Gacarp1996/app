@@ -4,8 +4,8 @@ import { TrainingProvider } from '../../contexts/TrainingContext';
 import { useAcademia } from '../../contexts/AcademiaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayer } from '../../contexts/PlayerContext'; 
-import { useSession } from '../../contexts/SessionContext'; 
-import { getObjectives } from '../../Database/FirebaseObjectives';
+import { useSession } from '../../contexts/SessionContext';
+import { useObjective } from '../../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
 import { getTournaments } from '../../Database/FirebaseTournaments';
 import { getDisputedTournaments } from '../../Database/FirebaseDisputedTournaments'; 
 import GlobalHeader from './GlobalHeader';
@@ -17,7 +17,7 @@ import PlayerProfilePage from '../../pages/PlayerProfilePage';
 import EditObjectivesPage from '../../pages/EditObjectivesPage';
 import ObjectiveDetailPage from '../../pages/ObjectiveDetailPage';
 import SessionDetailPage from '../../pages/SessionDetailPage';
-import { Objective, Tournament, DisputedTournament } from '../../types'; 
+import { Tournament, DisputedTournament } from '../../types'; 
 import AcademiaSettingsPage from '../../pages/AcademiaSettingsPage';
 import HomePage from '@/pages/HomePage';
 
@@ -56,6 +56,13 @@ const AppWithAcademia: React.FC = () => {
     getTodaySessions 
   } = useSession();
   
+  // ✅ USAR ObjectiveContext - YA NO NECESITAMOS objectives como estado local
+  const { 
+    objectives, 
+    loadingObjectives, 
+    refreshObjectives 
+  } = useObjective();
+  
   // ✅ USAR CONTEXTO PARA AMBOS MODALES
   const { 
     isConfigModalOpen, 
@@ -65,7 +72,7 @@ const AppWithAcademia: React.FC = () => {
     closeAdvancedModal 
   } = useConfigModal();
   
-  const [objectives, setObjectives] = useState<Objective[]>([]);
+  // ✅ SIMPLIFICADO: Ya no necesitamos objectives como estado local
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [disputedTournaments, setDisputedTournaments] = useState<DisputedTournament[]>([]);
   const [dataLoading, setDataLoading] = useState(true); 
@@ -133,24 +140,22 @@ const AppWithAcademia: React.FC = () => {
     }
   }, [isAdvancedModalOpen, academiaActual, surveyConfig, loadingSurveyConfig]);
 
+  // ✅ SIMPLIFICADO: Ya no cargamos objectives aquí
   const fetchData = async () => {
     if (!academiaActual) return;
     
     setDataLoading(true);
     try {
-      // ✅ MODIFICADO: Ya no cargamos sessions aquí, se cargan automáticamente en SessionContext
-      const [objectivesData, tournamentsData, disputedData] = await Promise.all([
-        getObjectives(academiaActual.id),
+      // Solo cargamos tournaments y disputedTournaments
+      const [tournamentsData, disputedData] = await Promise.all([
         getTournaments(academiaActual.id),
         getDisputedTournaments(academiaActual.id)
       ]);
       
-      setObjectives(objectivesData || []);
       setTournaments(tournamentsData || []);
       setDisputedTournaments(disputedData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      setObjectives([]);
       setTournaments([]);
       setDisputedTournaments([]);
     } finally {
@@ -215,7 +220,7 @@ const AppWithAcademia: React.FC = () => {
 
   // ✅ HANDLER PARA ABRIR CONFIGURACIÓN AVANZADA
   const handleOpenAdvancedConfig = () => {
-    openAdvancedModal(); // Usar la función del contexto
+    openAdvancedModal();
   };
 
   // ✅ HANDLERS PARA CONFIGURACIÓN DE ENCUESTAS
@@ -303,9 +308,10 @@ const AppWithAcademia: React.FC = () => {
   // ✅ FUNCIÓN COMBINADA PARA REFRESCAR TODOS LOS DATOS
   const handleDataChange = async () => {
     await Promise.all([
-      refreshPlayers(), // Refrescar jugadores desde el contexto
-      refreshSessions(), // ✅ NUEVO: Refrescar sesiones desde el contexto
-      fetchData() // Refrescar otros datos
+      refreshPlayers(),     // Refrescar jugadores desde el contexto
+      refreshSessions(),    // Refrescar sesiones desde el contexto
+      refreshObjectives(),  // ✅ NUEVO: Refrescar objetivos desde el contexto
+      fetchData()          // Refrescar otros datos (torneos)
     ]);
   };
 
@@ -314,7 +320,7 @@ const AppWithAcademia: React.FC = () => {
   }
 
   // ✅ MOSTRAR LOADING SI CUALQUIER DATO ESTÁ CARGANDO
-  if (dataLoading || loadingPlayers || loadingSessions) {
+  if (dataLoading || loadingPlayers || loadingSessions || loadingObjectives) {
     return (
       <div className="min-h-screen flex items-center justify-center pt-[60px]">
         <div className="text-center">
@@ -340,7 +346,7 @@ const AppWithAcademia: React.FC = () => {
             <Route path="/academia-settings" element={<AcademiaSettingsPage />} />
             <Route path="/player/:playerId" element={
               <PlayerProfilePage 
-                objectives={objectives || []} 
+                // ✅ SIMPLIFICADO: Ya no necesita objectives
                 tournaments={tournaments || []} 
                 onDataChange={handleDataChange}
               />
@@ -350,7 +356,7 @@ const AppWithAcademia: React.FC = () => {
             } />
             <Route path="/training/:playerId" element={
               <TrainingSessionPage 
-                allObjectives={objectives || []} 
+                // ✅ SIMPLIFICADO: objectives ahora viene del contexto en el propio componente
                 allTournaments={tournaments || []} 
               />
             } />
@@ -359,14 +365,13 @@ const AppWithAcademia: React.FC = () => {
             } />
             <Route path="/objective/:objectiveId/edit" element={
               <ObjectiveDetailPage 
-                allObjectives={objectives || []} 
+                // ✅ SIMPLIFICADO: Ya no necesita props
                 onDataChange={handleDataChange}
               />
             } />
             <Route path="/player/:playerId/edit-objectives" element={
               <EditObjectivesPage 
-                allObjectives={objectives || []} 
-                onDataChange={handleDataChange}
+                // ✅ SIMPLIFICADO: Ya no necesita props
               />
             } />
             <Route path="*" element={<Navigate to="/" />} />

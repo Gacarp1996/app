@@ -1,25 +1,34 @@
+// EditObjectivesPage.tsx - MIGRADO a ObjectiveContext
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Player, Objective, ObjectiveEstado } from '../types';
+import { Player, ObjectiveEstado } from '../types';
 import { MAX_ACTIVE_OBJECTIVES, OBJECTIVE_ESTADOS } from '../constants/index';
-import { addObjective, updateObjective, deleteObjective } from '../Database/FirebaseObjectives';
 import { usePlayer } from '../contexts/PlayerContext';
-import { useAcademia } from '../contexts/AcademiaContext';
+import { useObjective } from '../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
 
-interface EditObjectivesPageProps {
-  allObjectives: Objective[];
-  onDataChange: () => void;
-}
-
-const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ allObjectives, onDataChange }) => {
+// ✅ SIMPLIFICADO: Ya no necesita props
+const EditObjectivesPage: React.FC = () => {
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
   const { players } = usePlayer();
-  const { academiaActual } = useAcademia();
-  const academiaId = academiaActual?.id || '';
+  
+  // ✅ USAR ObjectiveContext
+  const {
+    objectives,
+    loadingObjectives,
+    getObjectivesByPlayer,
+    getObjectivesByState,
+    getActiveObjectivesCount,
+    canAddActiveObjective,
+    addObjective,
+    deleteObjective,
+    changeObjectiveState,
+    refreshObjectives
+  } = useObjective();
 
   const [player, setPlayer] = useState<Player | null>(null);
   const [newObjectiveText, setNewObjectiveText] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const foundPlayer = players.find(p => p.id === playerId);
@@ -30,49 +39,57 @@ const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ allObjectives, 
     }
   }, [playerId, players, navigate]);
 
-  const playerObjectives = allObjectives.filter(obj => obj.jugadorId === playerId);
-  const objectivesByEstado = (estado: ObjectiveEstado) => playerObjectives.filter(obj => obj.estado === estado);
-  
-  const actualObjectivesCount = objectivesByEstado('actual-progreso').length;
+  // ✅ USAR funciones del contexto
+  const playerObjectives = playerId ? getObjectivesByPlayer(playerId) : [];
+  const objectivesByEstado = (estado: ObjectiveEstado) => 
+    playerId ? getObjectivesByState(playerId, estado) : [];
+  const actualObjectivesCount = playerId ? getActiveObjectivesCount(playerId) : 0;
 
   const handleAddNewObjective = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    
     if (!newObjectiveText.trim()) {
-        alert('El texto del objetivo no puede estar vacío.');
-        return;
-    }
-    if (actualObjectivesCount >= MAX_ACTIVE_OBJECTIVES) {
-      alert(`No puedes tener más de ${MAX_ACTIVE_OBJECTIVES} objetivos en 'Actual/En Progreso'.`);
+      setError('El texto del objetivo no puede estar vacío.');
       return;
     }
-    const newObj: Omit<Objective, 'id'> = {
-      jugadorId: playerId!,
-      textoObjetivo: newObjectiveText.trim(),
-      estado: 'actual-progreso',
-      cuerpoObjetivo: ''
-    };
-    await addObjective(academiaId, newObj);
-    setNewObjectiveText('');
-    onDataChange();
+    
+    if (!playerId) return;
+    
+    // ✅ El contexto ya valida el límite
+    try {
+      await addObjective({
+        jugadorId: playerId,
+        textoObjetivo: newObjectiveText.trim(),
+        estado: 'actual-progreso',
+        cuerpoObjetivo: ''
+      });
+      setNewObjectiveText('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al agregar objetivo');
+    }
   };
   
   const handleDeleteObjective = async (objectiveId: string) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este objetivo?')) {
-      await deleteObjective(academiaId, objectiveId);
-      onDataChange();
+      try {
+        await deleteObjective(objectiveId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al eliminar objetivo');
+      }
     }
   };
 
   const handleChangeEstado = async (objectiveId: string, newEstado: ObjectiveEstado) => {
-    if (newEstado === 'actual-progreso' && actualObjectivesCount >= MAX_ACTIVE_OBJECTIVES) {
-      alert(`No puedes tener más de ${MAX_ACTIVE_OBJECTIVES} objetivos en 'Actual/En Progreso'.`);
-      return;
+    setError(null);
+    try {
+      await changeObjectiveState(objectiveId, newEstado);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cambiar estado');
     }
-    await updateObjective(academiaId, objectiveId, { estado: newEstado });
-    onDataChange();
   };
 
-  if (!player) {
+  if (loadingObjectives || !player) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -198,6 +215,13 @@ const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ allObjectives, 
           </p>
         </div>
 
+        {/* ✅ Mostrar errores si hay */}
+        {error && (
+          <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+            <p className="text-red-400">{error}</p>
+          </div>
+        )}
+
         {/* Grid layout para desktop */}
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
           {/* Columna principal */}
@@ -229,7 +253,7 @@ const EditObjectivesPage: React.FC<EditObjectivesPageProps> = ({ allObjectives, 
                   
                   <button 
                     type="submit" 
-                    disabled={actualObjectivesCount >= MAX_ACTIVE_OBJECTIVES}
+                    disabled={!canAddActiveObjective(playerId || '')}
                     className="w-full px-6 py-3 lg:py-4 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:from-gray-700 disabled:to-gray-700 text-black disabled:text-gray-500 font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:transform-none shadow-lg shadow-green-500/25 disabled:shadow-none"
                   >
                     {actualObjectivesCount >= MAX_ACTIVE_OBJECTIVES 

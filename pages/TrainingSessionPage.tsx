@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Player, Objective, Tournament } from '../types';
 import { useTrainingSession } from '../hooks/useTrainingSession';
@@ -17,12 +17,12 @@ import SessionSummary from '../components/training/SessionSummary';
 import ObjectiveModal from '@/components/player-profile/ObjectiveModal';
 import ActiveSessionRecommendations from '../components/training/ActiveSessionRecommendations';
 
+// ✅ INTERFACE ACTUALIZADA - Solo tournaments
 interface TrainingSessionPageProps {
-  allObjectives: Objective[];
   allTournaments: Tournament[];
 }
 
-const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
+const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allTournaments }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { playerId } = useParams();
@@ -30,6 +30,8 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
   const { academiaActual } = useAcademia();
   const academiaId = academiaActual?.id || '';
   
+  
+  // ✅ USAR SessionContext para obtener sesiones
   const { getSessionById } = useSession();
   
   // Detectar si estamos en modo edición
@@ -39,6 +41,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
   // Estado para tracking de navegación
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
+  // ✅ OBTENER SESIÓN ORIGINAL DEL CONTEXTO
   const originalSession = isEditMode ? getSessionById(editSessionId) : null;
   const originalPlayer = originalSession ? allPlayers.find(p => p.id === originalSession.jugadorId) : null;
 
@@ -108,22 +111,12 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     handleDeclineSurveys,
     handleConfirmExitSurveys,
     handleCancelExitSurveys,
-    
-    // Props para componentes
-    allObjectives,
-    allTournaments,
   } = useTrainingSession({
-    allObjectives: props.allObjectives,
-    allTournaments: props.allTournaments,
+    allTournaments,
     editSessionId,
-    originalSession
+    originalSession     // ✅ YA VIENE DEL CONTEXTO
   });
 
-
-  const activeParticipants = useMemo(() => 
-  participants.filter(p => activePlayerIds.has(p.id)), // ✅ Correcto
-  [participants, activePlayerIds]
-  );
   // Detectar cambios para mostrar advertencia
   useEffect(() => {
     setHasUnsavedChanges(exercises.length > 0 || observaciones.trim().length > 0);
@@ -139,8 +132,10 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
     }
 
     if (isEditMode && originalPlayer) {
+      // Si estamos editando, volver al perfil del jugador
       navigate(`/player/${originalPlayer.id}`);
     } else {
+      // Si estamos creando nueva sesión, volver a start-training
       navigate('/start-training');
     }
   };
@@ -187,7 +182,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
           isOpen={isObjectiveModalOpen} 
           onClose={() => setIsObjectiveModalOpen(false)} 
           selectedPlayers={participants} 
-          allObjectives={allObjectives} 
           allTournaments={allTournaments} 
         />
         <ManageParticipantsModal 
@@ -221,7 +215,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
             enabledQuestions={enabledSurveyQuestions}
           />
         )}
-        
         {/* Modal de confirmación de encuesta */}
         <SurveyConfirmationModal
           isOpen={isSurveyConfirmationModalOpen}
@@ -344,11 +337,10 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = (props) => {
               onToggleSelectAll={toggleSelectAllPlayers}
             />
 
-             {/* ✅ CAMBIO AQUÍ: Panel de recomendaciones con participantes activos */}
-             <ActiveSessionRecommendations
-             key={`recommendations-${activeParticipants.map(p => p.id).sort().join('-')}`}
-             participants={activeParticipants}
-             />
+            {/* Panel de recomendaciones de entrenamiento */}
+            <ActiveSessionRecommendations
+              participants={participants}
+            />
             
             {/* Mostrar objetivos cuando hay un solo jugador seleccionado */}
             {singleActivePlayer && objectivesForSingleActivePlayer.length > 0 && (
