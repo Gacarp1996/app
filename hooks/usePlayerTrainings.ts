@@ -1,14 +1,15 @@
-// hooks/usePlayerTrainings.ts - Optimizado con skipExecution
+// hooks/usePlayerTrainings.ts - MIGRADO A SESSIONCONTEXT
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { TrainingSession, PostTrainingSurvey, ChartDataPoint, IntensityDataPoint } from '../types';
 import { TipoType, AreaType } from '../constants/training';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
 import { parseTimeToMinutes, getDefaultDateRange, METRIC_CONFIG } from '../components/player-profile/utils';
+import { useSession } from '../contexts/SessionContext'; // ✅ NUEVO IMPORT
 
+// ✅ INTERFACE ACTUALIZADA - Sin sessions prop
 interface UsePlayerTrainingsProps {
   playerId: string | undefined;
   academiaId: string;
-  sessions: TrainingSession[];
   activeTab: string;
   skipExecution?: boolean;
 }
@@ -16,10 +17,12 @@ interface UsePlayerTrainingsProps {
 export const usePlayerTrainings = ({ 
   playerId, 
   academiaId, 
-  sessions, 
   activeTab,
   skipExecution = false
 }: UsePlayerTrainingsProps) => {
+  // ✅ OBTENER SESIONES DEL CONTEXTO
+  const { getSessionsByPlayer } = useSession();
+  
   // Estados de filtros
   const defaultDates = getDefaultDateRange();
   const [startDate, setStartDate] = useState<string>(defaultDates.start);
@@ -45,6 +48,12 @@ export const usePlayerTrainings = ({
       return 'America/Argentina/Buenos_Aires';
     }
   }, []);
+
+  // ✅ OBTENER SESIONES DEL JUGADOR
+  const sessions = useMemo(() => {
+    if (!playerId || skipExecution) return [];
+    return getSessionsByPlayer(playerId);
+  }, [playerId, getSessionsByPlayer, skipExecution]);
 
   // OPTIMIZACIÓN: Solo cargar encuestas cuando realmente se necesiten
   const loadPlayerSurveys = useCallback(async () => {
@@ -97,19 +106,18 @@ export const usePlayerTrainings = ({
     return sessions
       .filter(s => {
         const sessionDate = new Date(s.fecha);
-        return s.jugadorId === playerId && sessionDate >= start && sessionDate <= end;
+        return sessionDate >= start && sessionDate <= end;
       })
       .sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [sessions, playerId, startDate, endDate, skipExecution]);
+  }, [sessions, startDate, endDate, skipExecution]);
 
   // OPTIMIZACIÓN: Memoización de entrenamientos para fecha seleccionada
   const trainingsForSelectedDate = useMemo(() => {
     if (!selectedDate || !playerId || skipExecution) return [];
     return sessions.filter(s => 
-      s.jugadorId === playerId &&
       new Date(s.fecha).toDateString() === selectedDate.toDateString()
     );
-  }, [selectedDate, sessions, playerId, skipExecution]);
+  }, [selectedDate, sessions, skipExecution]);
 
   // OPTIMIZACIÓN: Cálculos de drill down con memoización
   const drillDownData = useMemo((): ChartDataPoint[] => {
@@ -362,14 +370,13 @@ export const usePlayerTrainings = ({
   const handleDateClick = useCallback((date: Date) => {
     if (skipExecution) return;
     const trainingsOnDay = sessions.some(s => 
-      s.jugadorId === playerId && 
       new Date(s.fecha).toDateString() === date.toDateString()
     );
     if (trainingsOnDay) {
       setSelectedDate(date);
       setIsTrainingsModalOpen(true);
     }
-  }, [sessions, playerId, skipExecution]);
+  }, [sessions, skipExecution]);
 
   return {
     // Estados de filtros

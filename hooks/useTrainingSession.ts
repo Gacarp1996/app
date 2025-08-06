@@ -1,16 +1,15 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Player, Objective, TrainingSession, Tournament, LoggedExercise, SpecificExercise, SessionExercise } from '../types';
 import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea } from '../constants/training';
 import { useTraining } from '../contexts/TrainingContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
-import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
-import { addSession, updateSession } from '../Database/FirebaseSessions';
+import { usePlayer } from '../contexts/PlayerContext';
+import { useSession } from '../contexts/SessionContext';
 import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
 
-// ✅ INTERFACE SIMPLIFICADA
 interface UseTrainingSessionProps {
   allObjectives: Objective[];
   allTournaments: Tournament[];
@@ -27,9 +26,16 @@ export const useTrainingSession = ({
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
-  const { players: allPlayers, refreshPlayers } = usePlayer(); // ✅ USAR PLAYER CONTEXT
+  const { players: allPlayers, refreshPlayers } = usePlayer();
+  
+  const { 
+    addSession: addSessionToContext,
+    updateSession: updateSessionInContext,
+    refreshSessions: refreshSessionsInContext 
+  } = useSession();
+  
   const { participants, setParticipants, exercises, addExercise, endSession, loadSession } = useTraining();
-  const academiaId = academiaActual?.id || ''; // ✅ OBTENER academiaId DEL CONTEXTO
+  const academiaId = academiaActual?.id || '';
 
   // Estados
   const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +45,7 @@ export const useTrainingSession = ({
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
   const modalOpenedOnceRef = useRef(false);
   
-  // Estados del formulario de ejercicio - ahora con tipos fuertes
+  // Estados del formulario de ejercicio
   const [currentTipo, setCurrentTipo] = useState<TipoType | ''>('');
   const [currentArea, setCurrentArea] = useState<AreaType | ''>('');
   const [currentEjercicio, setCurrentEjercicio] = useState<string>('');
@@ -47,7 +53,6 @@ export const useTrainingSession = ({
   const [tiempoCantidad, setTiempoCantidad] = useState<string>('');
   const [intensidad, setIntensidad] = useState<number>(5);
   
-  // Cargar observaciones desde la sesión original si estamos editando
   const [observaciones, setObservaciones] = useState(
     originalSession?.observaciones || ''
   );
@@ -82,7 +87,6 @@ export const useTrainingSession = ({
     return getEjerciciosForTipoArea(currentTipo as TipoType, currentArea as AreaType);
   }, [currentTipo, currentArea]);
   
-  // Ejercicios específicos disponibles para la selección actual
   const availableSpecificExercises = useMemo(() => {
     if (!currentTipo || !currentArea || !currentEjercicio) {
       return [];
@@ -129,15 +133,13 @@ export const useTrainingSession = ({
   // Effect para cargar datos de sesión en modo edición
   useEffect(() => {
     if (isEditMode && originalSession && originalSession.ejercicios.length > 0) {
-      // Convertir ejercicios de la sesión original al formato del contexto
       const exercisesForContext = originalSession.ejercicios.map(ex => ({
         ...ex,
-        id: crypto.randomUUID(), // Generar nuevo ID para el contexto
+        id: crypto.randomUUID(),
         loggedForPlayerId: originalSession.jugadorId,
         loggedForPlayerName: allPlayers.find(p => p.id === originalSession.jugadorId)?.name || 'Jugador'
       }));
       
-      // Cargar en el contexto sin llamar a loadSession
       exercisesForContext.forEach(exercise => {
         addExercise(exercise as SessionExercise);
       });
@@ -161,7 +163,6 @@ export const useTrainingSession = ({
   useEffect(() => {
     setActivePlayerIds(new Set(participants.map(p => p.id)));
     if (participants.length > 0 && !modalOpenedOnceRef.current && !isEditMode) {
-      // Solo abrir modal automáticamente en modo creación, no en edición
       setIsObjectiveModalOpen(true);
       modalOpenedOnceRef.current = true;
     }
@@ -175,7 +176,6 @@ export const useTrainingSession = ({
         setEnabledSurveyQuestions(questions);
       } catch (error) {
         console.error('Error cargando preguntas habilitadas:', error);
-        // Mantener preguntas por defecto en caso de error
       }
     };
 
@@ -272,26 +272,57 @@ export const useTrainingSession = ({
     setIntensidad(5);
   };
 
-  // Handler principal para finalizar entrenamiento
-  const handleFinishTraining = async () => {
-    if (exercises.length === 0 && !window.confirm("No has registrado ningún ejercicio. ¿Deseas finalizar de todas formas?")) return;
-    
-    if (!currentUser) {
-      alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+  // ✅ OPTIMIZACIÓN: Función para guardar sesiones directamente (con useCallback)
+  const saveSessionsDirectly = useCallback(async (sessionsToSave: Omit<TrainingSession, 'id'>[]) => {
+    if (!currentUser || !academiaActual) {
+      alert('Error: No se puede identificar al entrenador.');
       return;
     }
 
-    if (isEditMode && originalSession) {
-      // MODO EDICIÓN: Actualizar sesión existente
-      await handleUpdateExistingSession();
-    } else {
-      // MODO CREACIÓN: Crear nueva sesión (lógica original)
-      await handleCreateNewSession();
-    }
-  };
+    // ✅ Guardar todas las sesiones en paralelo
+    const sessionPromises = sessionsToSave.map(async (session) => {
+      const sessionWithTrainer = {
+        ...session,
+        entrenadorId: currentUser.uid
+      };
+      
+      try {
+        const sessionId = await addSessionToContext(sessionWithTrainer);
+        return { playerId: session.jugadorId, sessionId };
+      } catch (error) {
+        console.error('Error guardando sesión:', error);
+        return null;
+      }
+    });
 
-  // Función para actualizar sesión existente
-  const handleUpdateExistingSession = async () => {
+    // Esperar todas las promesas en paralelo
+    const results = await Promise.all(sessionPromises);
+    
+    // Crear mapa de IDs
+    const sessionIdsMap = new Map<string, string>();
+    results.forEach(result => {
+      if (result?.sessionId) {
+        sessionIdsMap.set(result.playerId, result.sessionId);
+      }
+    });
+    
+    setSessionIds(sessionIdsMap);
+    alert(`Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es).`);
+    
+    // ✅ Navegar primero
+    navigate('/players');
+    
+    // ✅ Operaciones de limpieza diferidas
+    setTimeout(async () => {
+      await refreshSessionsInContext();
+      await refreshPlayers();
+      endSession();
+    }, 100);
+    
+  }, [currentUser, academiaActual, addSessionToContext, navigate, refreshSessionsInContext, refreshPlayers, endSession]);
+
+  // ✅ OPTIMIZACIÓN: Función para actualizar sesión existente (con useCallback)
+  const handleUpdateExistingSession = useCallback(async () => {
     if (!originalSession || !currentUser || !academiaActual) {
       alert('Error: Faltan datos necesarios para actualizar la sesión.');
       return;
@@ -307,43 +338,57 @@ export const useTrainingSession = ({
       const updatedSession: Partial<Omit<TrainingSession, "id">> = {
         ejercicios: updatedExercises,
         observaciones: observaciones.trim(),
-        // Mantener fecha original y otros datos
         entrenadorId: currentUser.uid
       };
 
-      // Llamar a función de actualización (usando tu función existente)
-      await updateSession(academiaActual.id, originalSession.id, updatedSession);
+      // ✅ Actualizar sesión
+      await updateSessionInContext(originalSession.id, updatedSession);
       
       alert('Entrenamiento actualizado exitosamente');
-      // ✅ USAR refreshPlayers EN LUGAR DE onDataChange
-      refreshPlayers();
-      endSession();
       
-      // Volver al perfil del jugador
+      // ✅ Navegar inmediatamente
       const player = allPlayers.find(p => p.id === originalSession.jugadorId);
-      if (player) {
-        navigate(`/player/${player.id}`);
-      } else {
-        navigate('/players');
-      }
+      navigate(player ? `/player/${player.id}` : '/players');
+      
+      // ✅ Operaciones de limpieza diferidas
+      setTimeout(async () => {
+        await refreshSessionsInContext();
+        await refreshPlayers();
+        endSession();
+      }, 100);
+      
     } catch (error) {
       console.error('Error actualizando sesión:', error);
       alert('Error al actualizar el entrenamiento');
     }
+  }, [originalSession, currentUser, academiaActual, exercises, observaciones, updateSessionInContext, allPlayers, navigate, refreshSessionsInContext, refreshPlayers, endSession]);
+
+  // Handler principal para finalizar entrenamiento
+  const handleFinishTraining = async () => {
+    if (exercises.length === 0 && !window.confirm("No has registrado ningún ejercicio. ¿Deseas finalizar de todas formas?")) return;
+    
+    if (!currentUser) {
+      alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+      return;
+    }
+
+    if (isEditMode && originalSession) {
+      await handleUpdateExistingSession();
+    } else {
+      await handleCreateNewSession();
+    }
   };
 
-  // Función para crear nueva sesión (lógica original separada)
+  // Función para crear nueva sesión
   const handleCreateNewSession = async () => {
     if (!currentUser) {
       alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
       return;
     }
 
-    // Preparar las sesiones pero NO guardarlas todavía
     const sessionsToSave: Omit<TrainingSession, 'id'>[] = participants.map(player => {
       const playerExercises = exercises.filter(ex => ex.loggedForPlayerId === player.id)
         .map(({ loggedForPlayerId, loggedForPlayerName, ...rest }) => {
-          // Asegurar que todos los campos requeridos estén presentes
           const exercise: LoggedExercise = {
             id: rest.id || '',
             tipo: rest.tipo,
@@ -365,22 +410,18 @@ export const useTrainingSession = ({
       };
     }).filter(session => session.ejercicios.length > 0 || (session.observaciones && session.observaciones.length > 0));
 
-    // Guardar las sesiones preparadas para usar después
     setPendingSessionsToSave(sessionsToSave);
 
     if (sessionsToSave.length > 0) {
-      // Preguntar si quieren hacer las encuestas usando modal
       if (askForSurveys) {
-        // Preparar jugadores para encuestas
         const playersWithSessions = participants.filter(p => 
           sessionsToSave.some(session => session.jugadorId === p.id)
         );
         setPendingSurveyPlayers(playersWithSessions);
         setCurrentSurveyPlayerIndex(0);
         setIsSurveyConfirmationModalOpen(true);
-        return; // No guardar ni navegar todavía, esperar confirmación del usuario
+        return;
       } else {
-        // Si no se van a hacer encuestas, guardar directamente
         await saveSessionsDirectly(sessionsToSave);
       }
     } else {
@@ -390,41 +431,8 @@ export const useTrainingSession = ({
     }
   };
 
-  // Función helper para guardar sesiones directamente
-  const saveSessionsDirectly = async (sessionsToSave: Omit<TrainingSession, 'id'>[]) => {
-    if (!currentUser || !academiaActual) {
-      alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
-      return;
-    }
-
-    const sessionIdsMap = new Map<string, string>();
-    
-    for (const session of sessionsToSave) {
-      try {
-        const sessionWithTrainer = {
-          ...session,
-          entrenadorId: currentUser.uid
-        };
-        
-        const sessionId = await addSession(academiaActual.id, sessionWithTrainer);
-        if (sessionId) {
-          sessionIdsMap.set(session.jugadorId, sessionId);
-        }
-      } catch (error) {
-        console.error('Error guardando sesión:', error);
-      }
-    }
-    
-    setSessionIds(sessionIdsMap);
-    alert(`Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es).`);
-    // ✅ USAR refreshPlayers
-    refreshPlayers();
-    endSession();
-    navigate('/players');
-  };
-
-  // Handler para encuestas
-  const handleSurveySubmit = async (playerId: string, responses: {
+  // ✅ OPTIMIZACIÓN: Handler para encuestas (con useCallback)
+  const handleSurveySubmit = useCallback(async (playerId: string, responses: {
     cansancioFisico?: number;
     concentracion?: number;
     actitudMental?: number;
@@ -432,45 +440,49 @@ export const useTrainingSession = ({
   }) => {
     try {
       if (!currentUser || !academiaActual) {
-        alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+        alert('Error: No se puede identificar al entrenador.');
         return;
       }
 
       let currentSessionIds = sessionIds;
       
-      // Si es la primera encuesta, necesitamos guardar las sesiones primero
+      // ✅ Si es la primera encuesta, guardar todas las sesiones en paralelo
       if (currentSessionIds.size === 0) {
-        const sessionIdsMap = new Map<string, string>();
-        
-        for (const session of pendingSessionsToSave) {
+        const sessionPromises = pendingSessionsToSave.map(async (session) => {
+          const sessionWithTrainer = {
+            ...session,
+            entrenadorId: currentUser.uid
+          };
+          
           try {
-            const sessionWithTrainer = {
-              ...session,
-              entrenadorId: currentUser.uid
-            };
-            
-            const sessionId = await addSession(academiaActual.id, sessionWithTrainer);
-            if (sessionId) {
-              sessionIdsMap.set(session.jugadorId, sessionId);
-            }
+            const sessionId = await addSessionToContext(sessionWithTrainer);
+            return { playerId: session.jugadorId, sessionId };
           } catch (error) {
             console.error('Error guardando sesión:', error);
+            return null;
           }
-        }
+        });
+
+        const results = await Promise.all(sessionPromises);
+        
+        const sessionIdsMap = new Map<string, string>();
+        results.forEach(result => {
+          if (result?.sessionId) {
+            sessionIdsMap.set(result.playerId, result.sessionId);
+          }
+        });
         
         setSessionIds(sessionIdsMap);
         currentSessionIds = sessionIdsMap;
       }
 
-      // Ahora guardar la encuesta
+      // Guardar encuesta
       const sessionId = currentSessionIds.get(playerId);
       if (!sessionId) {
         console.error('No se encontró sessionId para el jugador:', playerId);
         return;
       }
 
-      // Guardar encuesta directamente sin verificación
-      // Filtrar solo las respuestas válidas (no undefined)
       const validResponses: any = {};
       Object.entries(responses).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -491,20 +503,22 @@ export const useTrainingSession = ({
       if (currentSurveyPlayerIndex < pendingSurveyPlayers.length - 1) {
         setCurrentSurveyPlayerIndex(prev => prev + 1);
       } else {
-        // Todas las encuestas completadas - finalizar sesión completa
+        // ✅ Todas las encuestas completadas - navegación optimizada
         setIsSurveyModalOpen(false);
-        
-        // Finalizar sesión sin mostrar alert
-        // ✅ USAR refreshPlayers
-        refreshPlayers();
-        endSession();
         navigate('/players');
+        
+        // ✅ Operaciones diferidas
+        setTimeout(async () => {
+          await refreshSessionsInContext();
+          await refreshPlayers();
+          endSession();
+        }, 100);
       }
     } catch (error) {
       console.error('Error guardando encuesta:', error);
       alert('Error al guardar la encuesta. Intenta de nuevo.');
     }
-  };
+  }, [currentUser, academiaActual, sessionIds, pendingSessionsToSave, addSessionToContext, currentSurveyPlayerIndex, pendingSurveyPlayers.length, navigate, refreshSessionsInContext, refreshPlayers, endSession]);
 
   const handleCloseSurveyModal = () => {
     setIsSurveyExitConfirmModalOpen(true);
@@ -518,14 +532,12 @@ export const useTrainingSession = ({
 
   const handleDeclineSurveys = async () => {
     setIsSurveyConfirmationModalOpen(false);
-    // Si declina las encuestas, guardar las sesiones directamente
     await saveSessionsDirectly(pendingSessionsToSave);
   };
 
   const handleConfirmExitSurveys = async () => {
     setIsSurveyExitConfirmModalOpen(false);
     setIsSurveyModalOpen(false);
-    // Si sale de las encuestas, guardar las sesiones directamente
     await saveSessionsDirectly(pendingSessionsToSave);
   };
 
@@ -607,7 +619,7 @@ export const useTrainingSession = ({
     handleCancelExitSurveys,
     
     // Props para componentes
-    allPlayers, // ✅ MANTENIDO PARA COMPATIBILIDAD CON COMPONENTES
+    allPlayers,
     allObjectives,
     allTournaments,
   };

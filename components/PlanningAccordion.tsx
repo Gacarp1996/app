@@ -6,7 +6,6 @@ import { SessionExercise } from '../contexts/TrainingContext';
 interface PlanningAccordionProps {
   player: Player;
   academiaId: string;
-  // NUEVO: Ejercicios de la sesión actual
   currentSessionExercises?: SessionExercise[];
   config?: {
     defaultExpandedNodes?: string[];
@@ -16,9 +15,8 @@ interface PlanningAccordionProps {
   };
 }
 
-// Configuración por defecto que puede ser sobrescrita
 const DEFAULT_CONFIG = {
-  defaultExpandedNodes: [] as string[], // Ya no hardcodeado
+  defaultExpandedNodes: [] as string[],
   statusThreshold: 5,
   availableRanges: [
     { value: 7, label: 'Últimos 7 días' },
@@ -36,12 +34,10 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
   currentSessionExercises = [],
   config = {} 
 }) => {
-  // Combinar configuración por defecto con la recibida
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   
   const [rangoAnalisis, setRangoAnalisis] = useState(finalConfig.defaultRange);
   
-  // CAMBIO PRINCIPAL: Pasar ejercicios actuales y habilitar siempre
   const { 
     loading, 
     error, 
@@ -53,26 +49,23 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
     player, 
     academiaId, 
     rangoAnalisis,
-    currentSessionExercises, // NUEVO
-    enabled: true // Siempre habilitado ya que se renderiza bajo demanda
+    currentSessionExercises,
+    enabled: true
   });
   
-  // Determinar nodos expandidos por defecto basándose en datos reales
   const defaultExpandedNodes = useMemo(() => {
     if (finalConfig.defaultExpandedNodes.length > 0) {
       return finalConfig.defaultExpandedNodes;
     }
     
-    // Si no se especifican, expandir los nodos de nivel superior automáticamente
     return analysisTree
       .filter(node => node.children && node.children.length > 0)
-      .slice(0, 2) // Solo los primeros 2 para no saturar
+      .slice(0, 2)
       .map(node => node.name);
   }, [analysisTree, finalConfig.defaultExpandedNodes]);
   
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(defaultExpandedNodes));
 
-  // Actualizar nodos expandidos cuando cambien los datos
   useEffect(() => {
     if (analysisTree.length > 0 && expandedNodes.size === 0) {
       setExpandedNodes(new Set(defaultExpandedNodes));
@@ -91,18 +84,21 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
     });
   };
 
+  // ✅ COLORES UNIFICADOS
   const getStatusConfig = (diferencia: number) => {
     const threshold = finalConfig.statusThreshold;
     if (Math.abs(diferencia) <= threshold) {
+      // ÓPTIMO = AZUL/CELESTE
       return {
         icon: '✅',
-        color: 'text-green-400',
-        bgColor: 'bg-green-500',
-        borderColor: 'border-green-500/20',
+        color: 'text-blue-400',
+        bgColor: 'bg-blue-500',
+        borderColor: 'border-blue-500/20',
         label: 'OK'
       };
     }
     if (diferencia > 0) {
+      // FALTA/INCREMENTAR = ROJO
       return {
         icon: '⚠️',
         color: 'text-red-400',
@@ -111,11 +107,12 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
         label: 'Falta'
       };
     }
+    // EXCESO/REDUCIR = AMARILLO
     return {
-      icon: '📈',
-      color: 'text-orange-400',
-      bgColor: 'bg-orange-500',
-      borderColor: 'border-orange-500/20',
+      icon: '📉',
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-500',
+      borderColor: 'border-yellow-500/20',
       label: 'Exceso'
     };
   };
@@ -139,7 +136,6 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
           `}
           onClick={() => hasChildren && toggleNode(nodePath)}
         >
-          {/* Efecto de hover sutil */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
           
           <div className="relative p-4 sm:p-5">
@@ -172,7 +168,6 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
                     )}
                   </div>
                   
-                  {/* Barra de progreso mejorada */}
                   <div className="space-y-2">
                     <div className="relative">
                       <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
@@ -180,11 +175,9 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
                           className={`h-full rounded-full transition-all duration-700 ease-out ${status.bgColor} relative`}
                           style={{ width: `${progressPercentage}%` }}
                         >
-                          {/* Efecto de brillo animado */}
                           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
                         </div>
                       </div>
-                      {/* Marcador del objetivo */}
                       <div 
                         className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-gray-600"
                         style={{ left: `${Math.min(100, node.planificado)}%` }}
@@ -204,7 +197,6 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
                 </div>
               </div>
               
-              {/* Estado mejorado */}
               <div className={`
                 flex flex-col items-center justify-center p-3 rounded-lg
                 bg-gray-800/50 border ${status.borderColor}
@@ -226,7 +218,6 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
           </div>
         </div>
         
-        {/* Hijos con animación */}
         {isExpanded && hasChildren && (
           <div className="animate-in slide-in-from-top-2 duration-300">
             {node.children!.map(child => renderNode(child, level + 1, nodePath))}
@@ -282,7 +273,6 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header con información de sesión actual */}
       <div className="bg-gradient-to-r from-gray-900/80 to-gray-900/60 p-4 sm:p-6 rounded-xl border border-gray-800">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -305,7 +295,6 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Indicador de datos en tiempo real */}
             {hasCurrentSessionData && (
               <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 rounded-lg border border-green-500/30">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -333,7 +322,6 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
         </div>
       </div>
       
-      {/* Árbol de análisis */}
       {analysisTree.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
           <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -350,7 +338,7 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
         </div>
       )}
       
-      {/* Leyenda mejorada */}
+      {/* ✅ LEYENDA CON COLORES UNIFICADOS */}
       <div className="bg-gray-900/50 backdrop-blur-sm p-4 sm:p-6 rounded-xl border border-gray-800">
         <h4 className="font-semibold text-gray-200 mb-6 flex items-center gap-2">
           <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,13 +348,13 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
         </h4>
         
         <div className="space-y-3">
-          {/* Estado: Dentro del plan */}
+          {/* Estado: Dentro del plan - AZUL */}
           <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 h-16">
-            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-green-500/10 rounded-lg border border-green-500/20">
+            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-500/10 rounded-lg border border-blue-500/20">
               <span className="text-sm">✅</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h5 className="text-green-400 font-medium text-sm leading-tight">
+              <h5 className="text-blue-400 font-medium text-sm leading-tight">
                 Dentro del plan
               </h5>
               <p className="text-xs text-gray-500 leading-tight">
@@ -375,7 +363,7 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
             </div>
           </div>
 
-          {/* Estado: Falta entrenar */}
+          {/* Estado: Falta entrenar - ROJO */}
           <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 h-16">
             <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-red-500/10 rounded-lg border border-red-500/20">
               <span className="text-sm">⚠️</span>
@@ -390,13 +378,13 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
             </div>
           </div>
 
-          {/* Estado: Entrenado de más */}
+          {/* Estado: Entrenado de más - AMARILLO */}
           <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 h-16">
-            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-orange-500/10 rounded-lg border border-orange-500/20">
-              <span className="text-sm">📈</span>
+            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+              <span className="text-sm">📉</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h5 className="text-orange-400 font-medium text-sm leading-tight">
+              <h5 className="text-yellow-400 font-medium text-sm leading-tight">
                 Entrenado de más
               </h5>
               <p className="text-xs text-gray-500 leading-tight">

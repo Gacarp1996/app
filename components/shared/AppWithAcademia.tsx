@@ -4,8 +4,8 @@ import { TrainingProvider } from '../../contexts/TrainingContext';
 import { useAcademia } from '../../contexts/AcademiaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayer } from '../../contexts/PlayerContext'; 
+import { useSession } from '../../contexts/SessionContext'; 
 import { getObjectives } from '../../Database/FirebaseObjectives';
-import { getSessions } from '../../Database/FirebaseSessions';
 import { getTournaments } from '../../Database/FirebaseTournaments';
 import { getDisputedTournaments } from '../../Database/FirebaseDisputedTournaments'; 
 import GlobalHeader from './GlobalHeader';
@@ -17,7 +17,7 @@ import PlayerProfilePage from '../../pages/PlayerProfilePage';
 import EditObjectivesPage from '../../pages/EditObjectivesPage';
 import ObjectiveDetailPage from '../../pages/ObjectiveDetailPage';
 import SessionDetailPage from '../../pages/SessionDetailPage';
-import { Objective, TrainingSession, Tournament, DisputedTournament } from '../../types'; 
+import { Objective, Tournament, DisputedTournament } from '../../types'; 
 import AcademiaSettingsPage from '../../pages/AcademiaSettingsPage';
 import HomePage from '@/pages/HomePage';
 
@@ -48,6 +48,14 @@ const AppWithAcademia: React.FC = () => {
   // ✅ USAR PlayerContext
   const { players, loadingPlayers, refreshPlayers } = usePlayer();
   
+  // ✅ USAR SessionContext
+  const { 
+    sessions, 
+    loadingSessions, 
+    refreshSessions,
+    getTodaySessions 
+  } = useSession();
+  
   // ✅ USAR CONTEXTO PARA AMBOS MODALES
   const { 
     isConfigModalOpen, 
@@ -57,9 +65,7 @@ const AppWithAcademia: React.FC = () => {
     closeAdvancedModal 
   } = useConfigModal();
   
-  // ❌ ELIMINAR: const [players, setPlayers] = useState<Player[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
-  const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [disputedTournaments, setDisputedTournaments] = useState<DisputedTournament[]>([]);
   const [dataLoading, setDataLoading] = useState(true); 
@@ -132,22 +138,19 @@ const AppWithAcademia: React.FC = () => {
     
     setDataLoading(true);
     try {
-      // ✅ MODIFICADO: Ya no cargamos players aquí, se cargan automáticamente en PlayerContext
-      const [objectivesData, sessionsData, tournamentsData, disputedData] = await Promise.all([
+      // ✅ MODIFICADO: Ya no cargamos sessions aquí, se cargan automáticamente en SessionContext
+      const [objectivesData, tournamentsData, disputedData] = await Promise.all([
         getObjectives(academiaActual.id),
-        getSessions(academiaActual.id),
         getTournaments(academiaActual.id),
         getDisputedTournaments(academiaActual.id)
       ]);
       
       setObjectives(objectivesData || []);
-      setSessions(sessionsData || []);
       setTournaments(tournamentsData || []);
       setDisputedTournaments(disputedData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       setObjectives([]);
-      setSessions([]);
       setTournaments([]);
       setDisputedTournaments([]);
     } finally {
@@ -301,6 +304,7 @@ const AppWithAcademia: React.FC = () => {
   const handleDataChange = async () => {
     await Promise.all([
       refreshPlayers(), // Refrescar jugadores desde el contexto
+      refreshSessions(), // ✅ NUEVO: Refrescar sesiones desde el contexto
       fetchData() // Refrescar otros datos
     ]);
   };
@@ -310,7 +314,7 @@ const AppWithAcademia: React.FC = () => {
   }
 
   // ✅ MOSTRAR LOADING SI CUALQUIER DATO ESTÁ CARGANDO
-  if (dataLoading || loadingPlayers) {
+  if (dataLoading || loadingPlayers || loadingSessions) {
     return (
       <div className="min-h-screen flex items-center justify-center pt-[60px]">
         <div className="text-center">
@@ -336,48 +340,33 @@ const AppWithAcademia: React.FC = () => {
             <Route path="/academia-settings" element={<AcademiaSettingsPage />} />
             <Route path="/player/:playerId" element={
               <PlayerProfilePage 
-                // ❌ ELIMINAR: players={players || []} 
                 objectives={objectives || []} 
-                sessions={sessions || []} 
                 tournaments={tournaments || []} 
-                onDataChange={handleDataChange} // ✅ USAR handleDataChange
-                // ❌ ELIMINAR: academiaId={academiaActual.id}
+                onDataChange={handleDataChange}
               />
             } />
             <Route path="/start-training" element={
               <StartTrainingPage />
-              // ❌ ELIMINAR: players={players || []}
             } />
             <Route path="/training/:playerId" element={
               <TrainingSessionPage 
-                // ❌ ELIMINAR: allPlayers={players || []} 
                 allObjectives={objectives || []} 
                 allTournaments={tournaments || []} 
-                // ❌ ELIMINAR: onDataChange={fetchData}
-                // ❌ ELIMINAR: academiaId={academiaActual.id}
-                sessions={sessions || []}
               />
             } />
             <Route path="/session/:sessionId" element={
-              <SessionDetailPage 
-                sessions={sessions || []} 
-                // ❌ ELIMINAR: players={players || []} 
-              />
+              <SessionDetailPage/>
             } />
             <Route path="/objective/:objectiveId/edit" element={
               <ObjectiveDetailPage 
                 allObjectives={objectives || []} 
-                // ❌ ELIMINAR: players={players || []} 
-                onDataChange={handleDataChange} // ✅ USAR handleDataChange
-                // ❌ ELIMINAR: academiaId={academiaActual.id}
+                onDataChange={handleDataChange}
               />
             } />
             <Route path="/player/:playerId/edit-objectives" element={
               <EditObjectivesPage 
-                // ❌ ELIMINAR: players={players || []} 
                 allObjectives={objectives || []} 
-                onDataChange={handleDataChange} // ✅ USAR handleDataChange
-                // ❌ ELIMINAR: academiaId={academiaActual.id}
+                onDataChange={handleDataChange}
               />
             } />
             <Route path="*" element={<Navigate to="/" />} />

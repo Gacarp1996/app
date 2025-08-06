@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Player } from '../../types';
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
-import { getSessions } from '../../Database/FirebaseSessions';
+import { useSession } from '../../contexts/SessionContext'; // ✅ NUEVO IMPORT
 import { useAcademia } from '../../contexts/AcademiaContext';
 import PlanningAccordion from '../PlanningAccordion';
 
@@ -11,6 +11,7 @@ interface TrainingRecommendationsProps {
 
 const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ players }) => {
   const { academiaActual } = useAcademia();
+  const { getSessionsByPlayer } = useSession(); // ✅ USAR CONTEXTO
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [playersWithPlan, setPlayersWithPlan] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -37,15 +38,14 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
           );
           
           if (tienePorcentajes) {
-            // Verificar si hay sesiones recientes
-            const sessions = await getSessions(academiaActual.id);
-            const playerSessions = sessions.filter(s => s.jugadorId === player.id);
-            
+            // ✅ USAR FUNCIÓN DEL CONTEXTO
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - (plan.rangoAnalisis || 30));
-            const recentSessions = playerSessions.filter(s => 
-              new Date(s.fecha) >= cutoffDate
-            );
+            
+            const recentSessions = getSessionsByPlayer(player.id, {
+              start: cutoffDate,
+              end: new Date()
+            });
             
             if (recentSessions.length > 0) {
               playersWithValidPlan.add(player.id);

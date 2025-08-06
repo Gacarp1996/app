@@ -1,8 +1,6 @@
 import { db } from "../firebase/firebase-config";
-import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc, query, where } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc, query, where, writeBatch } from "firebase/firestore";
 import { TrainingSession } from "../types";
-
-
 
 // ✅ FUNCIÓN HELPER PARA LIMPIAR DATOS UNDEFINED
 const cleanData = (obj: any): any => {
@@ -32,20 +30,16 @@ const cleanData = (obj: any): any => {
 
 export const addSession = async (academiaId: string, sessionData: Omit<TrainingSession, "id">) => {
   try {
-    // ✅ VALIDAR QUE entrenadorId esté presente
     if (!sessionData.entrenadorId) {
       throw new Error('El ID del entrenador es requerido');
     }
 
-    // ✅ VALIDAR QUE jugadorId esté presente
     if (!sessionData.jugadorId) {
       throw new Error('El ID del jugador es requerido');
     }
 
-    // ✅ LIMPIAR TODOS LOS VALORES UNDEFINED RECURSIVAMENTE
     const cleanedSessionData = cleanData(sessionData);
     
-    // ✅ VALIDAR QUE QUEDARON DATOS DESPUÉS DE LA LIMPIEZA
     if (!cleanedSessionData || Object.keys(cleanedSessionData).length === 0) {
       throw new Error('No hay datos válidos para guardar');
     }
@@ -58,6 +52,40 @@ export const addSession = async (academiaId: string, sessionData: Omit<TrainingS
     return docRef.id;
   } catch (error) {
     console.error("❌ Error al agregar sesión:", error);
+    throw error;
+  }
+};
+
+// ✅ NUEVA FUNCIÓN OPTIMIZADA: Agregar múltiples sesiones en batch
+export const addSessionsBatch = async (
+  academiaId: string, 
+  sessions: Omit<TrainingSession, "id">[]
+): Promise<string[]> => {
+  try {
+    const batch = writeBatch(db);
+    const sessionIds: string[] = [];
+    const sessionsCollection = collection(db, "academias", academiaId, "sessions");
+    
+    sessions.forEach((sessionData) => {
+      // Validaciones
+      if (!sessionData.entrenadorId) {
+        throw new Error('El ID del entrenador es requerido');
+      }
+      if (!sessionData.jugadorId) {
+        throw new Error('El ID del jugador es requerido');
+      }
+      
+      const cleanedData = cleanData(sessionData);
+      const docRef = doc(sessionsCollection);
+      batch.set(docRef, cleanedData);
+      sessionIds.push(docRef.id);
+    });
+    
+    await batch.commit();
+    console.log(`✅ ${sessions.length} sesiones agregadas en batch`);
+    return sessionIds;
+  } catch (error) {
+    console.error("❌ Error al agregar sesiones en batch:", error);
     throw error;
   }
 };
@@ -81,7 +109,6 @@ export const getSessions = async (academiaId: string): Promise<TrainingSession[]
   }
 };
 
-// NUEVA FUNCIÓN: Obtener sesiones por entrenador
 export const getSessionsByTrainer = async (academiaId: string, trainerId: string): Promise<TrainingSession[]> => {
   try {
     const sessionsCollection = collection(db, "academias", academiaId, "sessions");
@@ -103,7 +130,6 @@ export const getSessionsByTrainer = async (academiaId: string, trainerId: string
   }
 };
 
-// NUEVA FUNCIÓN: Obtener sesiones de una fecha específica
 export const getSessionsByDate = async (academiaId: string, date: string): Promise<TrainingSession[]> => {
   try {
     const sessionsCollection = collection(db, "academias", academiaId, "sessions");
@@ -117,7 +143,7 @@ export const getSessionsByDate = async (academiaId: string, date: string): Promi
           ...data,
         };
       })
-      .filter(session => session.fecha.startsWith(date)); // Filtrar por fecha
+      .filter(session => session.fecha.startsWith(date));
     
     return sessions;
   } catch (error) {
@@ -126,7 +152,6 @@ export const getSessionsByDate = async (academiaId: string, date: string): Promi
   }
 };
 
-// NUEVA FUNCIÓN: Obtener sesiones por entrenador y fecha
 export const getSessionsByTrainerAndDate = async (
   academiaId: string, 
   trainerId: string, 
@@ -145,7 +170,7 @@ export const getSessionsByTrainerAndDate = async (
           ...data,
         };
       })
-      .filter(session => session.fecha.startsWith(date)); // Filtrar por fecha
+      .filter(session => session.fecha.startsWith(date));
     
     return sessions;
   } catch (error) {
@@ -154,7 +179,6 @@ export const getSessionsByTrainerAndDate = async (
   }
 };
 
-// NUEVA FUNCIÓN: Obtener jugadores únicos entrenados por un coach en un rango de fechas
 export const getTrainedPlayersByCoach = async (
   academiaId: string,
   coachId: string,
@@ -167,16 +191,13 @@ export const getTrainedPlayersByCoach = async (
   totalExercises: number;
 }[]> => {
   try {
-    // Convertir fechas a strings ISO para comparación
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
     
-    // Obtener todas las sesiones del coach
     const sessionsCollection = collection(db, "academias", academiaId, "sessions");
     const q = query(sessionsCollection, where("entrenadorId", "==", coachId));
     const querySnapshot = await getDocs(q);
     
-    // Filtrar por rango de fechas y agrupar por jugador
     const playerSessionsMap = new Map<string, {
       sessions: TrainingSession[];
       lastSessionDate: string;
@@ -189,10 +210,8 @@ export const getTrainedPlayersByCoach = async (
         ...doc.data()
       } as TrainingSession;
       
-      // Extraer solo la fecha (YYYY-MM-DD) para comparación
       const sessionDate = session.fecha.split('T')[0];
       
-      // Verificar si la sesión está dentro del rango de fechas
       if (sessionDate >= startDateStr && sessionDate <= endDateStr) {
         const playerData = playerSessionsMap.get(session.jugadorId) || {
           sessions: [],
@@ -203,7 +222,6 @@ export const getTrainedPlayersByCoach = async (
         playerData.sessions.push(session);
         playerData.totalExercises += session.ejercicios?.length || 0;
         
-        // Actualizar la última fecha de sesión
         if (!playerData.lastSessionDate || session.fecha > playerData.lastSessionDate) {
           playerData.lastSessionDate = session.fecha;
         }
@@ -212,7 +230,6 @@ export const getTrainedPlayersByCoach = async (
       }
     });
     
-    // Convertir el Map a array con el formato deseado
     const trainedPlayers = Array.from(playerSessionsMap.entries()).map(([playerId, data]) => ({
       playerId,
       sessionCount: data.sessions.length,
@@ -220,7 +237,6 @@ export const getTrainedPlayersByCoach = async (
       totalExercises: data.totalExercises
     }));
     
-    // Ordenar por cantidad de sesiones (descendente)
     trainedPlayers.sort((a, b) => b.sessionCount - a.sessionCount);
     
     console.log(`📊 Jugadores entrenados por coach ${coachId}: ${trainedPlayers.length}`);
@@ -256,7 +272,6 @@ export const updateSession = async (academiaId: string, sessionId: string, updat
       throw new Error('ID de sesión no proporcionado');
     }
 
-    // ✅ LIMPIAR DATOS UNDEFINED TAMBIÉN EN ACTUALIZACIONES
     const cleanedUpdates = cleanData(updates);
 
     const sessionDoc = doc(db, "academias", academiaId, "sessions", sessionId);
@@ -287,3 +302,20 @@ export const getSessionById = async (academiaId: string, sessionId: string): Pro
   }
 };
 
+// ✅ NUEVA FUNCIÓN: Eliminar múltiples sesiones en batch
+export const deleteSessionsBatch = async (academiaId: string, sessionIds: string[]): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+    
+    sessionIds.forEach((sessionId) => {
+      const sessionDoc = doc(db, "academias", academiaId, "sessions", sessionId);
+      batch.delete(sessionDoc);
+    });
+    
+    await batch.commit();
+    console.log(`✅ ${sessionIds.length} sesiones eliminadas en batch`);
+  } catch (error) {
+    console.error("❌ Error al eliminar sesiones en batch:", error);
+    throw error;
+  }
+};

@@ -1,9 +1,10 @@
-// pages/PlayerProfilePage.tsx - OPTIMIZADO sin duplicar componentes
+// pages/PlayerProfilePage.tsx - MIGRADO A SESSIONCONTEXT
 import React, { useState, useMemo, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Player, Objective, TrainingSession, Tournament } from '../types';
+import { Player, Objective, Tournament } from '../types';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
+import { useSession } from '../contexts/SessionContext'; // ✅ NUEVO IMPORT
 
 import Modal from '../components/shared/Modal';
 import TrainingsOnDateModal from '../components/training/TrainingOnDateModal';
@@ -37,9 +38,9 @@ import { usePlayerTournaments } from '../hooks/usePlayerTournaments';
 // UTILIDADES
 import { formatDate } from '../components/player-profile/utils';
 
+// ✅ INTERFACE ACTUALIZADA - Sin sessions prop
 interface PlayerProfilePageProps {
   objectives: Objective[];
-  sessions: TrainingSession[];
   tournaments: Tournament[];
   onDataChange: () => void;
 }
@@ -67,7 +68,6 @@ const TabLoadingSkeleton: React.FC<{ message?: string }> = ({ message = "Cargand
 
 const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ 
   objectives, 
-  sessions, 
   tournaments, 
   onDataChange
 }) => {
@@ -75,6 +75,9 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
   const { players } = usePlayer();
   const { academiaActual } = useAcademia();
   const academiaId = academiaActual?.id || '';
+  
+  // ✅ USAR SessionContext
+  const { getSessionsByPlayer } = useSession();
   
   // Estados de UI
   const [activeTab, setActiveTab] = useState<Tab>("perfil");
@@ -91,13 +94,18 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
     playerId
   });
 
-  // HOOKS CONDICIONALES - Solo se ejecutan cuando el tab está activo
+  // ✅ OBTENER SESIONES DEL JUGADOR
+  const playerSessions = useMemo(() => {
+    if (!playerId) return [];
+    return getSessionsByPlayer(playerId);
+  }, [playerId, getSessionsByPlayer]);
+
+  // HOOKS CONDICIONALES - Ahora sin pasar sessions como prop
   const trainingsHook = usePlayerTrainings({ 
     playerId, 
     academiaId, 
-    sessions, 
     activeTab,
-    skipExecution: activeTab !== "trainings" // Solo ejecutar cuando el tab esté activo
+    skipExecution: activeTab !== "trainings"
   });
 
   const planningHook = useTrainingPlan({ 
@@ -131,7 +139,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
   // Handlers locales
   const handleDeleteClick = () => setIsDeleteModalOpen(true);
   const confirmDeletePlayer = async () => {
-    await profileHandlers.handleArchivePlayer(); // Mantienes la misma función backend
+    await profileHandlers.handleArchivePlayer();
     setIsDeleteModalOpen(false);
   };
 
@@ -288,9 +296,9 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
               )}
             </div>
 
+            {/* ✅ TrainingCalendarSection ya no necesita sessions prop */}
             <Suspense fallback={<TabLoadingSkeleton message="Cargando calendario..." />}>
               <TrainingCalendarSection
-                sessions={sessions}
                 playerId={playerId!}
                 onDateClick={trainingsHook.handleDateClick || (() => {})}
               />

@@ -10,6 +10,8 @@ import ProtectedRoute from './components/shared/protectedRoute';
 import LoginPage from './pages/LoginPage';
 import AcademiaSelectPage from './pages/AcademiaSelectPage';
 import AppWithAcademia from './components/shared/AppWithAcademia';
+import { SessionProvider } from './contexts/SessionContext';
+
 
 // Componente que maneja la lógica de rutas después de la autenticación
 const AuthenticatedApp: React.FC = () => {
@@ -66,9 +68,11 @@ const App: React.FC = () => {
         <AuthProvider>
           <AcademiaProvider>
             <ConfigModalProvider>
-              <PlayerProvider> {/* ✅ AGREGADO: PlayerProvider envuelve AuthenticatedApp */}
-                <AuthenticatedApp />
-              </PlayerProvider>
+             <PlayerProvider>
+              <SessionProvider>
+               <AuthenticatedApp />
+              </SessionProvider>
+             </PlayerProvider>
             </ConfigModalProvider>
           </AcademiaProvider>
         </AuthProvider>

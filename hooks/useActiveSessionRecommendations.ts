@@ -1,10 +1,11 @@
 // hooks/useActiveSessionRecommendations.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TrainingSession, LoggedExercise } from '../types';
 import { TipoType, AreaType } from '../constants/training';
-import { getSessions } from '../Database/FirebaseSessions';
 import { getTrainingPlan, TrainingPlan } from '../Database/FirebaseTrainingPlans';
-import { useAcademia } from '../contexts/AcademiaContext'; // ✅ NUEVO IMPORT
+import { useAcademia } from '../contexts/AcademiaContext';
+import { useSession } from '../contexts/SessionContext';
+import { calculateExerciseStatsByTime } from '../utils/trainingCalculations';
 
 interface Recommendation {
   level: 'TIPO' | 'AREA' | 'EJERCICIO';
@@ -39,7 +40,6 @@ interface Participant {
   name: string;
 }
 
-// ✅ INTERFACE SIMPLIFICADA - SIN academiaId
 interface UseActiveSessionRecommendationsProps {
   participants: Participant[];
 }
@@ -47,13 +47,17 @@ interface UseActiveSessionRecommendationsProps {
 export const useActiveSessionRecommendations = ({
   participants
 }: UseActiveSessionRecommendationsProps) => {
-  // ✅ USAR CONTEXTO PARA OBTENER academiaId
   const { academiaActual } = useAcademia();
+  const { 
+    getSessionsByPlayer,
+    getSessionsByDateRange,
+    refreshSessions: refreshSessionsFromContext 
+  } = useSession();
+  
   const academiaId = academiaActual?.id || '';
   
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [trainingPlans, setTrainingPlans] = useState<{[playerId: string]: TrainingPlan}>({});
-  const [realSessions, setRealSessions] = useState<TrainingSession[]>([]);
   const [recommendationsGenerated, setRecommendationsGenerated] = useState(false);
   const [individualRecommendations, setIndividualRecommendations] = useState<any>(null);
   const [groupRecommendations, setGroupRecommendations] = useState<any>(null);
@@ -85,6 +89,18 @@ export const useActiveSessionRecommendations = ({
     }
   };
 
+  // ✅ NUEVA FUNCIÓN: Actualizar recomendaciones individuales cuando cambia el jugador
+  const updateIndividualRecommendations = useCallback((playerId: string) => {
+    if (!playerId || !recommendationsGenerated) return;
+    
+    try {
+      const individualAnalysis = analyzePlayerExercises(playerId);
+      setIndividualRecommendations(individualAnalysis);
+    } catch (error) {
+      console.error('Error actualizando recomendaciones individuales:', error);
+    }
+  }, [recommendationsGenerated]); // Dependencias actualizadas abajo después de definir analyzePlayerExercises
+
   // Función para refrescar recomendaciones
   const refreshRecommendations = async () => {
     setRecommendationsGenerated(false);
@@ -93,9 +109,7 @@ export const useActiveSessionRecommendations = ({
     setRecommendationsLoading(true);
 
     try {
-      // Recargar sesiones reales
-      const realSessionsData = await getSessions(academiaId);
-      setRealSessions(realSessionsData);
+      await refreshSessionsFromContext();
 
       // Recargar planes de entrenamiento
       const plansMap: {[playerId: string]: TrainingPlan} = {};
@@ -124,7 +138,7 @@ export const useActiveSessionRecommendations = ({
       setTrainingPlans(plansMap);
 
       // Generar preview de datos
-      generateDataPreview(realSessionsData, plansMap);
+      generateDataPreview(plansMap);
 
       // Generar recomendaciones con los datos recargados
       await generateRecommendations();
@@ -135,15 +149,11 @@ export const useActiveSessionRecommendations = ({
     }
   };
 
-  // Cargar planes de entrenamiento y sesiones reales cuando cambien los participantes
+  // Cargar planes de entrenamiento cuando cambien los participantes
   useEffect(() => {
     const loadRealData = async () => {
       if (academiaId && participants.length > 0) {
         try {
-          // Cargar sesiones reales desde Firebase
-          const realSessionsData = await getSessions(academiaId);
-          setRealSessions(realSessionsData);
-          
           // Cargar planes de entrenamiento para cada participante con lógica de adaptación
           const plansMap: {[playerId: string]: TrainingPlan} = {};
           for (const participant of participants) {
@@ -171,7 +181,7 @@ export const useActiveSessionRecommendations = ({
           setTrainingPlans(plansMap);
           
           // Generar preview de datos sin procesar recomendaciones
-          generateDataPreview(realSessionsData, plansMap);
+          generateDataPreview(plansMap);
         } catch (error) {
           console.error('Error cargando datos reales:', error);
         }
@@ -183,7 +193,6 @@ export const useActiveSessionRecommendations = ({
     setIndividualRecommendations(null);
     setGroupRecommendations(null);
     setDataPreview(null);
-    setRealSessions([]);
     setTrainingPlans({});
     
     if (academiaId && participants.length > 0) {
@@ -191,30 +200,34 @@ export const useActiveSessionRecommendations = ({
     }
   }, [participants, academiaId]);
 
+
+  // ✅ AGREGAR ESTE NUEVO useEffect DESPUÉS del anterior (alrededor de línea 200-210)
+useEffect(() => {
+  // Solo ejecutar si ya hay recomendaciones generadas
+  if (recommendationsGenerated && participants.length > 0) {
+    console.log('🔄 Participantes cambiaron después de generar recomendaciones');
+    
+    // Forzar regeneración
+    const timer = setTimeout(() => {
+      console.log('Regenerando recomendaciones para:', participants.map(p => p.name));
+      generateRecommendations();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }
+}, [participants.map(p => p.id).sort().join(',')]); // Detectar cambios en IDs
+
   // Función para generar preview de datos disponibles
-  const generateDataPreview = (sessions: TrainingSession[], plans: {[playerId: string]: TrainingPlan}) => {
+  const generateDataPreview = (plans: {[playerId: string]: TrainingPlan}) => {
     const analysisWindowDays = 30;
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - analysisWindowDays);
+    const today = new Date();
     
     const participantsPreviews = participants.map(participant => {
-      const playerSessions = sessions.filter(session => {
-        const sessionDate = new Date(session.fecha);
-        
-        // Manejo flexible de estructuras (vieja y nueva)
-        let isPlayerInSession = false;
-        
-        // Estructura vieja: session.jugadorId
-        if ((session as any).jugadorId === participant.id) {
-          isPlayerInSession = true;
-        }
-        
-        // Estructura nueva: session.participants
-        if ((session as any).participants && Array.isArray((session as any).participants)) {
-          isPlayerInSession = (session as any).participants.some((p: any) => p.playerId === participant.id);
-        }
-        
-        return isPlayerInSession && sessionDate >= thirtyDaysAgo;
+      const playerSessions = getSessionsByPlayer(participant.id, { 
+        start: thirtyDaysAgo, 
+        end: today 
       });
       
       const totalExercises = playerSessions.reduce((sum, session) => {
@@ -250,7 +263,7 @@ export const useActiveSessionRecommendations = ({
   };
 
   // Función para analizar ejercicios de un jugador específico
-  const analyzePlayerExercises = (playerId: string) => {
+  const analyzePlayerExercises = useCallback((playerId: string) => {
     const player = participants.find(p => p.id === playerId);
     if (!player) {
       return { recommendations: [], totalExercises: 0, typeStats: {}, areaStats: {} };
@@ -259,27 +272,14 @@ export const useActiveSessionRecommendations = ({
     const analysisWindowDays = 30;
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - analysisWindowDays);
+    const today = new Date();
     
-    const playerSessions = realSessions.filter(session => {
-      const sessionDate = new Date(session.fecha);
-      
-      // Manejo flexible de estructuras
-      let isPlayerInSession = false;
-      
-      // Estructura vieja: session.jugadorId
-      if ((session as any).jugadorId === playerId) {
-        isPlayerInSession = true;
-      }
-      
-      // Estructura nueva: session.participants
-      if ((session as any).participants && Array.isArray((session as any).participants)) {
-        isPlayerInSession = (session as any).participants.some((p: any) => p.playerId === playerId);
-      }
-      
-      return isPlayerInSession && sessionDate >= thirtyDaysAgo;
+    const playerSessions = getSessionsByPlayer(playerId, { 
+      start: thirtyDaysAgo, 
+      end: today 
     });
 
-    // Extraer todos los ejercicios de las sesiones del jugador
+    // Extraer todos los ejercicios
     const allExercises: LoggedExercise[] = [];
     playerSessions.forEach(session => {
       if (session.ejercicios && Array.isArray(session.ejercicios)) {
@@ -291,71 +291,43 @@ export const useActiveSessionRecommendations = ({
       return { recommendations: [], totalExercises: 0, typeStats: {}, areaStats: {} };
     }
 
-    const normalizedExercises = allExercises.map(exercise => ({
-      tipo: exercise.tipo,
-      area: exercise.area,
-      ejercicio: exercise.ejercicio || exercise.ejercicioEspecifico || "Ejercicio sin nombre",
-      repeticiones: 1
-    }));
-
-    const totalExercises = normalizedExercises.length;
-
-    // Calcular estadísticas por tipos
+    // Usar función centralizada
+    const stats = calculateExerciseStatsByTime(allExercises);
+    
+    // Convertir al formato esperado por el componente
     const typeStats: any = {};
     const areaStats: any = {};
-
-    normalizedExercises.forEach(exercise => {
-      // Normalizar tipo para que coincida con el plan
-      const tipo = exercise.tipo.charAt(0).toUpperCase() + exercise.tipo.slice(1).toLowerCase();
+    
+    Object.keys(stats.typeStats).forEach(tipo => {
+      typeStats[tipo] = {
+        total: Math.round(stats.typeStats[tipo].total), // Total en minutos
+        percentage: Math.round(stats.typeStats[tipo].percentage),
+        areas: {}
+      };
       
-      // Normalizar área para que coincida con el plan
-      const area = exercise.area.split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
-      
-      // Stats por tipo
-      if (!typeStats[tipo]) {
-        typeStats[tipo] = { total: 0, percentage: 0, areas: {} };
-      }
-      typeStats[tipo].total += 1;
-      
-      // Stats por área dentro del tipo
-      if (!typeStats[tipo].areas[area]) {
-        typeStats[tipo].areas[area] = { total: 0, percentage: 0, exercises: {} };
-      }
-      typeStats[tipo].areas[area].total += 1;
-      
-      // Contar ejercicios específicos
-      if (!typeStats[tipo].areas[area].exercises[exercise.ejercicio]) {
-        typeStats[tipo].areas[area].exercises[exercise.ejercicio] = 0;
-      }
-      typeStats[tipo].areas[area].exercises[exercise.ejercicio] += 1;
-
-      // Stats por área global
-      if (!areaStats[area]) {
-        areaStats[area] = { total: 0, percentage: 0 };
-      }
-      areaStats[area].total += 1;
-    });
-
-    // Calcular porcentajes
-    Object.keys(typeStats).forEach(tipo => {
-      typeStats[tipo].percentage = Math.round((typeStats[tipo].total / totalExercises) * 100);
-      Object.keys(typeStats[tipo].areas).forEach(area => {
-        typeStats[tipo].areas[area].percentage = Math.round((typeStats[tipo].areas[area].total / totalExercises) * 100);
+      Object.keys(stats.typeStats[tipo].areas).forEach(area => {
+        const areaData = stats.typeStats[tipo].areas[area];
+        typeStats[tipo].areas[area] = {
+          total: Math.round(areaData.total), // Total en minutos
+          percentage: Math.round(areaData.percentage),
+          exercises: areaData.exercises
+        };
       });
     });
-
-    Object.keys(areaStats).forEach(area => {
-      areaStats[area].percentage = Math.round((areaStats[area].total / totalExercises) * 100);
+    
+    Object.keys(stats.areaStats).forEach(area => {
+      areaStats[area] = {
+        total: Math.round(stats.areaStats[area].total), // Total en minutos
+        percentage: Math.round(stats.areaStats[area].percentage)
+      };
     });
     
-    // Generar recomendaciones basadas en el plan de entrenamiento
+    // Generar recomendaciones basadas en el plan
     const recommendations: Recommendation[] = [];
     const playerPlan = trainingPlans[playerId];
     
     if (playerPlan && playerPlan.planificacion) {
-      // Recomendaciones por tipo basadas en el plan real
+      // Comparar con el plan usando los mismos porcentajes
       Object.entries(typeStats).forEach(([tipo, stats]: [string, any]) => {
         const plannedType = playerPlan.planificacion[tipo as TipoType];
         
@@ -374,11 +346,11 @@ export const useActiveSessionRecommendations = ({
               difference: difference,
               priority: difference > 15 ? 'high' : difference > 10 ? 'medium' : 'low',
               reason: `${stats.percentage < plannedPercentage ? 'Déficit' : 'Exceso'} en tipo ${tipo}: ${stats.percentage}% actual vs ${plannedPercentage}% planificado`,
-              basedOnExercises: stats.total
+              basedOnExercises: allExercises.length // Cantidad total de ejercicios
             });
           }
           
-          // Recomendaciones por áreas dentro del tipo basadas en el plan real
+          // Recomendaciones por áreas
           if (plannedType.areas) {
             Object.entries(stats.areas).forEach(([area, areaStats]: [string, any]) => {
               const plannedArea = plannedType.areas[area as AreaType];
@@ -397,7 +369,7 @@ export const useActiveSessionRecommendations = ({
                     difference: areaDifference,
                     priority: areaDifference > 15 ? 'high' : areaDifference > 10 ? 'medium' : 'low',
                     reason: `${areaStats.percentage < plannedAreaPercentage ? 'Déficit' : 'Exceso'} en ${area}: ${areaStats.percentage}% actual vs ${plannedAreaPercentage}% planificado`,
-                    basedOnExercises: areaStats.total,
+                    basedOnExercises: areaStats.total, // Total de minutos en esta área
                     parentArea: area
                   });
                 }
@@ -423,7 +395,7 @@ export const useActiveSessionRecommendations = ({
             difference: difference,
             priority: difference > 15 ? 'high' : difference > 10 ? 'medium' : 'low',
             reason: `${stats.percentage < plannedPercentage ? 'Déficit' : 'Exceso'} en tipo ${tipo}: ${stats.percentage}% actual vs ${plannedPercentage}% planificado (valores por defecto)`,
-            basedOnExercises: stats.total
+            basedOnExercises: allExercises.length
           });
         }
 
@@ -453,16 +425,22 @@ export const useActiveSessionRecommendations = ({
 
     return {
       recommendations,
-      totalExercises,
+      totalExercises: allExercises.length,
+      totalMinutes: Math.round(stats.totalMinutes),
       typeStats,
       areaStats,
       sessionsAnalyzed: playerSessions.length,
       planUsed: playerPlan ? 'real' : 'default'
     };
-  };
+  }, [participants, getSessionsByPlayer, trainingPlans]);
+
+  // Actualizar la dependencia de updateIndividualRecommendations
+  useEffect(() => {
+    // Re-crear la función cuando cambie analyzePlayerExercises
+  }, [analyzePlayerExercises]);
 
   // Función para analizar sesiones de un jugador
-  const analyzePlayerSessions = (playerId: string) => {
+  const analyzePlayerSessions = useCallback((playerId: string) => {
     const player = participants.find(p => p.id === playerId);
     if (!player) {
       return { totalSessions: 0, dateRange: null };
@@ -470,22 +448,11 @@ export const useActiveSessionRecommendations = ({
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const today = new Date();
     
-    const playerSessions = realSessions.filter(session => {
-      const sessionDate = new Date(session.fecha);
-      
-      // Manejo flexible de estructuras
-      let isPlayerInSession = false;
-      
-      if ((session as any).jugadorId === playerId) {
-        isPlayerInSession = true;
-      }
-      
-      if ((session as any).participants && Array.isArray((session as any).participants)) {
-        isPlayerInSession = (session as any).participants.some((p: any) => p.playerId === playerId);
-      }
-      
-      return isPlayerInSession && sessionDate >= thirtyDaysAgo;
+    const playerSessions = getSessionsByPlayer(playerId, { 
+      start: thirtyDaysAgo, 
+      end: today 
     });
 
     if (playerSessions.length === 0) {
@@ -507,17 +474,17 @@ export const useActiveSessionRecommendations = ({
         to: formatDate(lastDate)
       }
     };
-  };
+  }, [participants, getSessionsByPlayer]);
 
-  const getIdealPercentageForType = (type: string, playerId: string) => {
+  const getIdealPercentageForType = useCallback((type: string, playerId: string) => {
     const playerPlan = trainingPlans[playerId];
     if (playerPlan && playerPlan.planificacion && playerPlan.planificacion[type as TipoType]) {
       return playerPlan.planificacion[type as TipoType].porcentajeTotal;
     }
     return 50; // Meta por defecto: 50/50 entre Canasto y Peloteo
-  };
+  }, [trainingPlans]);
 
-  const getIdealPercentageForAreaInType = (area: string, type: string, playerId: string) => {
+  const getIdealPercentageForAreaInType = useCallback((area: string, type: string, playerId: string) => {
     const playerPlan = trainingPlans[playerId];
     if (playerPlan && playerPlan.planificacion && playerPlan.planificacion[type as TipoType] && 
         playerPlan.planificacion[type as TipoType].areas && 
@@ -541,10 +508,10 @@ export const useActiveSessionRecommendations = ({
     };
     
     return idealPercentages[type]?.[area] || 15;
-  };
+  }, [trainingPlans]);
 
   // Función para generar recomendaciones grupales
-  const generateGroupRecommendations = () => {
+  const generateGroupRecommendations = useCallback(() => {
     if (participants.length < 2) return null;
     
     // Analizar todos los participantes
@@ -568,7 +535,7 @@ export const useActiveSessionRecommendations = ({
 
     // Generar el análisis grupal basado en coincidencias
     return summarizeGroupRecommendations(participantsWithData);
-  };
+  }, [participants, analyzePlayerExercises, analyzePlayerSessions]);
 
   // Detectar coincidencias grupales
   const getGroupCoincidences = (allRecommendations: any[]) => {
@@ -662,6 +629,7 @@ export const useActiveSessionRecommendations = ({
       playerName: participant.playerName,
       recommendations: participant.analysis.recommendations || [],
       totalExercises: participant.analysis.totalExercises,
+      totalMinutes: participant.analysis.totalMinutes || 0,
       sessionsCount: participant.sessions.totalSessions,
       planUsed: participant.analysis.planUsed
     }));
@@ -712,6 +680,7 @@ export const useActiveSessionRecommendations = ({
       participantsWithData: participantsWithData.map(p => ({
         playerName: p.playerName,
         totalExercises: p.analysis.totalExercises,
+        totalMinutes: p.analysis.totalMinutes || 0,
         sessionsCount: p.sessions.totalSessions,
         planUsed: p.analysis.planUsed
       })),
@@ -754,6 +723,18 @@ export const useActiveSessionRecommendations = ({
     return "El grupo está balanceado. Mantener variedad en los ejercicios.";
   };
 
+  // ✅ Actualizar updateIndividualRecommendations con las dependencias correctas
+  const updateIndividualRecommendationsFinal = useCallback((playerId: string) => {
+    if (!playerId || !recommendationsGenerated) return;
+    
+    try {
+      const individualAnalysis = analyzePlayerExercises(playerId);
+      setIndividualRecommendations(individualAnalysis);
+    } catch (error) {
+      console.error('Error actualizando recomendaciones individuales:', error);
+    }
+  }, [recommendationsGenerated, analyzePlayerExercises]);
+
   return {
     // Estados
     recommendationsGenerated,
@@ -768,6 +749,7 @@ export const useActiveSessionRecommendations = ({
     refreshRecommendations,
     analyzePlayerExercises,
     analyzePlayerSessions,
+    updateIndividualRecommendations: updateIndividualRecommendationsFinal, // ✅ EXPORTAR LA FUNCIÓN
     
     // Helpers
     getIdealPercentageForType,

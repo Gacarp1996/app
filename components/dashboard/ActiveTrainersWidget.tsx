@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TrainingSession, Player } from '../../types';
 import { getPlayerName } from './helpers';
-
+import { useSession } from '../../contexts/SessionContext'; // ✅ NUEVO IMPORT
 
 interface ActiveTrainer {
   id: string;
@@ -10,17 +10,20 @@ interface ActiveTrainer {
   sessionsToday: number;
 }
 
+// ✅ INTERFACE ACTUALIZADA - Sin todaySessions prop
 interface ActiveTrainersWidgetProps {
   activeTrainers: ActiveTrainer[];
-  todaySessions: TrainingSession[];
   players: Player[];
 }
 
 const ActiveTrainersWidget: React.FC<ActiveTrainersWidgetProps> = ({ 
   activeTrainers,
-  todaySessions,
   players
 }) => {
+  // ✅ OBTENER SESIONES DE HOY DEL CONTEXTO
+  const { getTodaySessions } = useSession();
+  const todaySessions = getTodaySessions();
+  
   const [selectedTrainer, setSelectedTrainer] = useState<ActiveTrainer | null>(null);
   const [trainerSessions, setTrainerSessions] = useState<TrainingSession[]>([]);
 

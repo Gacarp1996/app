@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAcademia } from '../../contexts/AcademiaContext';
 import { usePlayer } from '../../contexts/PlayerContext';
-import { getTrainedPlayersByCoach, getSessions } from '../../Database/FirebaseSessions';
+import { useSession } from '../../contexts/SessionContext'; // ✅ NUEVO IMPORT
 import { getObjectives } from '../../Database/FirebaseObjectives';
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
@@ -43,6 +43,15 @@ const useAcademyCoachDashboard = () => {
   const { academiaActual } = useAcademia();
   const { players: allPlayersFromContext } = usePlayer();
   
+  // ✅ USAR SessionContext
+  const {
+    getTrainedPlayersByCoach,
+    getSessionsByCoach,
+    getTodaySessions,
+    getSessionsByDateRange,
+    refreshSessions
+  } = useSession();
+  
   // Estados
   const [trainedPlayers, setTrainedPlayers] = useState<TrainedPlayerData[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
@@ -80,9 +89,8 @@ const useAcademyCoachDashboard = () => {
     setError(null);
     
     try {
-      // Cargar datos del coach
+      // ✅ USAR FUNCIÓN DEL CONTEXTO para obtener jugadores entrenados
       const trainedPlayersData = await getTrainedPlayersByCoach(
-        academiaActual.id,
         currentUser.uid,
         dateRange.start,
         dateRange.end
@@ -113,19 +121,14 @@ const useAcademyCoachDashboard = () => {
 
   // Procesar estado de jugadores (filtrado para el coach)
   const processPlayerStatus = async (players: Player[], trainedPlayersData: TrainedPlayerData[]) => {
-    if (!academiaActual) return;
+    if (!academiaActual || !currentUser) return;
 
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Obtener solo las sesiones del coach actual
-    const sessions = await getSessions(academiaActual.id);
-    const coachSessions = sessions.filter(s => s.entrenadorId === currentUser?.uid);
-    const todaySessions = coachSessions.filter(session => 
-      session.fecha.startsWith(today)
-    );
+    // ✅ USAR FUNCIÓN DEL CONTEXTO
+    const todaySessions = getTodaySessions();
+    const coachTodaySessions = todaySessions.filter(s => s.entrenadorId === currentUser.uid);
 
     // IDs de jugadores que el coach entrenó hoy
-    const activePlayerIds = new Set(todaySessions.map(session => session.jugadorId));
+    const activePlayerIds = new Set(coachTodaySessions.map(session => session.jugadorId));
     
     // IDs de jugadores que el coach ha entrenado alguna vez
     const trainedPlayerIds = new Set(trainedPlayersData.map(tp => tp.playerId));
@@ -179,16 +182,11 @@ const useAcademyCoachDashboard = () => {
     startDate.setDate(endDate.getDate() - 7);
 
     try {
-      // Obtener sesiones del coach en la última semana
-      const sessions = await getSessions(academiaActual.id);
-      const coachSessions = sessions.filter(s => 
-        s.entrenadorId === coachId &&
-        new Date(s.fecha) >= startDate &&
-        new Date(s.fecha) <= endDate
-      );
+      // ✅ USAR FUNCIÓN DEL CONTEXTO para obtener sesiones del coach
+      const coachWeekSessions = getSessionsByCoach(coachId, { start: startDate, end: endDate });
 
       // Obtener IDs únicos de jugadores entrenados por el coach
-      const coachPlayerIds = [...new Set(coachSessions.map(s => s.jugadorId))];
+      const coachPlayerIds = [...new Set(coachWeekSessions.map(s => s.jugadorId))];
       
       if (coachPlayerIds.length === 0) {
         setWeeklySatisfaction({
@@ -274,7 +272,10 @@ const useAcademyCoachDashboard = () => {
     dateRange,
     loading,
     error,
-    refreshData: loadDashboardData,
+    refreshData: async () => {
+      await refreshSessions(); // ✅ REFRESCAR SESIONES DEL CONTEXTO
+      await loadDashboardData();
+    },
     updateDateRange: (newRange: { start: Date; end: Date }) => setDateRange(newRange)
   };
 };

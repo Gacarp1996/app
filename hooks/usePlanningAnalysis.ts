@@ -1,8 +1,10 @@
+// hooks/usePlanningAnalysis.ts
 import { useState, useEffect, useMemo } from 'react';
 import { TrainingSession, Player, LoggedExercise } from '../types';
 import { TrainingPlan, getTrainingPlan } from '../Database/FirebaseTrainingPlans';
-import { getSessions } from '../Database/FirebaseSessions';
+import { useSession } from '../contexts/SessionContext';
 import { SessionExercise } from '../contexts/TrainingContext';
+import { calculateExerciseStatsByTime, sessionExercisesToLogged } from '../utils/trainingCalculations';
 
 export interface AnalysisNode {
   name: string;
@@ -21,6 +23,9 @@ interface UsePlanningAnalysisProps {
   enabled?: boolean;
 }
 
+// Variable de debug - cambiar a false para producción
+const DEBUG_MODE = false;
+
 export const usePlanningAnalysis = ({ 
   player, 
   academiaId, 
@@ -31,23 +36,25 @@ export const usePlanningAnalysis = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [trainingPlan, setTrainingPlan] = useState<TrainingPlan | null>(null);
-  const [sessions, setSessions] = useState<TrainingSession[]>([]);
+  
+  const { getSessionsByPlayer } = useSession();
 
-  // DEBUG: Log cuando cambian los ejercicios actuales
-  useEffect(() => {
-    console.log('🔄 [PLANNING] Ejercicios actuales cambiaron:', {
-      playerId: player.id,
-      playerName: player.name,
-      totalExercises: currentSessionExercises.length,
-      playerExercises: currentSessionExercises.filter(ex => ex.loggedForPlayerId === player.id),
-      enabled
+  // Obtener sesiones del contexto
+  const sessions = useMemo(() => {
+    if (!enabled) return [];
+    
+    const fechaInicio = new Date();
+    fechaInicio.setDate(fechaInicio.getDate() - rangoAnalisis);
+    
+    return getSessionsByPlayer(player.id, {
+      start: fechaInicio,
+      end: new Date()
     });
-  }, [currentSessionExercises, player.id, enabled]);
+  }, [player.id, rangoAnalisis, enabled, getSessionsByPlayer]);
 
-  // Solo cargar datos cuando esté habilitado
+  // Solo cargar plan cuando esté habilitado
   useEffect(() => {
     if (!enabled) {
-      console.log('🚫 [PLANNING] Hook deshabilitado para', player.name);
       return;
     }
 
@@ -56,45 +63,18 @@ export const usePlanningAnalysis = ({
         setLoading(true);
         setError('');
         
-        console.log('📋 [PLANNING] Cargando plan para', player.name);
+        if (DEBUG_MODE) {
+          console.log('📋 [PLANNING] Cargando plan para', player.name);
+        }
 
-        // Cargar plan de entrenamiento
         const plan = await getTrainingPlan(academiaId, player.id);
-        console.log('📋 [PLANNING] Plan cargado:', plan);
         
         if (!plan) {
           setError('No se encontró un plan de entrenamiento para este jugador');
-          console.log('❌ [PLANNING] No hay plan para', player.name);
           return;
         }
         setTrainingPlan(plan);
-
-        // Cargar sesiones de entrenamiento
-        const allSessions = await getSessions(academiaId);
-        console.log('📚 [PLANNING] Total sesiones academia:', allSessions.length);
         
-        // Filtrar sesiones del jugador en el rango de tiempo
-        const fechaInicio = new Date();
-        fechaInicio.setDate(fechaInicio.getDate() - rangoAnalisis);
-        
-        const playerSessions = allSessions.filter(session => {
-          const sessionDate = new Date(session.fecha);
-          const isPlayerMatch = session.jugadorId === player.id;
-          const isInRange = sessionDate >= fechaInicio;
-          
-          if (isPlayerMatch) {
-            console.log('📊 [PLANNING] Sesión del jugador:', {
-              fecha: session.fecha,
-              ejercicios: session.ejercicios.length,
-              enRango: isInRange
-            });
-          }
-          
-          return isPlayerMatch && isInRange;
-        });
-        
-        console.log('✅ [PLANNING] Sesiones filtradas para', player.name, ':', playerSessions.length);
-        setSessions(playerSessions);
       } catch (err) {
         console.error('❌ [PLANNING] Error cargando datos:', err);
         setError('Error al cargar los datos de análisis');
@@ -104,143 +84,64 @@ export const usePlanningAnalysis = ({
     };
 
     loadData();
-  }, [player.id, academiaId, rangoAnalisis, enabled]);
+  }, [player.id, academiaId, enabled, player.name]);
 
-  // Convertir ejercicios de sesión actual a formato compatible
-  const currentSessionAsLoggedExercises = useMemo((): LoggedExercise[] => {
-    const playerCurrentExercises = currentSessionExercises
-      .filter(ex => ex.loggedForPlayerId === player.id)
-      .map(ex => ({
-        id: ex.id,
-        tipo: ex.tipo,
-        area: ex.area,
-        ejercicio: ex.ejercicio,
-        ejercicioEspecifico: ex.ejercicioEspecifico,
-        tiempoCantidad: ex.tiempoCantidad,
-        intensidad: ex.intensidad
-      }));
-    
-    console.log('🔄 [PLANNING] Ejercicios actuales convertidos:', {
-      player: player.name,
-      total: playerCurrentExercises.length,
-      exercises: playerCurrentExercises.map(ex => ({
-        tipo: ex.tipo,
-        area: ex.area,
-        ejercicio: ex.ejercicio,
-        tiempo: ex.tiempoCantidad
-      }))
-    });
-    
-    return playerCurrentExercises;
-  }, [currentSessionExercises, player.id]);
-
-  // Calcular estadísticas reales incluyendo sesión actual
+  // Calcular estadísticas reales usando la función centralizada
   const realStats = useMemo(() => {
-    if (!enabled || (!sessions.length && !currentSessionAsLoggedExercises.length)) {
-      console.log('📊 [PLANNING] Sin datos para calcular stats:', {
-        enabled,
-        sessionsLength: sessions.length,
-        currentExercisesLength: currentSessionAsLoggedExercises.length
-      });
+    if (!enabled || (!sessions.length && !currentSessionExercises.length)) {
       return {};
     }
 
-    console.log('🧮 [PLANNING] Calculando estadísticas para', player.name);
-
-    const stats: Record<string, Record<string, Record<string, number>>> = {};
-    let totalMinutes = 0;
-
-    // Función helper para procesar ejercicios
-    const processExercise = (ejercicio: LoggedExercise, index: number, source: 'histórico' | 'actual') => {
-      const tiempo = parseFloat(ejercicio.tiempoCantidad.replace(/[^\d.]/g, '')) || 0;
-      totalMinutes += tiempo;
-
-      console.log(`🏃 [PLANNING] Ejercicio ${source} ${index + 1}:`, {
-        tipo: ejercicio.tipo,
-        area: ejercicio.area,
-        ejercicio: ejercicio.ejercicio,
-        tiempo: tiempo
-      });
-
-      // Los valores ya vienen correctos de la DB, no necesitamos mapear
-      const tipoKey = ejercicio.tipo;
-      const areaKey = ejercicio.area;
-
-      if (!stats[tipoKey]) stats[tipoKey] = {};
-      if (!stats[tipoKey][areaKey]) stats[tipoKey][areaKey] = {};
-      if (!stats[tipoKey][areaKey][ejercicio.ejercicio]) {
-        stats[tipoKey][areaKey][ejercicio.ejercicio] = 0;
-      }
-
-      stats[tipoKey][areaKey][ejercicio.ejercicio] += tiempo;
-    };
-
-    // Procesar sesiones guardadas
-    sessions.forEach((session, sessionIndex) => {
-      console.log(`📋 [PLANNING] Procesando sesión ${sessionIndex + 1}:`, {
-        fecha: session.fecha,
-        ejercicios: session.ejercicios.length
-      });
-
-      session.ejercicios.forEach((ejercicio, exerciseIndex) => {
-        processExercise(ejercicio, exerciseIndex, 'histórico');
-      });
-    });
-
-    // Procesar ejercicios de la sesión actual
-    console.log('🔥 [PLANNING] Procesando ejercicios de sesión actual:', currentSessionAsLoggedExercises.length);
+    // Recopilar todos los ejercicios
+    const allExercises: LoggedExercise[] = [];
     
-    currentSessionAsLoggedExercises.forEach((ejercicio, exerciseIndex) => {
-      processExercise(ejercicio, exerciseIndex, 'actual');
+    // Ejercicios de sesiones guardadas
+    sessions.forEach(session => {
+      if (session.ejercicios && Array.isArray(session.ejercicios)) {
+        allExercises.push(...session.ejercicios);
+      }
     });
+    
+    // Ejercicios de la sesión actual
+    const currentExercisesAsLogged = sessionExercisesToLogged(currentSessionExercises, player.id);
+    allExercises.push(...currentExercisesAsLogged);
 
-    console.log('⏱️ [PLANNING] Total minutos calculados:', totalMinutes);
-    console.log('📈 [PLANNING] Stats en minutos:', stats);
-
-    // Convertir a porcentajes
+    // ✅ USAR FUNCIÓN CENTRALIZADA
+    const stats = calculateExerciseStatsByTime(allExercises);
+    
+    // Convertir a formato esperado por el componente
     const percentageStats: Record<string, Record<string, Record<string, number>>> = {};
     
-    Object.keys(stats).forEach(tipo => {
+    Object.keys(stats.typeStats).forEach(tipo => {
       percentageStats[tipo] = {};
-      Object.keys(stats[tipo]).forEach(area => {
+      Object.keys(stats.typeStats[tipo].areas).forEach(area => {
         percentageStats[tipo][area] = {};
-        Object.keys(stats[tipo][area]).forEach(ejercicio => {
-          const percentage = totalMinutes > 0 ? (stats[tipo][area][ejercicio] / totalMinutes) * 100 : 0;
-          percentageStats[tipo][area][ejercicio] = percentage;
-          
-          console.log(`📊 [PLANNING] ${tipo}/${area}/${ejercicio}: ${stats[tipo][area][ejercicio]}min = ${percentage.toFixed(1)}%`);
+        Object.keys(stats.typeStats[tipo].areas[area].exercises).forEach(ejercicio => {
+          // Usar porcentaje ya calculado
+          const tiempo = stats.typeStats[tipo].areas[area].exercises[ejercicio];
+          percentageStats[tipo][area][ejercicio] = (tiempo / stats.totalMinutes) * 100;
         });
       });
     });
 
-    console.log('💯 [PLANNING] Stats finales en porcentajes:', percentageStats);
+    if (DEBUG_MODE && stats.totalMinutes > 0) {
+      console.log(`📊 [PLANNING] Stats calculadas para ${player.name}: ${sessions.length} sesiones, ${stats.totalMinutes.toFixed(0)} min totales`);
+    }
+
     return percentageStats;
-  }, [sessions, currentSessionAsLoggedExercises, enabled, player.name]);
+  }, [sessions, currentSessionExercises, enabled, player.id, player.name]);
 
   // Construir árbol de análisis
   const analysisTree = useMemo((): AnalysisNode[] => {
     if (!enabled || !trainingPlan || !realStats) {
-      console.log('🚫 [PLANNING] No se puede construir árbol:', {
-        enabled,
-        hasPlan: !!trainingPlan,
-        hasStats: !!realStats && Object.keys(realStats).length > 0
-      });
       return [];
     }
-
-    console.log('🌳 [PLANNING] Construyendo árbol de análisis para', player.name);
-    console.log('📋 [PLANNING] Plan de entrenamiento:', trainingPlan.planificacion);
-    console.log('📊 [PLANNING] Stats reales:', realStats);
 
     const tree: AnalysisNode[] = [];
 
     Object.keys(trainingPlan.planificacion).forEach(tipoKey => {
       const tipoPlan = trainingPlan.planificacion[tipoKey];
       const tipoReal = realStats[tipoKey] || {};
-      
-      console.log(`🏗️ [PLANNING] Procesando tipo: ${tipoKey}`);
-      console.log(`📋 [PLANNING] Plan del tipo:`, tipoPlan);
-      console.log(`📊 [PLANNING] Real del tipo:`, tipoReal);
       
       // Calcular total realizado para este tipo
       let tipoRealizadoTotal = 0;
@@ -249,8 +150,6 @@ export const usePlanningAnalysis = ({
           tipoRealizadoTotal += ejercicioValue;
         });
       });
-
-      console.log(`📈 [PLANNING] ${tipoKey}: Planificado ${tipoPlan.porcentajeTotal}% vs Realizado ${tipoRealizadoTotal.toFixed(1)}%`);
 
       const tipoNode: AnalysisNode = {
         name: tipoKey,
@@ -265,15 +164,11 @@ export const usePlanningAnalysis = ({
         const areaPlan = tipoPlan.areas[areaKey];
         const areaReal = tipoReal[areaKey] || {};
         
-        console.log(`🏗️ [PLANNING] Procesando área: ${areaKey}`);
-        
         // Calcular total realizado para esta área
         let areaRealizadaTotal = 0;
         Object.values(areaReal).forEach(ejercicioValue => {
           areaRealizadaTotal += ejercicioValue;
         });
-
-        console.log(`📈 [PLANNING] ${tipoKey}/${areaKey}: Planificado ${areaPlan.porcentajeDelTotal}% vs Realizado ${areaRealizadaTotal.toFixed(1)}%`);
 
         const areaNode: AnalysisNode = {
           name: areaKey,
@@ -290,8 +185,6 @@ export const usePlanningAnalysis = ({
             const ejercicioPlan = areaPlan.ejercicios![ejercicioName];
             const ejercicioReal = areaReal[ejercicioName] || 0;
 
-            console.log(`📈 [PLANNING] ${tipoKey}/${areaKey}/${ejercicioName}: Planificado ${ejercicioPlan.porcentajeDelTotal}% vs Realizado ${ejercicioReal.toFixed(1)}%`);
-
             areaNode.children!.push({
               name: ejercicioName,
               planificado: ejercicioPlan.porcentajeDelTotal,
@@ -307,9 +200,17 @@ export const usePlanningAnalysis = ({
       tree.push(tipoNode);
     });
 
-    console.log('🌳 [PLANNING] Árbol final construido:', tree);
+    if (DEBUG_MODE) {
+      console.log(`🌳 [PLANNING] Árbol de análisis construido para ${player.name}`);
+    }
+    
     return tree;
   }, [trainingPlan, realStats, enabled, player.name]);
+
+  // Convertir ejercicios de sesión actual para mostrar info
+  const currentSessionAsLoggedExercises = useMemo((): LoggedExercise[] => {
+    return sessionExercisesToLogged(currentSessionExercises, player.id);
+  }, [currentSessionExercises, player.id]);
 
   return {
     loading,

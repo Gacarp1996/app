@@ -1,24 +1,35 @@
-import { TrainingSession } from '@/types';
 import React, { useMemo } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
+import { useSession } from '@/contexts/SessionContext'; // ✅ NUEVO IMPORT
 
-
+// ✅ INTERFACE ACTUALIZADA - Sin sessions prop
 interface TrainingCalendarProps {
-  sessions: TrainingSession[];
+  playerId?: string; // ✅ OPCIONAL - Si no se pasa, muestra todas las sesiones
   onDateClick?: (date: Date) => void;
 }
 
-const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ sessions, onDateClick }) => {
+const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ playerId, onDateClick }) => {
+  // ✅ OBTENER SESIONES DEL CONTEXTO
+  const { sessions, getSessionsByPlayer } = useSession();
+  
+  // ✅ FILTRAR SESIONES SEGÚN playerId
+  const relevantSessions = useMemo(() => {
+    if (playerId) {
+      return getSessionsByPlayer(playerId);
+    }
+    return sessions; // Si no hay playerId, mostrar todas las sesiones
+  }, [playerId, sessions, getSessionsByPlayer]);
+
   // Crear un Set de fechas que tienen entrenamientos
   const trainedDates = useMemo(() => {
     const dates = new Set<string>();
-    sessions.forEach(session => {
+    relevantSessions.forEach(session => {
       const date = new Date(session.fecha);
       dates.add(date.toDateString());
     });
     return dates;
-  }, [sessions]);
+  }, [relevantSessions]);
 
   // Función para determinar el contenido de cada tile
   const tileContent = ({ date }: { date: Date }) => {

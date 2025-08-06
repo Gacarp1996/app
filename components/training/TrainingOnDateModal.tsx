@@ -4,11 +4,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from '../shared/Modal';
 
+// ✅ INTERFACE ACTUALIZADA - sessions sigue siendo prop porque viene filtrada del componente padre
 interface TrainingsOnDateModalProps {
   isOpen: boolean;
   onClose: () => void;
   date: Date | null;
-  sessions: TrainingSession[];
+  sessions: TrainingSession[]; // Este componente recibe las sesiones ya filtradas por fecha
 }
 
 const TrainingsOnDateModal: React.FC<TrainingsOnDateModalProps> = ({ isOpen, onClose, date, sessions }) => {

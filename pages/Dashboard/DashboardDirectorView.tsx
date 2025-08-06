@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAcademia } from '../../contexts/AcademiaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayer } from '../../contexts/PlayerContext';
-import { getSessions } from '../../Database/FirebaseSessions';
+import { useSession } from '../../contexts/SessionContext'; // ✅ NUEVO IMPORT
 import { getAcademiaUsers, AcademiaUser } from '../../Database/FirebaseRoles';
 import { getObjectives } from '../../Database/FirebaseObjectives';
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
@@ -47,6 +47,13 @@ const useDirectorDashboardData = () => {
   const { currentUser } = useAuth();
   const { players: allPlayersFromContext } = usePlayer();
   
+  // ✅ USAR SessionContext
+  const { 
+    getTodaySessions,
+    getSessionsByDateRange,
+    refreshSessions 
+  } = useSession();
+  
   const [activeTrainers, setActiveTrainers] = useState<ActiveTrainer[]>([]);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>({
     active: [],
@@ -62,7 +69,7 @@ const useDirectorDashboardData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // NUEVOS ESTADOS para el widget de entrenadores
+  // ✅ USAR DATOS DEL CONTEXTO
   const [todaySessions, setTodaySessions] = useState<TrainingSession[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
 
@@ -79,11 +86,9 @@ const useDirectorDashboardData = () => {
     setError(null);
     
     try {
-      // Cargar datos base en paralelo
-      const [sessions, users] = await Promise.all([
-        getSessions(academiaActual.id),
-        getAcademiaUsers(academiaActual.id)
-      ]);
+      // ✅ USAR FUNCIONES DEL CONTEXTO
+      const todaySessionsData = getTodaySessions();
+      const users = await getAcademiaUsers(academiaActual.id);
 
       // Usar jugadores del contexto
       const players = allPlayersFromContext;
@@ -91,21 +96,15 @@ const useDirectorDashboardData = () => {
       // Filtrar solo jugadores activos
       const activePlayers = players.filter(p => p.estado === 'activo');
       
-      // Guardar jugadores para el widget
+      // Guardar jugadores y sesiones para los widgets
       setAllPlayers(activePlayers);
-      
-      // Obtener sesiones de hoy
-      const today = new Date().toISOString().split('T')[0];
-      const todaySessionsFiltered = sessions.filter(session => 
-        session.fecha.startsWith(today)
-      );
-      setTodaySessions(todaySessionsFiltered);
+      setTodaySessions(todaySessionsData);
 
       // Procesar datos para cada widget
       await Promise.all([
-        processActiveTrainers(sessions, users),
-        processPlayerStatus(activePlayers),
-        processTodayTrainings(sessions),
+        processActiveTrainers(todaySessionsData, users),
+        processPlayerStatus(activePlayers, todaySessionsData),
+        processTodayTrainings(todaySessionsData),
         processWeeklySatisfaction(activePlayers)
       ]);
 
@@ -117,15 +116,8 @@ const useDirectorDashboardData = () => {
     }
   };
 
-  // Widget 1: Entrenadores Activos
-  const processActiveTrainers = async (sessions: TrainingSession[], users: AcademiaUser[]) => {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Filtrar entrenamientos de hoy
-    const todaySessions = sessions.filter(session => 
-      session.fecha.startsWith(today)
-    );
-
+  // Widget 1: Entrenadores Activos - USANDO DATOS DEL CONTEXTO
+  const processActiveTrainers = async (todaySessions: TrainingSession[], users: AcademiaUser[]) => {
     // Contar entrenamientos por entrenador
     const trainerSessionsCount: { [key: string]: number } = {};
     todaySessions.forEach(session => {
@@ -151,17 +143,9 @@ const useDirectorDashboardData = () => {
     setActiveTrainers(trainers);
   };
 
-  // Widget 2: Jugadores Activos
-  const processPlayerStatus = async (players: Player[]) => {
+  // Widget 2: Jugadores Activos - SIMPLIFICADO CON CONTEXTO
+  const processPlayerStatus = async (players: Player[], todaySessions: TrainingSession[]) => {
     if (!academiaActual) return;
-
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Obtener entrenamientos de hoy
-    const sessions = await getSessions(academiaActual.id);
-    const todaySessions = sessions.filter(session => 
-      session.fecha.startsWith(today)
-    );
 
     // IDs de jugadores que entrenaron hoy
     const activePlayerIds = new Set(todaySessions.map(session => session.jugadorId));
@@ -199,17 +183,12 @@ const useDirectorDashboardData = () => {
     });
   };
 
-  // Widget 3: Entrenamientos Hoy
-  const processTodayTrainings = async (sessions: TrainingSession[]) => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayCount = sessions.filter(session => 
-      session.fecha.startsWith(today)
-    ).length;
-    
-    setTodayTrainings(todayCount);
+  // Widget 3: Entrenamientos Hoy - SIMPLIFICADO
+  const processTodayTrainings = async (todaySessions: TrainingSession[]) => {
+    setTodayTrainings(todaySessions.length);
   };
 
-  // Widget 4: Satisfacción Semanal
+  // Widget 4: Satisfacción Semanal - USANDO CONTEXTO PARA SESIONES
   const processWeeklySatisfaction = async (players: Player[]) => {
     if (!academiaActual || players.length === 0) {
       setWeeklySatisfaction({
@@ -226,6 +205,9 @@ const useDirectorDashboardData = () => {
     startDate.setDate(endDate.getDate() - 7);
 
     try {
+      // ✅ USAR FUNCIÓN DEL CONTEXTO
+      const weekSessions = getSessionsByDateRange(startDate, endDate);
+      
       // Obtener todas las encuestas de la última semana
       const playerIds = players.map(p => p.id);
       const surveys = await getBatchSurveys(academiaActual.id, playerIds, startDate, endDate);
@@ -301,11 +283,14 @@ const useDirectorDashboardData = () => {
     playerStatus,
     todayTrainings,
     weeklySatisfaction,
-    todaySessions,    // NUEVO
-    allPlayers,       // NUEVO
+    todaySessions,
+    allPlayers,
     loading,
     error,
-    refreshData: loadDashboardData
+    refreshData: async () => {
+      await refreshSessions(); // ✅ REFRESCAR SESIONES DEL CONTEXTO
+      await loadDashboardData();
+    }
   };
 };
 
@@ -317,8 +302,8 @@ const DashboardDirectorView: React.FC = () => {
     playerStatus,
     todayTrainings,
     weeklySatisfaction,
-    todaySessions,    // NUEVO
-    allPlayers,       // NUEVO
+    todaySessions,
+    allPlayers,
     loading,
     error,
     refreshData
@@ -379,7 +364,6 @@ const DashboardDirectorView: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <ActiveTrainersWidget 
             activeTrainers={activeTrainers} 
-            todaySessions={todaySessions}
             players={allPlayers}
           />
           <PlayerStatusWidget playerStatus={playerStatus} />
@@ -390,7 +374,6 @@ const DashboardDirectorView: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <WeeklySatisfactionWidget weeklySatisfaction={weeklySatisfaction} />
           <PlanningResumeWidget playerStatus={playerStatus} />
-          {/* NUEVO: Widget de Próximas Competencias */}
           <UpcomingCompetitionsWidget academiaId={academiaActual.id} />
         </div>
       </div>

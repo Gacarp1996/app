@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAcademia } from '../contexts/AcademiaContext';
-import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
-import { getSessions } from '../Database/FirebaseSessions';
+import { usePlayer } from '../contexts/PlayerContext';
+import { useSession } from '../contexts/SessionContext'; // ✅ NUEVO IMPORT
 import { getAcademiaUsers, AcademiaUser } from '../Database/FirebaseRoles';
 import { getObjectives } from '../Database/FirebaseObjectives';
 import { getTrainingPlan } from '../Database/FirebaseTrainingPlans';
@@ -35,7 +35,14 @@ interface WeeklySatisfaction {
 
 export const useDashboardData = () => {
   const { academiaActual } = useAcademia();
-  const { players: allPlayers, loadingPlayers } = usePlayer(); // ✅ USAR PLAYERS DEL CONTEXTO
+  const { players: allPlayers, loadingPlayers } = usePlayer();
+  
+  // ✅ USAR SessionContext
+  const { 
+    getTodaySessions,
+    getSessionsByDateRange,
+    loadingSessions 
+  } = useSession();
   
   const [activeTrainers, setActiveTrainers] = useState<ActiveTrainer[]>([]);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>({
@@ -53,11 +60,11 @@ export const useDashboardData = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // ✅ ESPERAR A QUE SE CARGUEN LOS PLAYERS
-    if (academiaActual && !loadingPlayers) {
+    // ✅ ESPERAR A QUE SE CARGUEN PLAYERS Y SESSIONS
+    if (academiaActual && !loadingPlayers && !loadingSessions) {
       loadDashboardData();
     }
-  }, [academiaActual, allPlayers, loadingPlayers]); // ✅ AGREGAR allPlayers y loadingPlayers como dependencias
+  }, [academiaActual, allPlayers, loadingPlayers, loadingSessions]);
 
   const loadDashboardData = async () => {
     if (!academiaActual) return;
@@ -66,21 +73,18 @@ export const useDashboardData = () => {
     setError(null);
     
     try {
-      // ✅ CARGAR SOLO SESIONES Y USUARIOS (NO PLAYERS)
-      const [sessions, users] = await Promise.all([
-        getSessions(academiaActual.id),
-        getAcademiaUsers(academiaActual.id)
-      ]);
+      // ✅ USAR FUNCIONES DEL CONTEXTO
+      const todaySessions = getTodaySessions();
+      const users = await getAcademiaUsers(academiaActual.id);
 
-      // ✅ USAR allPlayers DEL CONTEXTO
-      // Filtrar solo jugadores activos
+      // Usar allPlayers del contexto
       const activePlayers = allPlayers.filter(p => p.estado === 'activo');
 
       // Procesar datos para cada widget
       await Promise.all([
-        processActiveTrainers(sessions, users),
-        processPlayerStatus(activePlayers),
-        processTodayTrainings(sessions),
+        processActiveTrainers(todaySessions, users),
+        processPlayerStatus(activePlayers, todaySessions),
+        processTodayTrainings(todaySessions),
         processWeeklySatisfaction(activePlayers)
       ]);
 
@@ -92,15 +96,8 @@ export const useDashboardData = () => {
     }
   };
 
-  // Widget 1: Entrenadores Activos
-  const processActiveTrainers = async (sessions: TrainingSession[], users: AcademiaUser[]) => {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Filtrar entrenamientos de hoy
-    const todaySessions = sessions.filter(session => 
-      session.fecha.startsWith(today)
-    );
-
+  // Widget 1: Entrenadores Activos - ACTUALIZADO
+  const processActiveTrainers = async (todaySessions: TrainingSession[], users: AcademiaUser[]) => {
     // Contar entrenamientos por entrenador
     const trainerSessionsCount: { [key: string]: number } = {};
     todaySessions.forEach(session => {
@@ -126,18 +123,9 @@ export const useDashboardData = () => {
     setActiveTrainers(trainers);
   };
 
-  // Widget 2: Jugadores Activos
-  // ✅ YA RECIBE players COMO PARÁMETRO, NO NECESITA CAMBIOS
-  const processPlayerStatus = async (players: Player[]) => {
+  // Widget 2: Jugadores Activos - ACTUALIZADO
+  const processPlayerStatus = async (players: Player[], todaySessions: TrainingSession[]) => {
     if (!academiaActual) return;
-
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Obtener entrenamientos de hoy
-    const sessions = await getSessions(academiaActual.id);
-    const todaySessions = sessions.filter(session => 
-      session.fecha.startsWith(today)
-    );
 
     // IDs de jugadores que entrenaron hoy
     const activePlayerIds = new Set(todaySessions.map(session => session.jugadorId));
@@ -175,18 +163,12 @@ export const useDashboardData = () => {
     });
   };
 
-  // Widget 3: Entrenamientos Hoy
-  const processTodayTrainings = async (sessions: TrainingSession[]) => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayCount = sessions.filter(session => 
-      session.fecha.startsWith(today)
-    ).length;
-    
-    setTodayTrainings(todayCount);
+  // Widget 3: Entrenamientos Hoy - ACTUALIZADO
+  const processTodayTrainings = async (todaySessions: TrainingSession[]) => {
+    setTodayTrainings(todaySessions.length);
   };
 
-  // Widget 4: Satisfacción Semanal
-  // ✅ YA RECIBE players COMO PARÁMETRO, NO NECESITA CAMBIOS
+  // Widget 4: Satisfacción Semanal - ACTUALIZADO
   const processWeeklySatisfaction = async (players: Player[]) => {
     if (!academiaActual || players.length === 0) {
       setWeeklySatisfaction({
@@ -203,6 +185,9 @@ export const useDashboardData = () => {
     startDate.setDate(endDate.getDate() - 7);
 
     try {
+      // ✅ USAR FUNCIÓN DEL CONTEXTO
+      const weekSessions = getSessionsByDateRange(startDate, endDate);
+      
       // Obtener todas las encuestas de la última semana
       const playerIds = players.map(p => p.id);
       const surveys = await getBatchSurveys(academiaActual.id, playerIds, startDate, endDate);
@@ -278,7 +263,7 @@ export const useDashboardData = () => {
     playerStatus,
     todayTrainings,
     weeklySatisfaction,
-    loading: loading || loadingPlayers, // ✅ INCLUIR loadingPlayers
+    loading: loading || loadingPlayers || loadingSessions, // ✅ INCLUIR TODOS LOS LOADINGS
     error,
     refreshData: loadDashboardData
   };

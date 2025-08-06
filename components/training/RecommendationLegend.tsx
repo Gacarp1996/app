@@ -13,12 +13,21 @@ export const RecommendationLegend: React.FC<RecommendationLegendProps> = ({ clas
       </h4>
       
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Óptimo (Azul) - PRIMERO para destacar lo positivo */}
+        <div className="flex items-center gap-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded">
+          <div className="w-4 h-4 bg-blue-500 rounded-full flex-shrink-0"></div>
+          <div className="text-xs">
+            <div className="font-medium text-blue-400">✅ Óptimo</div>
+            <div className="text-gray-400">Bien balanceado (±5%)</div>
+          </div>
+        </div>
+
         {/* Incrementar (Rojo) */}
         <div className="flex items-center gap-3 p-2 bg-red-500/10 border border-red-500/20 rounded">
           <div className="w-4 h-4 bg-red-500 rounded-full flex-shrink-0"></div>
           <div className="text-xs">
-            <div className="font-medium text-red-400">🔴 Incrementar</div>
-            <div className="text-gray-400">Necesita más práctica</div>
+            <div className="font-medium text-red-400">⚠️ Incrementar</div>
+            <div className="text-gray-400">Falta entrenar más</div>
           </div>
         </div>
 
@@ -26,17 +35,8 @@ export const RecommendationLegend: React.FC<RecommendationLegendProps> = ({ clas
         <div className="flex items-center gap-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded">
           <div className="w-4 h-4 bg-yellow-500 rounded-full flex-shrink-0"></div>
           <div className="text-xs">
-            <div className="font-medium text-yellow-400">🟡 Reducir</div>
+            <div className="font-medium text-yellow-400">📉 Reducir</div>
             <div className="text-gray-400">Exceso de práctica</div>
-          </div>
-        </div>
-
-        {/* Óptimo (Azul) */}
-        <div className="flex items-center gap-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded">
-          <div className="w-4 h-4 bg-blue-500 rounded-full flex-shrink-0"></div>
-          <div className="text-xs">
-            <div className="font-medium text-blue-400">🔵 Óptimo</div>
-            <div className="text-gray-400">Bien balanceado</div>
           </div>
         </div>
       </div>
@@ -48,7 +48,7 @@ export const RecommendationLegend: React.FC<RecommendationLegendProps> = ({ clas
             <strong className="text-gray-300">Diferencia:</strong> Brecha entre el porcentaje actual y el planificado en el entrenamiento.
           </p>
           <p>
-            <strong className="text-gray-300">Ejemplo:</strong> Si el plan dice 40% de derecha pero solo practica 25%, la diferencia es +15% (necesita incrementar).
+            <strong className="text-gray-300">Ejemplo:</strong> Si el plan dice 40% peloteo pero solo practica 25%, la diferencia es -15% (necesita incrementar 🔴).
           </p>
         </div>
       </div>

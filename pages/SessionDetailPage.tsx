@@ -5,26 +5,28 @@ import { getSurveyBySessionId, addPostTrainingSurvey, updateSurvey } from '../Da
 import { useAcademia } from '../contexts/AcademiaContext';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useTraining } from '../contexts/TrainingContext';
+import { useSession } from '../contexts/SessionContext'; // ✅ NUEVO IMPORT
 import { UI_LABELS } from '../constants/training';
 import PostTrainingSurveyModal from '@/components/training/PostTrainingSurveyModal';
 
-interface SessionDetailPageProps {
-  sessions: TrainingSession[];
-}
-
-const SessionDetailPage: React.FC<SessionDetailPageProps> = ({ sessions }) => {
+// ✅ INTERFACE ACTUALIZADA - Sin sessions prop
+const SessionDetailPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { academiaActual } = useAcademia();
   const { players } = usePlayer();
   const { loadSessionForEdit } = useTraining();
   
+  // ✅ OBTENER SESIÓN DEL CONTEXTO
+  const { getSessionById } = useSession();
+  
   const [survey, setSurvey] = useState<PostTrainingSurvey | null>(null);
   const [loadingSurvey, setLoadingSurvey] = useState(true);
   const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
   const [isEditingSurvey, setIsEditingSurvey] = useState(false);
 
-  const session = sessions.find(s => s.id === sessionId);
+  // ✅ OBTENER SESIÓN DEL CONTEXTO
+  const session = sessionId ? getSessionById(sessionId) : undefined;
   const player = session ? players.find(p => p.id === session.jugadorId) : null;
 
   useEffect(() => {
