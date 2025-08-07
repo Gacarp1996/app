@@ -1,4 +1,4 @@
-// src/App.tsx - ACTUALIZADO con ObjectiveProvider
+// src/App.tsx - ACTUALIZADO con TournamentProvider
 
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -7,7 +7,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AcademiaProvider, useAcademia } from './contexts/AcademiaContext';
 import { ConfigModalProvider } from './contexts/ConfigModalContext';
 import { PlayerProvider } from './contexts/PlayerContext';
-import { ObjectiveProvider } from './contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
+import { ObjectiveProvider } from './contexts/ObjectiveContext';
+import { TournamentProvider } from './contexts/TournamentContext'; // ✅ NUEVO IMPORT
 import ProtectedRoute from './components/shared/protectedRoute';
 import LoginPage from './pages/LoginPage';
 import AcademiaSelectPage from './pages/AcademiaSelectPage';
@@ -70,10 +71,12 @@ const App: React.FC = () => {
           <AcademiaProvider>
             <ConfigModalProvider>
               <PlayerProvider>
-                <ObjectiveProvider> {/* ✅ NUEVO PROVIDER */}
-                  <SessionProvider>
-                    <AuthenticatedApp />
-                  </SessionProvider>
+                <ObjectiveProvider>
+                  <TournamentProvider> 
+                    <SessionProvider>
+                      <AuthenticatedApp />
+                    </SessionProvider>
+                  </TournamentProvider>
                 </ObjectiveProvider>
               </PlayerProvider>
             </ConfigModalProvider>

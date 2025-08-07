@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
-import { Player, Objective, Tournament } from '../types';
 import { useTrainingSession } from '../hooks/useTrainingSession';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useSession } from '../contexts/SessionContext';
+import { useTournament } from '../contexts/TournamentContext'; // ✅ NUEVO IMPORT
 import PostTrainingSurveyModal from '../components/training/PostTrainingSurveyModal';
 import SurveyConfirmationModal from '../components/training/SurveyConfirmationModal';
 import SurveyExitConfirmModal from '../components/training/SurveyExitConfirmModal';
@@ -17,12 +17,12 @@ import SessionSummary from '../components/training/SessionSummary';
 import ObjectiveModal from '@/components/player-profile/ObjectiveModal';
 import ActiveSessionRecommendations from '../components/training/ActiveSessionRecommendations';
 
-// ✅ INTERFACE ACTUALIZADA - Solo tournaments
+// ✅ INTERFACE ACTUALIZADA - Ya no necesita allTournaments
 interface TrainingSessionPageProps {
-  allTournaments: Tournament[];
+  // Ya no necesita props, todo viene del contexto
 }
 
-const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allTournaments }) => {
+const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { playerId } = useParams();
@@ -30,9 +30,11 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allTournament
   const { academiaActual } = useAcademia();
   const academiaId = academiaActual?.id || '';
   
-  
   // ✅ USAR SessionContext para obtener sesiones
   const { getSessionById } = useSession();
+  
+  // ✅ USAR TournamentContext para obtener torneos
+  const { tournaments } = useTournament();
   
   // Detectar si estamos en modo edición
   const editSessionId = searchParams.get('edit');
@@ -112,9 +114,9 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allTournament
     handleConfirmExitSurveys,
     handleCancelExitSurveys,
   } = useTrainingSession({
-    allTournaments,
+    allTournaments: tournaments,  // ✅ AHORA VIENE DEL CONTEXTO
     editSessionId,
-    originalSession     // ✅ YA VIENE DEL CONTEXTO
+    originalSession              // ✅ YA VIENE DEL CONTEXTO
   });
 
   // Detectar cambios para mostrar advertencia
@@ -182,7 +184,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = ({ allTournament
           isOpen={isObjectiveModalOpen} 
           onClose={() => setIsObjectiveModalOpen(false)} 
           selectedPlayers={participants} 
-          allTournaments={allTournaments} 
+          allTournaments={tournaments}  
         />
         <ManageParticipantsModal 
           isOpen={isParticipantModalOpen} 

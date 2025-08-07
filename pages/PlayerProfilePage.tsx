@@ -1,11 +1,11 @@
-// pages/PlayerProfilePage.tsx - MIGRADO A SESSIONCONTEXT Y OBJECTIVECONTEXT
+// pages/PlayerProfilePage.tsx - MIGRADO A TODOS LOS CONTEXTS
 import React, { useState, useMemo, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Player, Tournament } from '../types'; // ✅ Ya no necesita Objective
 import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useSession } from '../contexts/SessionContext';
-import { useObjective } from '../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
+import { useObjective } from '../contexts/ObjectiveContext';
+import { useTournament } from '../contexts/TournamentContext'; // ✅ NUEVO IMPORT
 
 import Modal from '../components/shared/Modal';
 import TrainingsOnDateModal from '../components/training/TrainingOnDateModal';
@@ -39,9 +39,8 @@ import { usePlayerTournaments } from '../hooks/usePlayerTournaments';
 // UTILIDADES
 import { formatDate } from '../components/player-profile/utils';
 
-// ✅ INTERFACE ACTUALIZADA - Ya no necesita objectives
+// ✅ INTERFACE ACTUALIZADA - Ya no necesita tournaments ni objectives
 interface PlayerProfilePageProps {
-  tournaments: Tournament[];
   onDataChange: () => void;
 }
 
@@ -67,7 +66,6 @@ const TabLoadingSkeleton: React.FC<{ message?: string }> = ({ message = "Cargand
 );
 
 const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({ 
-  tournaments, 
   onDataChange
 }) => {
   const { playerId } = useParams<{ playerId: string }>();
@@ -80,6 +78,13 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
   
   // ✅ USAR ObjectiveContext
   const { getObjectivesByPlayer, getObjectivesByState } = useObjective();
+  
+  // ✅ USAR TournamentContext
+  const { 
+    getTournamentsByPlayer, 
+    getDisputedTournamentsByPlayer,
+    tournaments // Para obtener todos los torneos si es necesario
+  } = useTournament();
   
   // Estados de UI
   const [activeTab, setActiveTab] = useState<Tab>("perfil");
@@ -132,11 +137,16 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
     return getObjectivesByState(playerId, 'actual-progreso').length;
   }, [playerId, getObjectivesByState]);
 
+  // ✅ OBTENER TORNEOS DEL JUGADOR DESDE EL CONTEXTO
   const playerTournaments = useMemo(() => {
-    if (activeTab !== "tournaments") return [];
-    return tournaments.filter(t => t.jugadorId === playerId)
-      .sort((a,b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime());
-  }, [tournaments, playerId, activeTab]);
+    if (!playerId || activeTab !== "tournaments") return [];
+    return getTournamentsByPlayer(playerId);
+  }, [playerId, activeTab, getTournamentsByPlayer]);
+
+  const playerDisputedTournaments = useMemo(() => {
+    if (!playerId || activeTab !== "tournaments") return [];
+    return getDisputedTournamentsByPlayer(playerId);
+  }, [playerId, activeTab, getDisputedTournamentsByPlayer]);
 
   // Handlers locales
   const handleDeleteClick = () => setIsDeleteModalOpen(true);
@@ -324,7 +334,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
                 activeSubTab={tournamentsHook.activeSubTab || 'future'}
                 onSubTabChange={tournamentsHook.setActiveSubTab || (() => {})}
                 futureTournamentsCount={playerTournaments.length}
-                disputedTournamentsCount={tournamentsHook.playerDisputedTournaments.length || 0}
+                disputedTournamentsCount={playerDisputedTournaments.length}
               />
 
               {tournamentsHook.activeSubTab === 'future' ? (
@@ -338,7 +348,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
                 />
               ) : (
                 <DisputedTournamentsSection
-                  playerDisputedTournaments={tournamentsHook.playerDisputedTournaments || []}
+                  playerDisputedTournaments={playerDisputedTournaments}
                   onAddClick={tournamentsHook.disputedTournamentHandlers.handleOpenAddDisputedTournamentModal || (() => {})}
                   onEditClick={tournamentsHook.disputedTournamentHandlers.handleEditDisputedTournamentClick || (() => {})}
                   onDeleteClick={tournamentsHook.disputedTournamentHandlers.handleDeleteDisputedTournament || (() => {})}

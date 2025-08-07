@@ -5,9 +5,8 @@ import { useAcademia } from '../../contexts/AcademiaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayer } from '../../contexts/PlayerContext'; 
 import { useSession } from '../../contexts/SessionContext';
-import { useObjective } from '../../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
-import { getTournaments } from '../../Database/FirebaseTournaments';
-import { getDisputedTournaments } from '../../Database/FirebaseDisputedTournaments'; 
+import { useObjective } from '../../contexts/ObjectiveContext';
+import { useTournament } from '../../contexts/TournamentContext'; // ✅ NUEVO IMPORT
 import GlobalHeader from './GlobalHeader';
 
 import PlayersListPage from '../../pages/PlayersListPage';
@@ -17,7 +16,6 @@ import PlayerProfilePage from '../../pages/PlayerProfilePage';
 import EditObjectivesPage from '../../pages/EditObjectivesPage';
 import ObjectiveDetailPage from '../../pages/ObjectiveDetailPage';
 import SessionDetailPage from '../../pages/SessionDetailPage';
-import { Tournament, DisputedTournament } from '../../types'; 
 import AcademiaSettingsPage from '../../pages/AcademiaSettingsPage';
 import HomePage from '@/pages/HomePage';
 
@@ -56,12 +54,21 @@ const AppWithAcademia: React.FC = () => {
     getTodaySessions 
   } = useSession();
   
-  // ✅ USAR ObjectiveContext - YA NO NECESITAMOS objectives como estado local
+  // ✅ USAR ObjectiveContext
   const { 
     objectives, 
     loadingObjectives, 
     refreshObjectives 
   } = useObjective();
+  
+  // ✅ NUEVO: USAR TournamentContext
+  const {
+    tournaments,
+    disputedTournaments,
+    loadingTournaments,
+    loadingDisputedTournaments,
+    refreshAllTournaments
+  } = useTournament();
   
   // ✅ USAR CONTEXTO PARA AMBOS MODALES
   const { 
@@ -72,10 +79,7 @@ const AppWithAcademia: React.FC = () => {
     closeAdvancedModal 
   } = useConfigModal();
   
-  // ✅ SIMPLIFICADO: Ya no necesitamos objectives como estado local
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [disputedTournaments, setDisputedTournaments] = useState<DisputedTournament[]>([]);
-  const [dataLoading, setDataLoading] = useState(true); 
+  // ✅ Estados solo para procesamiento y configuración
   const [processingAction, setProcessingAction] = useState<string | boolean>(false);
 
   // ✅ ESTADOS PARA CONFIGURACIÓN DE ENCUESTAS
@@ -129,8 +133,6 @@ const AppWithAcademia: React.FC = () => {
       navigate('/select-academia');
       return;
     }
-    
-    fetchData();
   }, [academiaActual, navigate]);
 
   // ✅ EFECTO PARA CARGAR CONFIGURACIÓN CUANDO SE ABRE EL MODAL AVANZADO
@@ -139,29 +141,6 @@ const AppWithAcademia: React.FC = () => {
       loadSurveyConfig();
     }
   }, [isAdvancedModalOpen, academiaActual, surveyConfig, loadingSurveyConfig]);
-
-  // ✅ SIMPLIFICADO: Ya no cargamos objectives aquí
-  const fetchData = async () => {
-    if (!academiaActual) return;
-    
-    setDataLoading(true);
-    try {
-      // Solo cargamos tournaments y disputedTournaments
-      const [tournamentsData, disputedData] = await Promise.all([
-        getTournaments(academiaActual.id),
-        getDisputedTournaments(academiaActual.id)
-      ]);
-      
-      setTournaments(tournamentsData || []);
-      setDisputedTournaments(disputedData || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setTournaments([]);
-      setDisputedTournaments([]);
-    } finally {
-      setDataLoading(false);
-    }
-  };
 
   // ✅ HANDLERS PARA EL MODAL DE CONFIGURACIÓN
   const handleRemoveUser = async (userId: string) => {
@@ -305,13 +284,13 @@ const AppWithAcademia: React.FC = () => {
     }
   };
 
-  // ✅ FUNCIÓN COMBINADA PARA REFRESCAR TODOS LOS DATOS
+  // ✅ FUNCIÓN ACTUALIZADA para refrescar todos los datos
   const handleDataChange = async () => {
     await Promise.all([
-      refreshPlayers(),     // Refrescar jugadores desde el contexto
-      refreshSessions(),    // Refrescar sesiones desde el contexto
-      refreshObjectives(),  // ✅ NUEVO: Refrescar objetivos desde el contexto
-      fetchData()          // Refrescar otros datos (torneos)
+      refreshPlayers(),       // Refrescar jugadores desde el contexto
+      refreshSessions(),      // Refrescar sesiones desde el contexto
+      refreshObjectives(),    // Refrescar objetivos desde el contexto
+      refreshAllTournaments() // ✅ NUEVO: Refrescar torneos desde el contexto
     ]);
   };
 
@@ -320,7 +299,7 @@ const AppWithAcademia: React.FC = () => {
   }
 
   // ✅ MOSTRAR LOADING SI CUALQUIER DATO ESTÁ CARGANDO
-  if (dataLoading || loadingPlayers || loadingSessions || loadingObjectives) {
+  if (loadingPlayers || loadingSessions || loadingObjectives || loadingTournaments || loadingDisputedTournaments) {
     return (
       <div className="min-h-screen flex items-center justify-center pt-[60px]">
         <div className="text-center">
@@ -346,8 +325,7 @@ const AppWithAcademia: React.FC = () => {
             <Route path="/academia-settings" element={<AcademiaSettingsPage />} />
             <Route path="/player/:playerId" element={
               <PlayerProfilePage 
-                // ✅ SIMPLIFICADO: Ya no necesita objectives
-                tournaments={tournaments || []} 
+                // ✅ YA NO necesita props de tournaments
                 onDataChange={handleDataChange}
               />
             } />
@@ -356,8 +334,7 @@ const AppWithAcademia: React.FC = () => {
             } />
             <Route path="/training/:playerId" element={
               <TrainingSessionPage 
-                // ✅ SIMPLIFICADO: objectives ahora viene del contexto en el propio componente
-                allTournaments={tournaments || []} 
+                // ✅ YA NO necesita allTournaments
               />
             } />
             <Route path="/session/:sessionId" element={
@@ -365,14 +342,11 @@ const AppWithAcademia: React.FC = () => {
             } />
             <Route path="/objective/:objectiveId/edit" element={
               <ObjectiveDetailPage 
-                // ✅ SIMPLIFICADO: Ya no necesita props
                 onDataChange={handleDataChange}
               />
             } />
             <Route path="/player/:playerId/edit-objectives" element={
-              <EditObjectivesPage 
-                // ✅ SIMPLIFICADO: Ya no necesita props
-              />
+              <EditObjectivesPage />
             } />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
