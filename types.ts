@@ -168,16 +168,25 @@ export interface TrainingPlanTipo {
   };
 }
 
-export interface TrainingPlan {
-  id: string;
+// TODO: Refactorizar en el futuro para separar en StoredTrainingPlan y TrainingPlanWithContext
+// NOTA: Estos campos son opcionales porque Firebase no los almacena directamente,
+// pero se pueden agregar en runtime cuando se cargan los datos.
+// - `id`: Generalmente se usa el playerId como identificador
+// - `academiaId`: Se obtiene del contexto de la aplicación
+// Este es un compromiso temporal para evitar romper código existente.
+/*export interface TrainingPlan {
+  id?: string;              // Opcional: No se guarda en Firebase, se usa playerId
   jugadorId: string;
-  academiaId: string;
+  academiaId?: string;      // Opcional: No se guarda en Firebase, viene del contexto
   planificacion: {
     [tipo in TipoType]?: TrainingPlanTipo;
   };
   fechaCreacion: string;
   fechaActualizacion: string;
-}
+  rangoAnalisis?: number;
+  usaDistribucionFlexible?: boolean;
+}*/
+
 
 // Tipos para análisis y estadísticas
 export interface TrainingStats {
