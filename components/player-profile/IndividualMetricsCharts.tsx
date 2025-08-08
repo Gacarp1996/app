@@ -17,6 +17,7 @@ const IndividualMetricsCharts: React.FC<IndividualMetricsChartsProps> = ({
   prepareIndividualChartData,
   METRIC_CONFIG
 }) => {
+  
   return (
     <div className="bg-gray-900/50 backdrop-blur-sm p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800">
       <h3 className="text-xl lg:text-2xl font-semibold text-green-400 mb-6">

@@ -1,11 +1,14 @@
 // hooks/useActiveSessionRecommendations.ts
 import { useState, useEffect, useCallback } from 'react';
-import { TrainingSession, LoggedExercise } from '../types';
+import { TrainingSession, Player } from '../types';
 import { TipoType, AreaType } from '../constants/training';
 import { getTrainingPlan, TrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useSession } from '../contexts/SessionContext';
-import { calculateExerciseStatsByTime } from '../utils/trainingCalculations';
+import { StatisticsService } from '../services/statisticsService';
+import { SessionService } from '../services/sessionService';
+import { TrainingStructureService } from '../services/trainingStructure';
+import { getDefaultDateRange } from '../utils/dateHelpers';
 
 interface Recommendation {
   level: 'TIPO' | 'AREA' | 'EJERCICIO';
@@ -21,18 +24,6 @@ interface Recommendation {
   parentArea?: string;
   isStatus?: boolean;
   details?: any;
-}
-
-interface TypeStats {
-  total: number;
-  percentage: number;
-  areas: {
-    [key: string]: {
-      total: number;
-      percentage: number;
-      exercises: { [key: string]: number };
-    };
-  };
 }
 
 interface Participant {
@@ -63,12 +54,12 @@ export const useActiveSessionRecommendations = ({
   const [groupRecommendations, setGroupRecommendations] = useState<any>(null);
   const [dataPreview, setDataPreview] = useState<any>(null);
 
-  // Función principal para generar recomendaciones bajo demanda
+  // Función principal para generar recomendaciones
   const generateRecommendations = async () => {
     setRecommendationsLoading(true);
     
     try {
-      // Generar recomendaciones individuales para el primer jugador por defecto
+      // Generar recomendaciones individuales para el primer jugador
       const firstPlayerId = participants[0]?.id;
       if (firstPlayerId) {
         const individualAnalysis = analyzePlayerExercises(firstPlayerId);
@@ -89,7 +80,7 @@ export const useActiveSessionRecommendations = ({
     }
   };
 
-  // ✅ NUEVA FUNCIÓN: Actualizar recomendaciones individuales cuando cambia el jugador
+  // Actualizar recomendaciones individuales cuando cambia el jugador
   const updateIndividualRecommendations = useCallback((playerId: string) => {
     if (!playerId || !recommendationsGenerated) return;
     
@@ -99,7 +90,7 @@ export const useActiveSessionRecommendations = ({
     } catch (error) {
       console.error('Error actualizando recomendaciones individuales:', error);
     }
-  }, [recommendationsGenerated]); // Dependencias actualizadas abajo después de definir analyzePlayerExercises
+  }, [recommendationsGenerated, participants, trainingPlans]); // Dependencies will be fixed below
 
   // Función para refrescar recomendaciones
   const refreshRecommendations = async () => {
@@ -112,29 +103,7 @@ export const useActiveSessionRecommendations = ({
       await refreshSessionsFromContext();
 
       // Recargar planes de entrenamiento
-      const plansMap: {[playerId: string]: TrainingPlan} = {};
-      for (const participant of participants) {
-        try {
-          const plan = await getTrainingPlan(academiaId, participant.id);
-          if (plan) {
-            plansMap[participant.id] = plan;
-          } else if (participants.length > 1) {
-            // Lógica de adaptación: Si no tiene plan, intentar usar el de otro jugador
-            for (const otherParticipant of participants) {
-              if (otherParticipant.id !== participant.id) {
-                const otherPlan = await getTrainingPlan(academiaId, otherParticipant.id);
-                if (otherPlan) {
-                  console.log(`Adaptando plan de ${otherParticipant.name} para ${participant.name}`);
-                  plansMap[participant.id] = otherPlan;
-                  break;
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`Error cargando plan para ${participant.name}:`, error);
-        }
-      }
+      const plansMap = await loadTrainingPlans();
       setTrainingPlans(plansMap);
 
       // Generar preview de datos
@@ -149,38 +118,43 @@ export const useActiveSessionRecommendations = ({
     }
   };
 
-  // Cargar planes de entrenamiento cuando cambien los participantes
+  // Cargar planes de entrenamiento con adaptación
+  const loadTrainingPlans = async (): Promise<{[playerId: string]: TrainingPlan}> => {
+    const plansMap: {[playerId: string]: TrainingPlan} = {};
+    
+    for (const participant of participants) {
+      try {
+        const plan = await getTrainingPlan(academiaId, participant.id);
+        if (plan) {
+          plansMap[participant.id] = plan;
+        } else if (participants.length > 1) {
+          // Adaptar plan de otro jugador si no tiene plan propio
+          for (const otherParticipant of participants) {
+            if (otherParticipant.id !== participant.id) {
+              const otherPlan = await getTrainingPlan(academiaId, otherParticipant.id);
+              if (otherPlan) {
+                console.log(`Adaptando plan de ${otherParticipant.name} para ${participant.name}`);
+                plansMap[participant.id] = otherPlan;
+                break;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error cargando plan para ${participant.name}:`, error);
+      }
+    }
+    
+    return plansMap;
+  };
+
+  // Cargar planes cuando cambien los participantes
   useEffect(() => {
     const loadRealData = async () => {
       if (academiaId && participants.length > 0) {
         try {
-          // Cargar planes de entrenamiento para cada participante con lógica de adaptación
-          const plansMap: {[playerId: string]: TrainingPlan} = {};
-          for (const participant of participants) {
-            try {
-              const plan = await getTrainingPlan(academiaId, participant.id);
-              if (plan) {
-                plansMap[participant.id] = plan;
-              } else if (participants.length > 1) {
-                // Si no tiene plan propio, intentar adaptar el de otro jugador del grupo
-                for (const otherParticipant of participants) {
-                  if (otherParticipant.id !== participant.id) {
-                    const otherPlan = await getTrainingPlan(academiaId, otherParticipant.id);
-                    if (otherPlan) {
-                      console.log(`Adaptando plan de ${otherParticipant.name} para ${participant.name}`);
-                      plansMap[participant.id] = otherPlan;
-                      break;
-                    }
-                  }
-                }
-              }
-            } catch (error) {
-              console.error(`Error cargando plan para ${participant.name}:`, error);
-            }
-          }
+          const plansMap = await loadTrainingPlans();
           setTrainingPlans(plansMap);
-          
-          // Generar preview de datos sin procesar recomendaciones
           generateDataPreview(plansMap);
         } catch (error) {
           console.error('Error cargando datos reales:', error);
@@ -188,7 +162,7 @@ export const useActiveSessionRecommendations = ({
       }
     };
 
-    // Limpiar todos los estados dependientes de participantes
+    // Limpiar estados
     setRecommendationsGenerated(false);
     setIndividualRecommendations(null);
     setGroupRecommendations(null);
@@ -200,29 +174,23 @@ export const useActiveSessionRecommendations = ({
     }
   }, [participants, academiaId]);
 
-
-  // ✅ AGREGAR ESTE NUEVO useEffect DESPUÉS del anterior (alrededor de línea 200-210)
-useEffect(() => {
-  // Solo ejecutar si ya hay recomendaciones generadas
-  if (recommendationsGenerated && participants.length > 0) {
-    console.log('🔄 Participantes cambiaron después de generar recomendaciones');
-    
-    // Forzar regeneración
-    const timer = setTimeout(() => {
+  // Regenerar recomendaciones cuando cambien los participantes después de generar
+  useEffect(() => {
+    if (recommendationsGenerated && participants.length > 0) {
       console.log('Regenerando recomendaciones para:', participants.map(p => p.name));
-      generateRecommendations();
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }
-}, [participants.map(p => p.id).sort().join(',')]); // Detectar cambios en IDs
+      const timer = setTimeout(() => {
+        generateRecommendations();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [participants.map(p => p.id).sort().join(',')]);
 
-  // Función para generar preview de datos disponibles
+  // Generar preview de datos disponibles
   const generateDataPreview = (plans: {[playerId: string]: TrainingPlan}) => {
-    const analysisWindowDays = 30;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - analysisWindowDays);
-    const today = new Date();
+    const dateRange = getDefaultDateRange(30);
+    const thirtyDaysAgo = new Date(dateRange.start);
+    const today = new Date(dateRange.end);
     
     const participantsPreviews = participants.map(participant => {
       const playerSessions = getSessionsByPlayer(participant.id, { 
@@ -230,19 +198,16 @@ useEffect(() => {
         end: today 
       });
       
-      const totalExercises = playerSessions.reduce((sum, session) => {
-        return sum + (session.ejercicios?.length || 0);
-      }, 0);
-      
+      const statsData = SessionService.countPlayerSessions(playerSessions, participant.id);
       const hasPlan = !!plans[participant.id];
       
       return {
         playerId: participant.id,
         playerName: participant.name,
-        sessionsCount: playerSessions.length,
-        exercisesCount: totalExercises,
+        sessionsCount: statsData.sessionsCount,
+        exercisesCount: statsData.exercisesCount,
         hasPlan,
-        hasData: totalExercises > 0
+        hasData: statsData.exercisesCount > 0
       };
     });
     
@@ -262,17 +227,16 @@ useEffect(() => {
     });
   };
 
-  // Función para analizar ejercicios de un jugador específico
+  // Analizar ejercicios de un jugador específico
   const analyzePlayerExercises = useCallback((playerId: string) => {
     const player = participants.find(p => p.id === playerId);
     if (!player) {
       return { recommendations: [], totalExercises: 0, typeStats: {}, areaStats: {} };
     }
 
-    const analysisWindowDays = 30;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - analysisWindowDays);
-    const today = new Date();
+    const dateRange = getDefaultDateRange(30);
+    const thirtyDaysAgo = new Date(dateRange.start);
+    const today = new Date(dateRange.end);
     
     const playerSessions = getSessionsByPlayer(playerId, { 
       start: thirtyDaysAgo, 
@@ -280,175 +244,32 @@ useEffect(() => {
     });
 
     // Extraer todos los ejercicios
-    const allExercises: LoggedExercise[] = [];
-    playerSessions.forEach(session => {
-      if (session.ejercicios && Array.isArray(session.ejercicios)) {
-        allExercises.push(...session.ejercicios);
-      }
-    });
+    const allExercises = SessionService.extractExercisesFromSessions(playerSessions);
 
     if (allExercises.length === 0) {
       return { recommendations: [], totalExercises: 0, typeStats: {}, areaStats: {} };
     }
 
-    // Usar función centralizada
-    const stats = calculateExerciseStatsByTime(allExercises);
-    
-    // Convertir al formato esperado por el componente
-    const typeStats: any = {};
-    const areaStats: any = {};
-    
-    Object.keys(stats.typeStats).forEach(tipo => {
-      typeStats[tipo] = {
-        total: Math.round(stats.typeStats[tipo].total), // Total en minutos
-        percentage: Math.round(stats.typeStats[tipo].percentage),
-        areas: {}
-      };
-      
-      Object.keys(stats.typeStats[tipo].areas).forEach(area => {
-        const areaData = stats.typeStats[tipo].areas[area];
-        typeStats[tipo].areas[area] = {
-          total: Math.round(areaData.total), // Total en minutos
-          percentage: Math.round(areaData.percentage),
-          exercises: areaData.exercises
-        };
-      });
-    });
-    
-    Object.keys(stats.areaStats).forEach(area => {
-      areaStats[area] = {
-        total: Math.round(stats.areaStats[area].total), // Total en minutos
-        percentage: Math.round(stats.areaStats[area].percentage)
-      };
-    });
-    
-    // Generar recomendaciones basadas en el plan
-    const recommendations: Recommendation[] = [];
+    // Usar servicio de estadísticas
     const playerPlan = trainingPlans[playerId];
+    const analysis = StatisticsService.analyzePlayerExercises(allExercises, playerPlan);
     
-    if (playerPlan && playerPlan.planificacion) {
-      // Comparar con el plan usando los mismos porcentajes
-      Object.entries(typeStats).forEach(([tipo, stats]: [string, any]) => {
-        const plannedType = playerPlan.planificacion[tipo as TipoType];
-        
-        if (plannedType) {
-          const plannedPercentage = plannedType.porcentajeTotal;
-          const difference = Math.abs(stats.percentage - plannedPercentage);
-        
-          if (difference > 5) {
-            recommendations.push({
-              level: 'TIPO',
-              type: stats.percentage < plannedPercentage ? 'INCREMENTAR' : 'REDUCIR',
-              area: tipo,
-              parentType: tipo,
-              currentPercentage: stats.percentage,
-              plannedPercentage: plannedPercentage,
-              difference: difference,
-              priority: difference > 15 ? 'high' : difference > 10 ? 'medium' : 'low',
-              reason: `${stats.percentage < plannedPercentage ? 'Déficit' : 'Exceso'} en tipo ${tipo}: ${stats.percentage}% actual vs ${plannedPercentage}% planificado`,
-              basedOnExercises: allExercises.length // Cantidad total de ejercicios
-            });
-          }
-          
-          // Recomendaciones por áreas
-          if (plannedType.areas) {
-            Object.entries(stats.areas).forEach(([area, areaStats]: [string, any]) => {
-              const plannedArea = plannedType.areas[area as AreaType];
-              if (plannedArea) {
-                const plannedAreaPercentage = plannedArea.porcentajeDelTotal;
-                const areaDifference = Math.abs(areaStats.percentage - plannedAreaPercentage);
-                
-                if (areaDifference > 8) {
-                  recommendations.push({
-                    level: 'AREA',
-                    type: areaStats.percentage < plannedAreaPercentage ? 'INCREMENTAR' : 'REDUCIR',
-                    area: area,
-                    parentType: tipo,
-                    currentPercentage: areaStats.percentage,
-                    plannedPercentage: plannedAreaPercentage,
-                    difference: areaDifference,
-                    priority: areaDifference > 15 ? 'high' : areaDifference > 10 ? 'medium' : 'low',
-                    reason: `${areaStats.percentage < plannedAreaPercentage ? 'Déficit' : 'Exceso'} en ${area}: ${areaStats.percentage}% actual vs ${plannedAreaPercentage}% planificado`,
-                    basedOnExercises: areaStats.total, // Total de minutos en esta área
-                    parentArea: area
-                  });
-                }
-              }
-            });
-          }
-        }
-      });
-    } else {
-      // Si no hay plan, usar valores por defecto
-      Object.entries(typeStats).forEach(([tipo, stats]: [string, any]) => {
-        const plannedPercentage = getIdealPercentageForType(tipo, playerId);
-        const difference = Math.abs(stats.percentage - plannedPercentage);
-        
-        if (difference > 5) {
-          recommendations.push({
-            level: 'TIPO',
-            type: stats.percentage < plannedPercentage ? 'INCREMENTAR' : 'REDUCIR',
-            area: tipo,
-            parentType: tipo,
-            currentPercentage: stats.percentage,
-            plannedPercentage: plannedPercentage,
-            difference: difference,
-            priority: difference > 15 ? 'high' : difference > 10 ? 'medium' : 'low',
-            reason: `${stats.percentage < plannedPercentage ? 'Déficit' : 'Exceso'} en tipo ${tipo}: ${stats.percentage}% actual vs ${plannedPercentage}% planificado (valores por defecto)`,
-            basedOnExercises: allExercises.length
-          });
-        }
-
-        // Recomendaciones por áreas usando valores por defecto
-        Object.entries(stats.areas).forEach(([area, areaStats]: [string, any]) => {
-          const plannedAreaPercentage = getIdealPercentageForAreaInType(area, tipo, playerId);
-          const areaDifference = Math.abs(areaStats.percentage - plannedAreaPercentage);
-          
-          if (areaDifference > 8) {
-            recommendations.push({
-              level: 'AREA',
-              type: areaStats.percentage < plannedAreaPercentage ? 'INCREMENTAR' : 'REDUCIR',
-              area: area,
-              parentType: tipo,
-              currentPercentage: areaStats.percentage,
-              plannedPercentage: plannedAreaPercentage,
-              difference: areaDifference,
-              priority: areaDifference > 15 ? 'high' : areaDifference > 10 ? 'medium' : 'low',
-              reason: `${areaStats.percentage < plannedAreaPercentage ? 'Déficit' : 'Exceso'} en ${area}: ${areaStats.percentage}% actual vs ${plannedAreaPercentage}% planificado (valores por defecto)`,
-              basedOnExercises: areaStats.total,
-              parentArea: area
-            });
-          }
-        });
-      });
-    }
-
     return {
-      recommendations,
-      totalExercises: allExercises.length,
-      totalMinutes: Math.round(stats.totalMinutes),
-      typeStats,
-      areaStats,
-      sessionsAnalyzed: playerSessions.length,
-      planUsed: playerPlan ? 'real' : 'default'
+      ...analysis,
+      sessionsAnalyzed: playerSessions.length
     };
   }, [participants, getSessionsByPlayer, trainingPlans]);
 
-  // Actualizar la dependencia de updateIndividualRecommendations
-  useEffect(() => {
-    // Re-crear la función cuando cambie analyzePlayerExercises
-  }, [analyzePlayerExercises]);
-
-  // Función para analizar sesiones de un jugador
+  // Analizar sesiones de un jugador
   const analyzePlayerSessions = useCallback((playerId: string) => {
     const player = participants.find(p => p.id === playerId);
     if (!player) {
       return { totalSessions: 0, dateRange: null };
     }
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const today = new Date();
+    const dateRange = getDefaultDateRange(30);
+    const thirtyDaysAgo = new Date(dateRange.start);
+    const today = new Date(dateRange.end);
     
     const playerSessions = getSessionsByPlayer(playerId, { 
       start: thirtyDaysAgo, 
@@ -476,41 +297,27 @@ useEffect(() => {
     };
   }, [participants, getSessionsByPlayer]);
 
+  // Obtener porcentaje ideal para tipo
   const getIdealPercentageForType = useCallback((type: string, playerId: string) => {
     const playerPlan = trainingPlans[playerId];
-    if (playerPlan && playerPlan.planificacion && playerPlan.planificacion[type as TipoType]) {
+    if (playerPlan?.planificacion?.[type as TipoType]) {
       return playerPlan.planificacion[type as TipoType].porcentajeTotal;
     }
-    return 50; // Meta por defecto: 50/50 entre Canasto y Peloteo
+    return TrainingStructureService.getDefaultTypePercentages()[type as TipoType] || 50;
   }, [trainingPlans]);
 
+  // Obtener porcentaje ideal para área en tipo
   const getIdealPercentageForAreaInType = useCallback((area: string, type: string, playerId: string) => {
     const playerPlan = trainingPlans[playerId];
-    if (playerPlan && playerPlan.planificacion && playerPlan.planificacion[type as TipoType] && 
-        playerPlan.planificacion[type as TipoType].areas && 
-        playerPlan.planificacion[type as TipoType].areas[area as AreaType]) {
+    if (playerPlan?.planificacion?.[type as TipoType]?.areas?.[area as AreaType]) {
       return playerPlan.planificacion[type as TipoType].areas[area as AreaType].porcentajeDelTotal;
     }
     
-    // Porcentajes ideales por defecto por área dentro de cada tipo
-    const idealPercentages: { [key: string]: { [key: string]: number } } = {
-      [TipoType.CANASTO]: {
-        [AreaType.JUEGO_DE_BASE]: 17,
-        [AreaType.JUEGO_DE_RED]: 17,
-        [AreaType.PRIMERAS_PELOTAS]: 16
-      },
-      [TipoType.PELOTEO]: {
-        [AreaType.JUEGO_DE_BASE]: 15,
-        [AreaType.JUEGO_DE_RED]: 10,
-        [AreaType.PUNTOS]: 15,
-        [AreaType.PRIMERAS_PELOTAS]: 10
-      }
-    };
-    
-    return idealPercentages[type]?.[area] || 15;
+    const defaultPercentages = TrainingStructureService.getDefaultAreaPercentages();
+    return defaultPercentages[type as TipoType]?.[area as AreaType] || 15;
   }, [trainingPlans]);
 
-  // Función para generar recomendaciones grupales
+  // Generar recomendaciones grupales
   const generateGroupRecommendations = useCallback(() => {
     if (participants.length < 2) return null;
     
@@ -533,7 +340,7 @@ useEffect(() => {
       return null;
     }
 
-    // Generar el análisis grupal basado en coincidencias
+    // Generar el análisis grupal
     return summarizeGroupRecommendations(participantsWithData);
   }, [participants, analyzePlayerExercises, analyzePlayerSessions]);
 
@@ -541,7 +348,7 @@ useEffect(() => {
   const getGroupCoincidences = (allRecommendations: any[]) => {
     const coincidencesMap = new Map();
     
-    // Agrupar recomendaciones por área y tipo de acción
+    // Agrupar recomendaciones por área y tipo
     allRecommendations.forEach(rec => {
       rec.recommendations.forEach((recommendation: any) => {
         const key = `${recommendation.level}-${recommendation.type}-${recommendation.area}`;
@@ -570,7 +377,7 @@ useEffect(() => {
       });
     });
     
-    // Filtrar solo coincidencias de 2+ jugadores y calcular promedio
+    // Filtrar coincidencias significativas
     const significantCoincidences = Array.from(coincidencesMap.values())
       .filter(coincidence => coincidence.players.length >= 2)
       .map(coincidence => ({
@@ -589,7 +396,7 @@ useEffect(() => {
     return significantCoincidences;
   };
 
-  // Obtener top déficits por jugador
+  // Obtener déficits principales por jugador
   const getTopDeficitsPerPlayer = (allRecommendations: any[]) => {
     return allRecommendations.map(rec => ({
       playerName: rec.playerName,
@@ -621,7 +428,7 @@ useEffect(() => {
     })).filter(player => player.deficits.length > 0 || player.excesos.length > 0);
   };
 
-  // Función principal: Orquestar análisis grupal
+  // Resumir recomendaciones grupales
   const summarizeGroupRecommendations = (participantsWithData: any[]) => {
     // Generar recomendaciones individuales para cada jugador
     const allRecommendations = participantsWithData.map(participant => ({
@@ -640,7 +447,7 @@ useEffect(() => {
     // Obtener déficits individuales
     const individuales = getTopDeficitsPerPlayer(allRecommendations);
 
-    // Calcular estadísticas grupales adicionales
+    // Calcular estadísticas grupales
     const totalSessions = participantsWithData.reduce((sum, p) => sum + p.sessions.totalSessions, 0);
     const avgSessionsPerPlayer = Math.round(totalSessions / participantsWithData.length);
 
@@ -648,7 +455,7 @@ useEffect(() => {
     const groupTypeStats: { [key: string]: { totalPercentage: number; count: number } } = {};
     
     participantsWithData.forEach(participant => {
-      Object.entries(participant.analysis.typeStats).forEach(([tipo, stats]: [string, any]) => {
+      Object.entries(participant.analysis.typeStats || {}).forEach(([tipo, stats]: [string, any]) => {
         if (!groupTypeStats[tipo]) {
           groupTypeStats[tipo] = { totalPercentage: 0, count: 0 };
         }
@@ -691,7 +498,7 @@ useEffect(() => {
     };
   };
 
-  // Generar texto de recomendación
+  // Generar texto de recomendación grupal
   const generateGroupRecommendationText = (coincidencias: any[], individuales: any[]) => {
     if (coincidencias.length > 0) {
       const topCoincidence = coincidencias[0];
@@ -723,18 +530,6 @@ useEffect(() => {
     return "El grupo está balanceado. Mantener variedad en los ejercicios.";
   };
 
-  // ✅ Actualizar updateIndividualRecommendations con las dependencias correctas
-  const updateIndividualRecommendationsFinal = useCallback((playerId: string) => {
-    if (!playerId || !recommendationsGenerated) return;
-    
-    try {
-      const individualAnalysis = analyzePlayerExercises(playerId);
-      setIndividualRecommendations(individualAnalysis);
-    } catch (error) {
-      console.error('Error actualizando recomendaciones individuales:', error);
-    }
-  }, [recommendationsGenerated, analyzePlayerExercises]);
-
   return {
     // Estados
     recommendationsGenerated,
@@ -749,7 +544,7 @@ useEffect(() => {
     refreshRecommendations,
     analyzePlayerExercises,
     analyzePlayerSessions,
-    updateIndividualRecommendations: updateIndividualRecommendationsFinal, // ✅ EXPORTAR LA FUNCIÓN
+    updateIndividualRecommendations,
     
     // Helpers
     getIdealPercentageForType,

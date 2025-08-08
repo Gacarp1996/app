@@ -26,7 +26,7 @@ const SessionSummary: React.FC<SessionSummaryProps> = ({
               Ejercicios Registrados ({exercises.length})
             </h2>
             <ul className="space-y-3 max-h-[400px] lg:max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {exercises.map((ex) => {
+              {exercises.map((ex, index) => {
                 // Debug log para diagnosticar datos inconsistentes
                 if (!ex.tipo || !ex.area) {
                   console.warn('🚨 Ejercicio con datos incompletos:', {
@@ -39,7 +39,10 @@ const SessionSummary: React.FC<SessionSummaryProps> = ({
                 }
                 
                 return (
-                  <li key={ex.id} className="bg-gray-800/50 p-3 lg:p-4 rounded-lg border border-gray-700">
+                  <li 
+                    key={`${index}-${ex.id}`} 
+                    className="bg-gray-800/50 p-3 lg:p-4 rounded-lg border border-gray-700"
+                  >
                     <p className="font-semibold text-green-400">{ex.loggedForPlayerName}</p>
                     <p className="text-sm lg:text-base text-gray-300 mt-1">
                       {ex.tipo?.toString() || 'Tipo no definido'} - {ex.area?.toString() || 'Área no definida'} - {ex.ejercicio || 'Ejercicio no definido'}

@@ -107,6 +107,7 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [navigate, setSessionData]);
 
   const addExercise = useCallback((exercise: SessionExercise) => {
+    console.log('Adding exercise:', exercise.id);
     setExercises(prev => {
       const newExercises = [...prev, exercise];
       // También actualizar sessionData inmediatamente

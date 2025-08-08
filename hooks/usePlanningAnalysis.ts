@@ -4,7 +4,8 @@ import { TrainingSession, Player, LoggedExercise } from '../types';
 import { TrainingPlan, getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { useSession } from '../contexts/SessionContext';
 import { SessionExercise } from '../contexts/TrainingContext';
-import { calculateExerciseStatsByTime, sessionExercisesToLogged } from '../utils/trainingCalculations';
+import { calculateExerciseStatsByTime, sessionExercisesToLogged } from '@/utils/calculations';
+
 
 export interface AnalysisNode {
   name: string;
