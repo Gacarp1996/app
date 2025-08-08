@@ -43,6 +43,10 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
   onSubmit,
   onAddSpecificExercise
 }) => {
+  // NUEVO: Determinar si se deben mostrar ejercicios
+  const shouldShowExercises = currentTipo !== TipoType.PUNTOS;
+  const isExerciseDisabled = !currentArea || !shouldShowExercises;
+
   return (
     <form onSubmit={onSubmit} className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg space-y-6">
       <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">Registrar Ejercicio</h2>
@@ -80,14 +84,21 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
           </select>
         </div>
         <div>
-          <label className="block text-sm lg:text-base font-medium text-gray-400 mb-2">Ejercicio</label>
+          <label className="block text-sm lg:text-base font-medium text-gray-400 mb-2">
+            Ejercicio
+            {currentTipo === TipoType.PUNTOS && (
+              <span className="text-xs text-gray-500 ml-2">(No aplica para Puntos)</span>
+            )}
+          </label>
           <select 
             value={currentEjercicio} 
             onChange={e => onEjercicioChange(e.target.value)} 
-            disabled={!currentArea} 
+            disabled={isExerciseDisabled}  // MODIFICADO: Deshabilitado para PUNTOS
             className="w-full p-3 lg:p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <option value="">Selecciona ejercicio</option>
+            <option value="">
+              {currentTipo === TipoType.PUNTOS ? "No disponible" : "Selecciona ejercicio"}
+            </option>
             {availableEjercicios.map(ejercicio => (
               <option key={ejercicio} value={ejercicio}>{ejercicio}</option>
             ))}
@@ -95,8 +106,8 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
         </div>
       </div>
 
-      {/* Sección de ejercicios específicos */}
-      {currentEjercicio && (
+      {/* Sección de ejercicios específicos - MODIFICADO: Solo mostrar si hay ejercicio y no es PUNTOS */}
+      {currentEjercicio && shouldShowExercises && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <label className="block text-sm lg:text-base font-medium text-gray-400">Ejercicio Específico (Opcional)</label>

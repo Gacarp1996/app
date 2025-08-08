@@ -96,32 +96,51 @@ export class TrainingStructureService {
   }
   
   /**
-   * Obtiene porcentajes ideales por defecto para tipos
+   * MODIFICADO: Obtiene porcentajes ideales por defecto para tipos
+   * Ahora calcula dinámicamente basado en los tipos disponibles
    */
-  static getDefaultTypePercentages(): Record<TipoType, number> {
-    return {
-      [TipoType.CANASTO]: 50,
-      [TipoType.PELOTEO]: 50
-    };
+  static getDefaultTypePercentages(): Record<string, number> {
+    const types = Object.values(TipoType);
+    const percentagePerType = Math.floor(100 / types.length);
+    const remainder = 100 - (percentagePerType * types.length);
+    
+    const percentages: Record<string, number> = {};
+    
+    types.forEach((type, index) => {
+      // Distribuir el resto en los primeros tipos
+      percentages[type] = percentagePerType + (index < remainder ? 1 : 0);
+    });
+    
+    return percentages;
   }
   
   /**
-   * Obtiene porcentajes ideales por defecto para áreas dentro de tipos
+   * MODIFICADO: Obtiene porcentajes ideales por defecto para áreas dentro de tipos
+   * Ahora calcula dinámicamente basado en las áreas disponibles por tipo
    */
-  static getDefaultAreaPercentages(): Record<TipoType, Record<AreaType, number>> {
-    return {
-      [TipoType.CANASTO]: {
-        [AreaType.JUEGO_DE_BASE]: 17,
-        [AreaType.JUEGO_DE_RED]: 17,
-        [AreaType.PRIMERAS_PELOTAS]: 16,
-        [AreaType.PUNTOS]: 0
-      },
-      [TipoType.PELOTEO]: {
-        [AreaType.JUEGO_DE_BASE]: 15,
-        [AreaType.JUEGO_DE_RED]: 10,
-        [AreaType.PUNTOS]: 15,
-        [AreaType.PRIMERAS_PELOTAS]: 10
-      }
-    };
+  static getDefaultAreaPercentages(): Record<string, Record<string, number>> {
+    const result: Record<string, Record<string, number>> = {};
+    
+    Object.values(TipoType).forEach(tipo => {
+      const areas = getAreasForTipo(tipo);
+      const percentagePerArea = Math.floor(100 / areas.length);
+      const remainder = 100 - (percentagePerArea * areas.length);
+      
+      result[tipo] = {};
+      
+      areas.forEach((area, index) => {
+        // Distribuir el resto en las primeras áreas
+        result[tipo][area] = percentagePerArea + (index < remainder ? 1 : 0);
+      });
+    });
+    
+    return result;
+  }
+  
+  /**
+   * NUEVO: Verifica si un tipo requiere ejercicios
+   */
+  static requiresExercise(tipo: TipoType | ''): boolean {
+    return tipo !== TipoType.PUNTOS;
   }
 }

@@ -20,6 +20,12 @@ export const useExerciseForm = ({ specificExercises, setSpecificExercises }: Use
   const [intensidad, setIntensidad] = useState<number>(5);
   const [isAddSpecificExerciseModalOpen, setIsAddSpecificExerciseModalOpen] = useState(false);
 
+  // NUEVO: Determinar si el tipo actual requiere ejercicios
+  const requiresExercise = useMemo(() => 
+    TrainingStructureService.requiresExercise(currentTipo),
+    [currentTipo]
+  );
+
   // Opciones disponibles basadas en selección actual
   const availableTipos = useMemo(() => TrainingStructureService.getAvailableTypes(), []);
   const availableAreas = useMemo(() => TrainingStructureService.getAvailableAreas(currentTipo), [currentTipo]);
@@ -55,20 +61,29 @@ export const useExerciseForm = ({ specificExercises, setSpecificExercises }: Use
 
   // Handlers para ejercicios específicos
   const handleAddSpecificExercise = useCallback(() => {
-    const validation = validateExerciseForm(
-      currentTipo,
-      currentArea,
-      currentEjercicio,
-      '1', // Dummy value para validación
-      new Set(['dummy']) // Dummy value para validación
-    );
-    
-    if (!validation.isValid) {
-      alert('Por favor, selecciona tipo, área y ejercicio antes de crear un ejercicio específico.');
-      return;
+    // MODIFICADO: Solo validar ejercicio si es requerido
+    if (requiresExercise) {
+      const validation = validateExerciseForm(
+        currentTipo,
+        currentArea,
+        currentEjercicio,
+        '1', // Dummy value para validación
+        new Set(['dummy']) // Dummy value para validación
+      );
+      
+      if (!validation.isValid) {
+        alert('Por favor, selecciona tipo, área y ejercicio antes de crear un ejercicio específico.');
+        return;
+      }
+    } else {
+      // Para PUNTOS, solo validar tipo y área
+      if (!currentTipo || !currentArea) {
+        alert('Por favor, selecciona tipo y área antes de continuar.');
+        return;
+      }
     }
     setIsAddSpecificExerciseModalOpen(true);
-  }, [currentTipo, currentArea, currentEjercicio]);
+  }, [currentTipo, currentArea, currentEjercicio, requiresExercise]);
 
   const handleSubmitSpecificExercise = useCallback((exerciseName: string) => {
     const newSpecificExercise = TrainingStructureService.createSpecificExercise(
@@ -91,6 +106,19 @@ export const useExerciseForm = ({ specificExercises, setSpecificExercises }: Use
 
   // Validación del formulario
   const validateForm = useCallback((activePlayerIds: Set<string>) => {
+    // MODIFICADO: Para tipo PUNTOS, no validar ejercicio
+    if (currentTipo === TipoType.PUNTOS) {
+      // Validación especial para PUNTOS
+      if (!currentTipo || !currentArea || !tiempoCantidad || activePlayerIds.size === 0) {
+        return {
+          isValid: false,
+          error: 'Completa tipo, área, tiempo y selecciona al menos un jugador'  // Cambiado de 'message' a 'error'
+        };
+      }
+      return { isValid: true };
+    }
+    
+    // Validación normal para otros tipos
     return validateExerciseForm(
       currentTipo,
       currentArea,
@@ -109,6 +137,9 @@ export const useExerciseForm = ({ specificExercises, setSpecificExercises }: Use
     tiempoCantidad,
     intensidad,
     isAddSpecificExerciseModalOpen,
+    
+    // NUEVO: Estado de requerimiento de ejercicio
+    requiresExercise,
     
     // Opciones disponibles
     availableTipos,

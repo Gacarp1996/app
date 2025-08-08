@@ -3,14 +3,16 @@
 // Enums con valores que representan exactamente lo que se muestra/guarda
 export enum TipoType {
   CANASTO = 'Canasto',
-  PELOTEO = 'Peloteo'
+  PELOTEO = 'Peloteo',
+  PUNTOS = 'Puntos'  
 }
 
 export enum AreaType {
   JUEGO_DE_BASE = 'Juego de base',
   JUEGO_DE_RED = 'Juego de red',
   PRIMERAS_PELOTAS = 'Primeras pelotas',
-  PUNTOS = 'Puntos'
+  PUNTOS_LIBRES = 'Puntos libres',
+  PUNTOS_CON_PAUTAS = 'Puntos con pautas'
 }
 
 // Tipos de ejercicios específicos por área
@@ -37,10 +39,7 @@ export enum EjercicioPrimerasPelotas {
   DEVOLUCION_MAS_UNO = 'Devolución + 1'
 }
 
-export enum EjercicioPuntos {
-  PUNTOS_LIBRES = 'Puntos libres',
-  PUNTOS_CON_PAUTAS = 'Puntos con pautas'
-}
+
 
 // Estructura jerárquica completa con tipos fuertes
 export type ExerciseHierarchy = {
@@ -52,8 +51,11 @@ export type ExerciseHierarchy = {
   [TipoType.PELOTEO]: {
     [AreaType.JUEGO_DE_BASE]: EjercicioJuegoBase.CONTROL | EjercicioJuegoBase.MOVILIDAD | EjercicioJuegoBase.JUGADAS;
     [AreaType.JUEGO_DE_RED]: EjercicioJuegoRed;
-    [AreaType.PRIMERAS_PELOTAS]: EjercicioPrimerasPelotas;
-    [AreaType.PUNTOS]: EjercicioPuntos;
+    [AreaType.PRIMERAS_PELOTAS]: Exclude<EjercicioPrimerasPelotas, EjercicioPrimerasPelotas.SAQUE>; // MODIFICADO: Sin Saque
+  };
+  [TipoType.PUNTOS]: {  // NUEVO
+    [AreaType.PUNTOS_LIBRES]: never;  // Sin ejercicios
+    [AreaType.PUNTOS_CON_PAUTAS]: never;  // Sin ejercicios
   };
 };
 
@@ -63,7 +65,10 @@ export const getAreasForTipo = (tipo: TipoType): AreaType[] => {
     case TipoType.CANASTO:
       return [AreaType.JUEGO_DE_BASE, AreaType.JUEGO_DE_RED, AreaType.PRIMERAS_PELOTAS];
     case TipoType.PELOTEO:
-      return [AreaType.JUEGO_DE_BASE, AreaType.JUEGO_DE_RED, AreaType.PRIMERAS_PELOTAS, AreaType.PUNTOS];
+      // MODIFICADO: Eliminado PUNTOS como área
+      return [AreaType.JUEGO_DE_BASE, AreaType.JUEGO_DE_RED, AreaType.PRIMERAS_PELOTAS];
+    case TipoType.PUNTOS:  // NUEVO
+      return [AreaType.PUNTOS_LIBRES, AreaType.PUNTOS_CON_PAUTAS];
   }
 };
 
@@ -87,12 +92,18 @@ export const getEjerciciosForTipoArea = (tipo: TipoType, area: AreaType): string
       case AreaType.JUEGO_DE_RED:
         return Object.values(EjercicioJuegoRed);
       case AreaType.PRIMERAS_PELOTAS:
-        return Object.values(EjercicioPrimerasPelotas);
-      case AreaType.PUNTOS:
-        return Object.values(EjercicioPuntos);
+        // MODIFICADO: Excluir Saque de PELOTEO
+        return [
+          EjercicioPrimerasPelotas.DEVOLUCION,
+          EjercicioPrimerasPelotas.SAQUE_MAS_UNO,
+          EjercicioPrimerasPelotas.DEVOLUCION_MAS_UNO
+        ];
       default:
         return [];
     }
+  } else if (tipo === TipoType.PUNTOS) {  // NUEVO
+    // PUNTOS no tiene ejercicios específicos
+    return [];
   }
   return [];
 };
@@ -102,6 +113,11 @@ export const isValidCombination = (tipo: TipoType, area: AreaType, ejercicio: st
   const validAreas = getAreasForTipo(tipo);
   if (!validAreas.includes(area)) {
     return false;
+  }
+  
+  // NUEVO: Si es tipo PUNTOS, no validar ejercicio (puede ser vacío)
+  if (tipo === TipoType.PUNTOS) {
+    return true;
   }
   
   const validEjercicios = getEjerciciosForTipoArea(tipo, area);
@@ -115,13 +131,15 @@ export const INTENSITY_LEVELS: number[] = Array.from({ length: 10 }, (_, i) => i
 export const UI_LABELS = {
   TIPOS: {
     [TipoType.CANASTO]: 'Canasto',
-    [TipoType.PELOTEO]: 'Peloteo'
+    [TipoType.PELOTEO]: 'Peloteo',
+    [TipoType.PUNTOS]: 'Puntos'  // NUEVO
   },
   AREAS: {
     [AreaType.JUEGO_DE_BASE]: 'Juego de base',
     [AreaType.JUEGO_DE_RED]: 'Juego de red',
     [AreaType.PRIMERAS_PELOTAS]: 'Primeras pelotas',
-    [AreaType.PUNTOS]: 'Puntos'
+    [AreaType.PUNTOS_LIBRES]: 'Puntos libres',  // NUEVO
+    [AreaType.PUNTOS_CON_PAUTAS]: 'Puntos con pautas'  // NUEVO
   }
 } as const;
 

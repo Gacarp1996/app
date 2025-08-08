@@ -4,6 +4,7 @@ import { TrainingSession, LoggedExercise, Player } from '../types';
 
 /**
  * Valida si una combinación tipo/área/ejercicio es válida
+ * MODIFICADO: Maneja el caso especial de PUNTOS que no requiere ejercicio
  */
 export const isValidExerciseCombination = (
   tipo: TipoType,
@@ -15,23 +16,36 @@ export const isValidExerciseCombination = (
     return false;
   }
   
+  // NUEVO: PUNTOS no requiere ejercicio, es válido sin él
+  if (tipo === TipoType.PUNTOS) {
+    return true;
+  }
+  
   const validEjercicios = getEjerciciosForTipoArea(tipo, area);
   return validEjercicios.includes(ejercicio);
 };
 
 /**
  * Valida si un ejercicio tiene todos los campos requeridos
+ * MODIFICADO: Permite ejercicio vacío para tipo PUNTOS
  */
 export const isValidExercise = (exercise: Partial<LoggedExercise>): boolean => {
-  return !!(
-    exercise.tipo &&
-    exercise.area &&
-    exercise.ejercicio &&
-    exercise.tiempoCantidad &&
-    exercise.intensidad !== undefined &&
-    exercise.intensidad >= 1 &&
-    exercise.intensidad <= 10
-  );
+  // Validaciones básicas que aplican a todos
+  if (!exercise.tipo || !exercise.area || !exercise.tiempoCantidad) {
+    return false;
+  }
+  
+  if (exercise.intensidad === undefined || exercise.intensidad < 1 || exercise.intensidad > 10) {
+    return false;
+  }
+  
+  // NUEVO: Para PUNTOS, no se requiere campo ejercicio
+  if (exercise.tipo === TipoType.PUNTOS) {
+    return true;
+  }
+  
+  // Para otros tipos, el ejercicio es obligatorio
+  return !!exercise.ejercicio;
 };
 
 /**
@@ -52,6 +66,7 @@ export const hasSelectedPlayers = (activePlayerIds: Set<string>): boolean => {
 
 /**
  * Valida campos del formulario de ejercicio
+ * MODIFICADO: Maneja validación especial para tipo PUNTOS
  */
 export const validateExerciseForm = (
   tipo: string,
@@ -60,16 +75,47 @@ export const validateExerciseForm = (
   tiempoCantidad: string,
   activePlayerIds: Set<string>
 ): { isValid: boolean; error?: string } => {
-  if (!tipo || !area || !ejercicio || !tiempoCantidad) {
-    return { isValid: false, error: 'Por favor, completa todos los campos' };
+  // Validaciones básicas
+  if (!tipo || !area || !tiempoCantidad) {
+    return { 
+      isValid: false, 
+      error: 'Por favor, completa tipo, área y tiempo' 
+    };
+  }
+  
+  // NUEVO: Para tipo PUNTOS, no validar ejercicio
+  if (tipo === TipoType.PUNTOS) {
+    if (activePlayerIds.size === 0) {
+      return { 
+        isValid: false, 
+        error: 'Por favor, selecciona al menos un jugador' 
+      };
+    }
+    
+    // No necesita más validaciones para PUNTOS
+    return { isValid: true };
+  }
+  
+  // Para otros tipos, el ejercicio es obligatorio
+  if (!ejercicio) {
+    return { 
+      isValid: false, 
+      error: 'Por favor, selecciona un ejercicio' 
+    };
   }
   
   if (activePlayerIds.size === 0) {
-    return { isValid: false, error: 'Por favor, selecciona al menos un jugador' };
+    return { 
+      isValid: false, 
+      error: 'Por favor, selecciona al menos un jugador' 
+    };
   }
   
   if (!isValidExerciseCombination(tipo as TipoType, area as AreaType, ejercicio)) {
-    return { isValid: false, error: 'Combinación de tipo/área/ejercicio inválida' };
+    return { 
+      isValid: false, 
+      error: 'Combinación de tipo/área/ejercicio inválida' 
+    };
   }
   
   return { isValid: true };
