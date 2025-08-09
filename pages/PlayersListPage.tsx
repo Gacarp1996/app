@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Academia } from '../types';
+import { Academia } from '../types/types';
 import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
 
 

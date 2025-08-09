@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Player, SessionExercise } from '../types';
+import { Player, SessionExercise } from '../types/types';
 import { useAcademia } from './AcademiaContext';
 import useLocalStorage from '../hooks/useLocalStorage';
 
@@ -151,4 +151,4 @@ export const useTraining = (): TrainingContextType => {
   return context;
 };
 
-export type { SessionExercise } from '../types';
+export type { SessionExercise } from '../types/types';

@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, ReactNode, useEffect } from
 import { useAuth } from './AuthContext';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'; 
 import { db } from '../firebase/firebase-config';
-import { Academia, TipoEntidad } from '../types'; 
+import { Academia, TipoEntidad } from '../types/types'; 
 import { getUserRoleInAcademia, addUserToAcademia, UserRole } from '../Database/FirebaseRoles';
 
 interface UserAcademia {

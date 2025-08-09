@@ -1,6 +1,6 @@
 // components/dashboard/widgets/helpers.ts
 
-import { Player } from "@/types";
+import { Player } from "@/types/types";
 
 
 

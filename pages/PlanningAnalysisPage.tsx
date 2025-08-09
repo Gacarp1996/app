@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Player } from '../types';
+import { Player } from '../types/types';
 import { useAcademia } from '../contexts/AcademiaContext';
 import PlanningAccordion from '../components/PlanningAccordion';
 

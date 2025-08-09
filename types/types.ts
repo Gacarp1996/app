@@ -1,4 +1,4 @@
-import { TipoType, AreaType } from './constants/training';
+import { TipoType, AreaType } from '../constants/training';
 
 export interface Player {
   id: string;

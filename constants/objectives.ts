@@ -1,6 +1,6 @@
 // constants/objectives.ts
 
-import { ObjectiveEstado } from '../types';
+import { ObjectiveEstado } from '../types/types';
 
 export const OBJECTIVE_ESTADOS: Record<ObjectiveEstado, string> = {
   'actual-progreso': 'Actual/En Progreso',

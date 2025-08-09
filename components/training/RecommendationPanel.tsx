@@ -1,6 +1,6 @@
 // components/training/RecommendationPanel.tsx
 import React from 'react';
-import { Player } from '../../types';
+import { Player } from '../../types/types';
 
 interface RecommendationItem {
   category: string;

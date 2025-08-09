@@ -1,6 +1,6 @@
 // utils/validation.ts
 import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea } from '../constants/training';
-import { TrainingSession, LoggedExercise, Player } from '../types';
+import { TrainingSession, LoggedExercise, Player } from '../types/types';
 
 /**
  * Valida si una combinación tipo/área/ejercicio es válida

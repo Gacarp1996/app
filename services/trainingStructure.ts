@@ -1,6 +1,6 @@
 // services/trainingStructure.ts
 import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea } from '../constants/training';
-import { SpecificExercise } from '../types';
+import { SpecificExercise } from '../types/types';
 
 /**
  * Servicio para manejar la estructura jerárquica de entrenamientos

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Player } from '../../types';
+import { Player } from '../../types/types';
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { useSession } from '../../contexts/SessionContext'; // ✅ NUEVO IMPORT
 import { useAcademia } from '../../contexts/AcademiaContext';

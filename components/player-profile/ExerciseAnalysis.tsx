@@ -1,7 +1,7 @@
 // components/player-profile/ExerciseAnalysis.tsx
 import React, { useMemo } from 'react';
 import AreaPieChart from './AreaPieChart';
-import { ChartDataPoint, IntensityDataPoint, TrainingSession } from '../../types';
+import { ChartDataPoint, IntensityDataPoint, TrainingSession } from '../../types/types';
 import IntensityLineChart from './IntensityLineChart';
  import { parseTimeToMinutes } from './utils';
 

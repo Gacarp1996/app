@@ -1,7 +1,7 @@
 // hooks/useTrainingSession.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Player, TrainingSession, Tournament } from '../types';
+import { Player, TrainingSession, Tournament } from '../types/types';
 import { useTraining } from '../contexts/TrainingContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';

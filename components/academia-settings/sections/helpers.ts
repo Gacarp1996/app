@@ -1,7 +1,7 @@
 // components/academia-settings/sections/helpers.ts
 
 import { UserRole } from '../../../Database/FirebaseRoles';
-import { TipoEntidad } from '../../../types';
+import { TipoEntidad } from '../../../types/types';
 
 // ========================================
 // 1. HELPERS DE ROLES

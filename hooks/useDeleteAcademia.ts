@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { updateDoc, doc } from 'firebase/firestore';
 import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { db } from '../firebase/firebase-config';
-import { Academia } from '../types';
+import { Academia } from '../types/types';
 import { User } from 'firebase/auth';
 
 interface UseDeleteAcademiaProps {

@@ -1,5 +1,5 @@
 // components/training/TrainingsOnDateModal.tsx
-import { TrainingSession } from '@/types';
+import { TrainingSession } from '@/types/types';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from '../shared/Modal';

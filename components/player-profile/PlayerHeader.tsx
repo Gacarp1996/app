@@ -1,6 +1,6 @@
 // components/player-profile/PlayerHeader.tsx - Con botón eliminar mejorado
 import React from 'react';
-import { Player } from '../../types';
+import { Player } from '../../types/types';
 
 interface PlayerHeaderProps {
   player: Player;

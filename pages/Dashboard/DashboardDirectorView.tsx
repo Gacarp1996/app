@@ -6,7 +6,7 @@ import { useSession } from '../../contexts/SessionContext';
 import { getAcademiaUsers, AcademiaUser } from '../../Database/FirebaseRoles';
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
-import { TrainingSession, Player, Objective, PostTrainingSurvey } from '../../types';
+import { TrainingSession, Player, Objective, PostTrainingSurvey } from '../../types/types';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import ActiveTrainersWidget from '@/components/dashboard/ActiveTrainersWidget';
 import TodayTrainingsWidget from '@/components/dashboard/TodayTrainingsWidget';

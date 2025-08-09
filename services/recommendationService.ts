@@ -1,5 +1,5 @@
 // services/recommendationService.ts
-import { LoggedExercise } from '@/types';
+import { LoggedExercise } from '@/types/types';
 import { TrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { TipoType, AreaType } from '../constants/training';
 import { calculateExerciseStatsByTime } from '../utils/calculations';

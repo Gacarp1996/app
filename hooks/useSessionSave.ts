@@ -1,6 +1,6 @@
 // hooks/useSessionSave.ts
 import { useCallback, useState, useEffect } from 'react';
-import { TrainingSession, Player, SessionExercise, SpecificExercise } from '../types';
+import { TrainingSession, Player, SessionExercise, SpecificExercise } from '../types/types';
 import { SessionService } from '../services/sessionService';
 import { useNavigate } from 'react-router-dom';
 

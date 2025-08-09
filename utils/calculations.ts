@@ -1,6 +1,7 @@
 // utils/calculations.ts
-import { LoggedExercise, TrainingSession, PostTrainingSurvey } from '../types';
+import { LoggedExercise, TrainingSession, PostTrainingSurvey } from '../types/types';
 import { TipoType, AreaType } from '../constants/training';
+import { SessionService } from '../services/sessionService';
 
 /**
  * Convierte tiempo en formato string a minutos
@@ -142,23 +143,15 @@ export const calculateExerciseStatsByTime = (exercises: LoggedExercise[]) => {
 };
 
 /**
- * Convierte ejercicios de sesión a formato LoggedExercise
+ * DEPRECADO: Usar SessionService.sessionExercisesToLogged() en su lugar
+ * Mantenido temporalmente para compatibilidad
  */
 export const sessionExercisesToLogged = (
   exercises: any[], 
   playerId: string
 ): LoggedExercise[] => {
-  return exercises
-    .filter(ex => ex.loggedForPlayerId === playerId)
-    .map(ex => ({
-      id: ex.id,
-      tipo: ex.tipo,
-      area: ex.area,
-      ejercicio: ex.ejercicio || ex.ejercicioEspecifico || "Sin nombre",
-      ejercicioEspecifico: ex.ejercicioEspecifico,
-      tiempoCantidad: ex.tiempoCantidad,
-      intensidad: ex.intensidad
-    }));
+  // Delegar a la función centralizada
+  return SessionService.sessionExercisesToLogged(exercises, playerId);
 };
 
 /**

@@ -10,7 +10,7 @@ import {
   doc,
   updateDoc,
 } from "firebase/firestore";
-import { PostTrainingSurvey } from "../types";
+import { PostTrainingSurvey } from "../types/types";
 
 export const addPostTrainingSurvey = async (
   academiaId: string,

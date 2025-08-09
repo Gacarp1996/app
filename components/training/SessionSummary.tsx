@@ -1,6 +1,6 @@
 import React from 'react';
 import { SessionExercise } from '../../contexts/TrainingContext';
-import { Player } from '../../types';
+import { Player } from '../../types/types';
 
 interface SessionSummaryProps {
   exercises: SessionExercise[];

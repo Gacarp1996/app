@@ -1,6 +1,6 @@
 // hooks/usePlayerTrainings.ts
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { TrainingSession, PostTrainingSurvey, ChartDataPoint, IntensityDataPoint } from '../types';
+import { TrainingSession, PostTrainingSurvey, ChartDataPoint, IntensityDataPoint } from '../types/types';
 import { getPlayerSurveys } from '../Database/FirebaseSurveys';
 import { useSession } from '../contexts/SessionContext';
 import { 

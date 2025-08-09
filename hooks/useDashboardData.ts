@@ -6,7 +6,7 @@ import { getAcademiaUsers, AcademiaUser } from '../Database/FirebaseRoles';
 import { getObjectives } from '../Database/FirebaseObjectives';
 import { getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../Database/FirebaseSurveys';
-import { TrainingSession, Player, PostTrainingSurvey } from '../types';
+import { TrainingSession, Player, PostTrainingSurvey } from '../types/types';
 
 // Interfaces para los datos de los widgets
 interface ActiveTrainer {

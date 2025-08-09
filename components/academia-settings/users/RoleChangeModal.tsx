@@ -1,7 +1,7 @@
 // components/modals/RoleChangeModal.tsx
 import React, { useState } from 'react';
 import { AcademiaUser, UserRole } from '@/Database/FirebaseRoles';
-import { TipoEntidad } from '@/types';
+import { TipoEntidad } from '@/types/types';
 import { getRoleInfo } from '@/components/academia-settings/sections/helpers';
 
 interface RoleChangeModalProps {

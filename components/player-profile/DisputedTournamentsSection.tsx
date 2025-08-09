@@ -1,7 +1,7 @@
 // components/player-profile/DisputedTournamentsSection.tsx
 import React from 'react';
 import TournamentPerformanceChart from '../tournaments/TournamentPerformanceChart';
-import { DisputedTournament } from '../../types';
+import { DisputedTournament } from '../../types/types';
 
 interface DisputedTournamentsSectionProps {
   playerDisputedTournaments: DisputedTournament[];

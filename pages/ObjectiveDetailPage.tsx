@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
-import { Objective } from '../types';
+import { Objective } from '../types/types';
 import { useTraining } from '../contexts/TrainingContext';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useObjective } from '../contexts/ObjectiveContext';

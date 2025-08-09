@@ -1,5 +1,5 @@
 import React from 'react';
-import { SpecificExercise } from '@/types';
+import { SpecificExercise } from '@/types/types';
 import { TipoType, AreaType, UI_LABELS } from '@/constants/training';
 
 interface ExerciseFormProps {

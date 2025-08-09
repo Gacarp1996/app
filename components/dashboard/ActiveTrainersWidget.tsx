@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrainingSession, Player } from '../../types';
+import { TrainingSession, Player } from '../../types/types';
 import { getPlayerName } from './helpers';
 import { useSession } from '../../contexts/SessionContext'; // ✅ NUEVO IMPORT
 

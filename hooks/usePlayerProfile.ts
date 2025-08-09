@@ -1,7 +1,7 @@
 // hooks/usePlayerProfile.ts
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Player } from '../types';
+import { Player } from '../types/types';
 import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
 import { useAcademia } from '../contexts/AcademiaContext'; // ✅ NUEVO IMPORT
 

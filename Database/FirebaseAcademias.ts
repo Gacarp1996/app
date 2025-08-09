@@ -1,6 +1,6 @@
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase-config';
-import { Academia } from '../types';
+import { Academia } from '../types/types';
 
 // ===== SISTEMA DE IDS PÚBLICOS DE 6 CARACTERES =====
 

@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Player } from '../types';
+import { Player } from '../types/types';
 import { usePlanningAnalysis, AnalysisNode } from '../hooks/usePlanningAnalysis';
 import { SessionExercise } from '../contexts/TrainingContext';
+import { STATUS_COLORS, THRESHOLDS, getStatusFromDifference } from '../constants/recommendationThresholds';
 
 interface PlanningAccordionProps {
   player: Player;
@@ -17,7 +18,7 @@ interface PlanningAccordionProps {
 
 const DEFAULT_CONFIG = {
   defaultExpandedNodes: [] as string[],
-  statusThreshold: 5,
+  statusThreshold: THRESHOLDS.OPTIMAL, // Usar constante centralizada
   availableRanges: [
     { value: 7, label: 'Últimos 7 días' },
     { value: 14, label: 'Últimos 14 días' },
@@ -84,36 +85,21 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
     });
   };
 
-  // ✅ COLORES UNIFICADOS
+  // ✅ ACTUALIZADO: Usar constantes centralizadas
   const getStatusConfig = (diferencia: number) => {
-    const threshold = finalConfig.statusThreshold;
-    if (Math.abs(diferencia) <= threshold) {
-      // ÓPTIMO = AZUL/CELESTE
-      return {
-        icon: '✅',
-        color: 'text-blue-400',
-        bgColor: 'bg-blue-500',
-        borderColor: 'border-blue-500/20',
-        label: 'OK'
-      };
-    }
-    if (diferencia > 0) {
-      // FALTA/INCREMENTAR = ROJO
-      return {
-        icon: '⚠️',
-        color: 'text-red-400',
-        bgColor: 'bg-red-500',
-        borderColor: 'border-red-500/20',
-        label: 'Falta'
-      };
-    }
-    // EXCESO/REDUCIR = AMARILLO
+    const absValue = Math.abs(diferencia);
+    const isDeficit = diferencia > 0;
+    const statusKey = getStatusFromDifference(absValue, isDeficit, true);
+    const status = STATUS_COLORS[statusKey];
+    
     return {
-      icon: '📉',
-      color: 'text-yellow-400',
-      bgColor: 'bg-yellow-500',
-      borderColor: 'border-yellow-500/20',
-      label: 'Exceso'
+      icon: status.icon,
+      color: status.text,
+      bgColor: status.bg.replace('/20', ''), // Ajustar para la barra de progreso
+      borderColor: status.border,
+      label: statusKey === 'OPTIMAL' ? 'OK' : 
+             statusKey === 'INCREMENT' ? 'Falta' : 
+             'Exceso'
     };
   };
 
@@ -338,7 +324,7 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
         </div>
       )}
       
-      {/* ✅ LEYENDA CON COLORES UNIFICADOS */}
+      {/* ✅ LEYENDA ACTUALIZADA CON CONSTANTES CENTRALIZADAS */}
       <div className="bg-gray-900/50 backdrop-blur-sm p-4 sm:p-6 rounded-xl border border-gray-800">
         <h4 className="font-semibold text-gray-200 mb-6 flex items-center gap-2">
           <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -348,13 +334,13 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
         </h4>
         
         <div className="space-y-3">
-          {/* Estado: Dentro del plan - AZUL */}
+          {/* Estado: Dentro del plan - AZUL (OPTIMAL) */}
           <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 h-16">
-            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-500/10 rounded-lg border border-blue-500/20">
-              <span className="text-sm">✅</span>
+            <div className={`flex-shrink-0 w-8 h-8 flex items-center justify-center ${STATUS_COLORS.OPTIMAL.bg} rounded-lg border ${STATUS_COLORS.OPTIMAL.border}`}>
+              <span className="text-sm">{STATUS_COLORS.OPTIMAL.icon}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h5 className="text-blue-400 font-medium text-sm leading-tight">
+              <h5 className={`${STATUS_COLORS.OPTIMAL.text} font-medium text-sm leading-tight`}>
                 Dentro del plan
               </h5>
               <p className="text-xs text-gray-500 leading-tight">
@@ -363,13 +349,13 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
             </div>
           </div>
 
-          {/* Estado: Falta entrenar - ROJO */}
+          {/* Estado: Falta entrenar - ROJO (INCREMENT) */}
           <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 h-16">
-            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-red-500/10 rounded-lg border border-red-500/20">
-              <span className="text-sm">⚠️</span>
+            <div className={`flex-shrink-0 w-8 h-8 flex items-center justify-center ${STATUS_COLORS.INCREMENT.bg} rounded-lg border ${STATUS_COLORS.INCREMENT.border}`}>
+              <span className="text-sm">{STATUS_COLORS.INCREMENT.icon}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h5 className="text-red-400 font-medium text-sm leading-tight">
+              <h5 className={`${STATUS_COLORS.INCREMENT.text} font-medium text-sm leading-tight`}>
                 Falta entrenar
               </h5>
               <p className="text-xs text-gray-500 leading-tight">
@@ -378,13 +364,13 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
             </div>
           </div>
 
-          {/* Estado: Entrenado de más - AMARILLO */}
+          {/* Estado: Entrenado de más - AMARILLO (REDUCE) */}
           <div className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 h-16">
-            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-              <span className="text-sm">📉</span>
+            <div className={`flex-shrink-0 w-8 h-8 flex items-center justify-center ${STATUS_COLORS.REDUCE.bg} rounded-lg border ${STATUS_COLORS.REDUCE.border}`}>
+              <span className="text-sm">{STATUS_COLORS.REDUCE.icon}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h5 className="text-yellow-400 font-medium text-sm leading-tight">
+              <h5 className={`${STATUS_COLORS.REDUCE.text} font-medium text-sm leading-tight`}>
                 Entrenado de más
               </h5>
               <p className="text-xs text-gray-500 leading-tight">

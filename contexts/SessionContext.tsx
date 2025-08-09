@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { useAcademia } from './AcademiaContext';
 import { useAuth } from './AuthContext';
-import { TrainingSession, LoggedExercise } from '../types';
+import { TrainingSession, LoggedExercise } from '../types/types';
 import { 
   getSessions as getSessionsFromDB,
   addSession as addSessionToDB,

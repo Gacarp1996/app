@@ -342,6 +342,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
             {/* Panel de recomendaciones de entrenamiento */}
             <ActiveSessionRecommendations
               participants={participants}
+              currentSessionExercises={exercises} 
             />
             
             {/* Mostrar objetivos cuando hay un solo jugador seleccionado */}

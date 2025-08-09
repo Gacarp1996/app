@@ -1,4 +1,4 @@
-import { Player } from '@/types';
+import { Player } from '@/types/types';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 

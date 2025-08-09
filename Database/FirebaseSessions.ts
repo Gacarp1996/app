@@ -1,6 +1,6 @@
 import { db } from "../firebase/firebase-config";
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc, query, where, writeBatch } from "firebase/firestore";
-import { TrainingSession } from "../types";
+import { TrainingSession } from "../types/types";
 
 // ✅ FUNCIÓN HELPER PARA LIMPIAR DATOS UNDEFINED
 const cleanData = (obj: any): any => {

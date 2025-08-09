@@ -1,11 +1,11 @@
 // hooks/usePlanningAnalysis.ts
 import { useState, useEffect, useMemo } from 'react';
-import { TrainingSession, Player, LoggedExercise } from '../types';
+import { TrainingSession, Player, LoggedExercise } from '../types/types';
 import { TrainingPlan, getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { useSession } from '../contexts/SessionContext';
 import { SessionExercise } from '../contexts/TrainingContext';
-import { calculateExerciseStatsByTime, sessionExercisesToLogged } from '@/utils/calculations';
-
+import { calculateExerciseStatsByTime } from '@/utils/calculations';
+import { SessionService } from '@/services/sessionService';
 
 export interface AnalysisNode {
   name: string;
@@ -104,7 +104,7 @@ export const usePlanningAnalysis = ({
     });
     
     // Ejercicios de la sesión actual
-    const currentExercisesAsLogged = sessionExercisesToLogged(currentSessionExercises, player.id);
+    const currentExercisesAsLogged = SessionService.sessionExercisesToLogged(currentSessionExercises, player.id);
     allExercises.push(...currentExercisesAsLogged);
 
     // ✅ USAR FUNCIÓN CENTRALIZADA
@@ -209,9 +209,9 @@ export const usePlanningAnalysis = ({
   }, [trainingPlan, realStats, enabled, player.name]);
 
   // Convertir ejercicios de sesión actual para mostrar info
-  const currentSessionAsLoggedExercises = useMemo((): LoggedExercise[] => {
-    return sessionExercisesToLogged(currentSessionExercises, player.id);
-  }, [currentSessionExercises, player.id]);
+   const currentSessionAsLoggedExercises = useMemo((): LoggedExercise[] => {
+   return SessionService.sessionExercisesToLogged(currentSessionExercises, player.id);
+   }, [currentSessionExercises, player.id]);
 
   return {
     loading,

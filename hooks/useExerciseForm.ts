@@ -1,7 +1,7 @@
 // hooks/useExerciseForm.ts
 import { useState, useMemo, useCallback } from 'react';
 import { TipoType, AreaType } from '../constants/training';
-import { SpecificExercise } from '../types';
+import { SpecificExercise } from '../types/types';
 import { TrainingStructureService } from '../services/trainingStructure';
 import { validateExerciseForm } from '../utils/validation';
 

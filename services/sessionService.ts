@@ -1,5 +1,5 @@
 // services/sessionService.ts
-import { TrainingSession, LoggedExercise, Player, SessionExercise } from '../types';
+import { TrainingSession, LoggedExercise, Player, SessionExercise } from '../types/types';
 import { TipoType, AreaType } from '../constants/training';
 
 export interface SessionCreationData {
@@ -15,7 +15,66 @@ export interface SessionCreationData {
  */
 export class SessionService {
   /**
+   * FUNCIÓN CENTRALIZADA: Convierte SessionExercise a LoggedExercise
+   * Todos los lugares que necesiten esta conversión deben usar esta función
+   */
+  static sessionExerciseToLogged(exercise: SessionExercise): LoggedExercise {
+    return {
+      id: exercise.id || crypto.randomUUID(),
+      tipo: exercise.tipo,
+      area: exercise.area,
+      ejercicio: exercise.ejercicio || exercise.ejercicioEspecifico || "Sin nombre",
+      ejercicioEspecifico: exercise.ejercicioEspecifico,
+      tiempoCantidad: exercise.tiempoCantidad || '',
+      intensidad: exercise.intensidad || 1
+    };
+  }
+
+  /**
+   * FUNCIÓN CENTRALIZADA: Convierte múltiples SessionExercise a LoggedExercise
+   * Filtra por playerId si se proporciona
+   */
+  static sessionExercisesToLogged(
+    exercises: SessionExercise[],
+    playerId?: string
+  ): LoggedExercise[] {
+    const filtered = playerId 
+      ? exercises.filter(ex => ex.loggedForPlayerId === playerId)
+      : exercises;
+    
+    return filtered.map(ex => this.sessionExerciseToLogged(ex));
+  }
+
+  /**
+   * FUNCIÓN CENTRALIZADA: Convierte LoggedExercise a SessionExercise
+   */
+  static loggedExerciseToSession(
+    exercise: LoggedExercise,
+    playerId: string,
+    playerName: string
+  ): SessionExercise {
+    return {
+      ...exercise,
+      id: exercise.id || crypto.randomUUID(),
+      loggedForPlayerId: playerId,
+      loggedForPlayerName: playerName
+    };
+  }
+
+  /**
+   * FUNCIÓN CENTRALIZADA: Convierte múltiples LoggedExercise a SessionExercise
+   */
+  static loggedExercisesToSession(
+    exercises: LoggedExercise[],
+    playerId: string,
+    playerName: string
+  ): SessionExercise[] {
+    return exercises.map(ex => this.loggedExerciseToSession(ex, playerId, playerName));
+  }
+
+  /**
    * Crea datos de sesión desde ejercicios del contexto
+   * REFACTORIZADO: Usa la función centralizada
    */
   static createSessionFromExercises(
     player: Player,
@@ -23,20 +82,8 @@ export class SessionService {
     entrenadorId: string,
     observaciones?: string
   ): Omit<TrainingSession, 'id'> {
-    const playerExercises = exercises
-      .filter(ex => ex.loggedForPlayerId === player.id)
-      .map(({ loggedForPlayerId, loggedForPlayerName, ...rest }) => {
-        const exercise: LoggedExercise = {
-          id: rest.id || crypto.randomUUID(),
-          tipo: rest.tipo,
-          area: rest.area,
-          ejercicio: rest.ejercicio || '',
-          ejercicioEspecifico: rest.ejercicioEspecifico,
-          tiempoCantidad: rest.tiempoCantidad || '',
-          intensidad: rest.intensidad || 1
-        };
-        return exercise;
-      });
+    // Usar función centralizada
+    const playerExercises = this.sessionExercisesToLogged(exercises, player.id);
     
     return {
       jugadorId: player.id,
@@ -71,38 +118,27 @@ export class SessionService {
   
   /**
    * Prepara ejercicios para actualización de sesión
+   * REFACTORIZADO: Usa la función centralizada
    */
   static prepareExercisesForUpdate(
     exercises: SessionExercise[],
     playerId: string
   ): LoggedExercise[] {
-    return exercises
-      .filter(ex => ex.loggedForPlayerId === playerId)
-      .map(({ loggedForPlayerId, loggedForPlayerName, ...rest }) => ({
-        id: rest.id || crypto.randomUUID(),
-        tipo: rest.tipo,
-        area: rest.area,
-        ejercicio: rest.ejercicio || '',
-        ejercicioEspecifico: rest.ejercicioEspecifico,
-        tiempoCantidad: rest.tiempoCantidad || '',
-        intensidad: rest.intensidad || 1
-      }));
+    // Usar función centralizada
+    return this.sessionExercisesToLogged(exercises, playerId);
   }
   
   /**
    * Convierte ejercicios de sesión guardada a formato de contexto
+   * REFACTORIZADO: Usa la función centralizada
    */
   static convertToSessionExercises(
     exercises: LoggedExercise[],
     playerId: string,
     playerName: string
   ): SessionExercise[] {
-    return exercises.map(ex => ({
-      ...ex,
-      id: ex.id || crypto.randomUUID(),
-      loggedForPlayerId: playerId,
-      loggedForPlayerName: playerName
-    }));
+    // Usar función centralizada
+    return this.loggedExercisesToSession(exercises, playerId, playerName);
   }
   
   /**

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
-import { DisputedTournament, RendimientoJugador, Tournament } from '@/types';
+import { DisputedTournament, RendimientoJugador, Tournament } from '@/types/types';
 import { validateTournamentForm, dateToISOString, isoToLocalDate } from './helpers';
 
 interface DisputedTournamentFormModalProps {

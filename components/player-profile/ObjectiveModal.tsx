@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useObjective } from '../../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
 import TrainingRecommendations from '../training/TrainingRecommendations';
 import Modal from '../shared/Modal';
-import { Player, Tournament } from '@/types'; // ✅ Ya no necesita Objective
+import { Player, Tournament } from '@/types/types'; // ✅ Ya no necesita Objective
 
 // ✅ INTERFACE ACTUALIZADA - Sin allObjectives
 interface ObjectiveModalProps {

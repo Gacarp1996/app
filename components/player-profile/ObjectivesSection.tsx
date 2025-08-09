@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Objective, ObjectiveEstado } from '../../types';
+import { Objective, ObjectiveEstado } from '../../types/types';
 import { OBJECTIVE_ESTADOS } from '../../constants';
 
 interface ObjectivesSectionProps {

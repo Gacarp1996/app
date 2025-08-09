@@ -1,7 +1,7 @@
 // EditObjectivesPage.tsx - MIGRADO a ObjectiveContext
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Player, ObjectiveEstado } from '../types';
+import { Player, ObjectiveEstado } from '../types/types';
 import { MAX_ACTIVE_OBJECTIVES, OBJECTIVE_ESTADOS } from '../constants/index';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useObjective } from '../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT

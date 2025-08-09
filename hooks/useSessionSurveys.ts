@@ -1,6 +1,6 @@
 // hooks/useSessionSurveys.ts
 import { useState, useCallback, useEffect } from 'react';
-import { Player, TrainingSession } from '../types';
+import { Player, TrainingSession } from '../types/types';
 import { addPostTrainingSurvey } from '../Database/FirebaseSurveys';
 import { getEnabledSurveyQuestions } from '../Database/FirebaseAcademiaConfig';
 

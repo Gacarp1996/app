@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
-import { Player } from '../../types';
+import { Player } from '../../types/types';
 import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea, UI_LABELS } from '../../constants/training';
 import { getTrainingPlan, saveTrainingPlan, TrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { useAcademia } from '../../contexts/AcademiaContext';

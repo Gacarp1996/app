@@ -1,6 +1,6 @@
 import { db } from "../firebase/firebase-config";
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
-import { Tournament } from "../types";
+import { Tournament } from "../types/types";
 
 export const addTournament = async (academiaId: string, tournamentData: Omit<Tournament, "id">) => {
   try {

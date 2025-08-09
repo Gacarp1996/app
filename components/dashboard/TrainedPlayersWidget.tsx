@@ -1,4 +1,4 @@
-import { Player } from '@/types';
+import { Player } from '@/types/types';
 import React from 'react';
 import { formatDate, getPlayerName } from './helpers';
 

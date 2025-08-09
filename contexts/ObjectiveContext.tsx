@@ -1,7 +1,7 @@
 // contexts/ObjectiveContext.tsx
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useAcademia } from './AcademiaContext';
-import { Objective, ObjectiveEstado } from '../types';
+import { Objective, ObjectiveEstado } from '../types/types';
 import { 
   getObjectives as getObjectivesFromDB,
   addObjective as addObjectiveToDB,

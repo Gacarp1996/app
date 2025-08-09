@@ -1,6 +1,6 @@
 // components/player-profile/FutureTournamentsSection.tsx
 import React from 'react';
-import { Tournament } from '../../types';
+import { Tournament } from '../../types/types';
 
 interface FutureTournamentsSectionProps {
   playerTournaments: Tournament[];

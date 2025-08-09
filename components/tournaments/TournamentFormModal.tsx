@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TOURNAMENT_IMPORTANCE_LEVELS } from '@/constants';
-import { Tournament, TournamentImportance } from '@/types';
+import { Tournament, TournamentImportance } from '@/types/types';
 import Modal from '../shared/Modal';
 import { validateTournamentForm, dateToISOString, isoToLocalDate } from './helpers';
 

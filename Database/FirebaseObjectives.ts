@@ -1,6 +1,6 @@
 import { db } from "../firebase/firebase-config";
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
-import { Objective } from "../types";
+import { Objective } from "../types/types";
 
 export const addObjective = async (academiaId: string, objectiveData: Omit<Objective, "id">) => {
   try {

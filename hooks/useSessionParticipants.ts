@@ -1,6 +1,6 @@
 // hooks/useSessionParticipants.ts
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Player, Objective } from '../types';
+import { Player, Objective } from '../types/types';
 
 interface UseSessionParticipantsProps {
   participants: Player[];

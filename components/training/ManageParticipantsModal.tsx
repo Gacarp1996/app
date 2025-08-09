@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import Modal from '../shared/Modal';
-import { Player } from '../../types';
+import { Player } from '../../types/types';
 
 interface ManageParticipantsModalProps {
     isOpen: boolean;

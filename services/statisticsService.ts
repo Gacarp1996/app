@@ -1,23 +1,13 @@
 // services/statisticsService.ts
-import { TrainingSession, LoggedExercise, PostTrainingSurvey, ChartDataPoint, IntensityDataPoint } from '../types';
+import { TrainingSession, LoggedExercise, PostTrainingSurvey, ChartDataPoint, IntensityDataPoint } from '../types/types';
 import { TipoType, AreaType } from '../constants/training';
 import { calculateExerciseStatsByTime, calculateAverageIntensity, calculateDailyAverages, parseTimeToMinutes } from '../utils/calculations';
 import { formatDateShort, getUserTimeZone } from '../utils/dateHelpers';
-import { TrainingStructureService } from './trainingStructure';
+import { RecommendationService } from './recommendationService';
 
 export interface DrillDownData {
   data: ChartDataPoint[];
   title: string;
-}
-
-export interface PlayerAnalysis {
-  recommendations: any[];
-  totalExercises: number;
-  totalMinutes: number;
-  typeStats: any;
-  areaStats: any;
-  sessionsAnalyzed: number;
-  planUsed: 'real' | 'default';
 }
 
 /**
@@ -174,135 +164,5 @@ export class StatisticsService {
     }));
   }
   
-  /**
-   * Analiza ejercicios de un jugador y genera estadísticas
-   */
-  static analyzePlayerExercises(
-    exercises: LoggedExercise[],
-    trainingPlan?: any
-  ): PlayerAnalysis {
-    if (exercises.length === 0) {
-      return {
-        recommendations: [],
-        totalExercises: 0,
-        totalMinutes: 0,
-        typeStats: {},
-        areaStats: {},
-        sessionsAnalyzed: 0,
-        planUsed: 'default'
-      };
-    }
-    
-    const stats = calculateExerciseStatsByTime(exercises);
-    
-    // Convertir al formato esperado
-    const typeStats: any = {};
-    const areaStats: any = {};
-    
-    Object.keys(stats.typeStats).forEach(tipo => {
-      typeStats[tipo] = {
-        total: Math.round(stats.typeStats[tipo].total),
-        percentage: Math.round(stats.typeStats[tipo].percentage),
-        areas: {}
-      };
-      
-      Object.keys(stats.typeStats[tipo].areas).forEach(area => {
-        const areaData = stats.typeStats[tipo].areas[area];
-        typeStats[tipo].areas[area] = {
-          total: Math.round(areaData.total),
-          percentage: Math.round(areaData.percentage),
-          exercises: areaData.exercises
-        };
-      });
-    });
-    
-    Object.keys(stats.areaStats).forEach(area => {
-      areaStats[area] = {
-        total: Math.round(stats.areaStats[area].total),
-        percentage: Math.round(stats.areaStats[area].percentage)
-      };
-    });
-    
-    // Generar recomendaciones basadas en el plan
-    const recommendations = this.generateRecommendations(
-      typeStats,
-      areaStats,
-      trainingPlan,
-      exercises.length
-    );
-    
-    return {
-      recommendations,
-      totalExercises: exercises.length,
-      totalMinutes: Math.round(stats.totalMinutes),
-      typeStats,
-      areaStats,
-      sessionsAnalyzed: 0, // Se debe pasar desde fuera
-      planUsed: trainingPlan ? 'real' : 'default'
-    };
-  }
-  
-  /**
-   * Genera recomendaciones basadas en estadísticas y plan
-   */
-  private static generateRecommendations(
-    typeStats: any,
-    areaStats: any,
-    trainingPlan: any,
-    totalExercises: number
-  ): any[] {
-    const recommendations: any[] = [];
-    const defaultPercentages = TrainingStructureService.getDefaultTypePercentages();
-    const defaultAreaPercentages = TrainingStructureService.getDefaultAreaPercentages();
-    
-    Object.entries(typeStats).forEach(([tipo, stats]: [string, any]) => {
-      const plannedPercentage = trainingPlan?.planificacion?.[tipo as TipoType]?.porcentajeTotal 
-        || defaultPercentages[tipo as TipoType] 
-        || 50;
-      
-      const difference = Math.abs(stats.percentage - plannedPercentage);
-      
-      if (difference > 5) {
-        recommendations.push({
-          level: 'TIPO',
-          type: stats.percentage < plannedPercentage ? 'INCREMENTAR' : 'REDUCIR',
-          area: tipo,
-          parentType: tipo,
-          currentPercentage: stats.percentage,
-          plannedPercentage,
-          difference,
-          priority: difference > 15 ? 'high' : difference > 10 ? 'medium' : 'low',
-          reason: `${stats.percentage < plannedPercentage ? 'Déficit' : 'Exceso'} en tipo ${tipo}`,
-          basedOnExercises: totalExercises
-        });
-      }
-      
-      // Recomendaciones por áreas
-      Object.entries(stats.areas).forEach(([area, areaStats]: [string, any]) => {
-        const plannedAreaPercentage = trainingPlan?.planificacion?.[tipo as TipoType]?.areas?.[area as AreaType]?.porcentajeDelTotal
-          || defaultAreaPercentages[tipo as TipoType]?.[area as AreaType]
-          || 15;
-        
-        const areaDifference = Math.abs(areaStats.percentage - plannedAreaPercentage);
-        
-        if (areaDifference > 8) {
-          recommendations.push({
-            level: 'AREA',
-            type: areaStats.percentage < plannedAreaPercentage ? 'INCREMENTAR' : 'REDUCIR',
-            area,
-            parentType: tipo,
-            currentPercentage: areaStats.percentage,
-            plannedPercentage: plannedAreaPercentage,
-            difference: areaDifference,
-            priority: areaDifference > 15 ? 'high' : areaDifference > 10 ? 'medium' : 'low',
-            reason: `${areaStats.percentage < plannedAreaPercentage ? 'Déficit' : 'Exceso'} en ${area}`,
-            basedOnExercises: areaStats.total,
-            parentArea: area
-          });
-        }
-      });
-    });
-    
-    return recommendations;
-  }
+
 }

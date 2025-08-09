@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
-import { Player } from '@/types';
+import { Player } from '@/types/types';
 
 
 interface SurveyQuestion {

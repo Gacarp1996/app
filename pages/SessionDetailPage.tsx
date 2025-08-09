@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { TrainingSession, Player, PostTrainingSurvey } from '../types';
+import { TrainingSession, Player, PostTrainingSurvey } from '../types/types';
 import { getSurveyBySessionId, addPostTrainingSurvey, updateSurvey } from '../Database/FirebaseSurveys';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { usePlayer } from '../contexts/PlayerContext';

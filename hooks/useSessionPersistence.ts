@@ -1,6 +1,6 @@
 // hooks/useSessionPersistence.ts
 import { useCallback } from 'react';
-import { Player } from '../types';
+import { Player } from '../types/types';
 import { SessionExercise } from '../contexts/TrainingContext';
 
 interface SessionData {

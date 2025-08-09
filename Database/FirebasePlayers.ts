@@ -1,6 +1,6 @@
 import { db } from "../firebase/firebase-config";
 import { collection, addDoc, getDocs, updateDoc, doc, getDoc } from "firebase/firestore";
-import { Player } from "../types";
+import { Player } from "../types/types";
 
 // Función para agregar un jugador a Firestore
 export const addPlayer = async (academiaId: string, playerData: Omit<Player, "id">) => {

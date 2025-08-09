@@ -4,7 +4,7 @@ import { useAcademia } from '../contexts/AcademiaContext';
 import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
 import { getTrainedPlayersByCoach } from '../Database/FirebaseSessions';
 import { getUserRoleInAcademia } from '../Database/FirebaseRoles';
-import { Player } from '../types';
+import { Player } from '../types/types';
 
 interface TrainedPlayerData {
   playerId: string;

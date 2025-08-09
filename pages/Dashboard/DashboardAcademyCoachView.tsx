@@ -5,7 +5,7 @@ import { usePlayer } from '../../contexts/PlayerContext';
 import { useSession } from '../../contexts/SessionContext'; 
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
-import { Player, TrainingSession, Objective, PostTrainingSurvey } from '../../types';
+import { Player, TrainingSession, Objective, PostTrainingSurvey } from '../../types/types';
 import TrainedPlayersWidget from '@/components/dashboard/TrainedPlayersWidget';
 import PlayerStatusWidget from '@/components/dashboard/PlayerStatusWidget';
 import PlanningResumeWidget from '@/components/dashboard/PlanningResumeWidget';

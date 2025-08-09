@@ -1,6 +1,6 @@
 // hooks/usePlayerTournaments.ts
 import { useState, useEffect } from 'react';
-import { Tournament, DisputedTournament } from '../types';
+import { Tournament, DisputedTournament } from '../types/types';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useTournament } from '../contexts/TournamentContext'; // ✅ NUEVO IMPORT

@@ -1,7 +1,7 @@
 // contexts/PlayerContext.tsx
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import { useAcademia } from './AcademiaContext';
-import { Player } from '../types';
+import { Player } from '../types/types';
 import { 
   getPlayers as getPlayersFromDB, 
   addPlayer as addPlayerToDB, 

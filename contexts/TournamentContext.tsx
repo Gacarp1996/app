@@ -1,7 +1,7 @@
 // contexts/TournamentContext.tsx
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useAcademia } from './AcademiaContext';
-import { Tournament, DisputedTournament, TournamentImportance } from '../types';
+import { Tournament, DisputedTournament, TournamentImportance } from '../types/types';
 import { 
   getTournaments as getTournamentsFromDB,
   addTournament as addTournamentToDB,

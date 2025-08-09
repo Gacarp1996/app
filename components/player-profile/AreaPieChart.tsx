@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChartDataPoint } from '../../types';
+import { ChartDataPoint } from '../../types/types';
 
 interface AreaPieChartProps {
   data: ChartDataPoint[];

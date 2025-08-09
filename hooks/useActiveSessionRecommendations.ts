@@ -1,12 +1,13 @@
 // hooks/useActiveSessionRecommendations.ts
 import { useState, useEffect, useCallback } from 'react';
-import { TrainingPlan } from '../Database/FirebaseTrainingPlans';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useSession } from '../contexts/SessionContext';
-import { SessionService } from '../services/sessionService';
-import { RecommendationService, PlayerAnalysis, GroupRecommendations } from '../services/recommendationService';
 import { TrainingAnalysisService, DataPreview } from '../services/trainingAnalysisService';
+import { SessionService } from '../services/sessionService';
+import { RecommendationEngine } from '../services/recommendationEngine';
+import { EngineInput, EngineOutput } from '../types/recommendations';
 import { getDefaultDateRange } from '../utils/dateHelpers';
+import { SessionExercise } from '../contexts/TrainingContext';
 
 interface Participant {
   id: string;
@@ -15,10 +16,12 @@ interface Participant {
 
 interface UseActiveSessionRecommendationsProps {
   participants: Participant[];
+  currentSessionExercises?: SessionExercise[];  // NUEVO: Ejercicios de sesión actual
 }
 
 export const useActiveSessionRecommendations = ({
-  participants
+  participants,
+  currentSessionExercises = []  // NUEVO: Recibir ejercicios actuales
 }: UseActiveSessionRecommendationsProps) => {
   const { academiaActual } = useAcademia();
   const { getSessionsByPlayer, refreshSessions: refreshSessionsFromContext } = useSession();
@@ -27,55 +30,133 @@ export const useActiveSessionRecommendations = ({
   
   // Estados
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
-  const [trainingPlans, setTrainingPlans] = useState<{[playerId: string]: TrainingPlan}>({});
+  const [trainingPlans, setTrainingPlans] = useState<{[playerId: string]: any}>({});
   const [recommendationsGenerated, setRecommendationsGenerated] = useState(false);
-  const [individualRecommendations, setIndividualRecommendations] = useState<any>(null);
-  const [groupRecommendations, setGroupRecommendations] = useState<GroupRecommendations | null>(null);
+  const [engineOutput, setEngineOutput] = useState<EngineOutput | null>(null);
   const [dataPreview, setDataPreview] = useState<DataPreview | null>(null);
 
-  // Analizar ejercicios de un jugador
-  const analyzePlayerExercises = useCallback((playerId: string) => {
-    const player = participants.find(p => p.id === playerId);
-    if (!player) {
-      return { 
-        recommendations: [], 
-        totalExercises: 0, 
-        totalMinutes: 0,
-        typeStats: {}, 
-        areaStats: {},
-        sessionsAnalyzed: 0,
-        planUsed: 'default' as const
-      };
-    }
-
-    const dateRange = getDefaultDateRange(30);
-    const playerSessions = getSessionsByPlayer(playerId, { 
-      start: new Date(dateRange.start), 
-      end: new Date(dateRange.end) 
-    });
-
-    const allExercises = SessionService.extractExercisesFromSessions(playerSessions);
-    if (allExercises.length === 0) {
-      return { 
-        recommendations: [], 
-        totalExercises: 0, 
-        totalMinutes: 0,
-        typeStats: {}, 
-        areaStats: {},
-        sessionsAnalyzed: 0,
-        planUsed: 'default' as const
-      };
-    }
-
-    const analysis = RecommendationService.analyzePlayerExercises(
-      allExercises, 
-      trainingPlans[playerId]
-    );
+  // Generar recomendaciones usando el motor único
+  const generateRecommendations = async () => {
+    setRecommendationsLoading(true);
     
-    return { ...analysis, sessionsAnalyzed: playerSessions.length };
-  }, [participants, getSessionsByPlayer, trainingPlans]);
+    try {
+      // 1. Cargar planes de entrenamiento
+      const plans = await TrainingAnalysisService.loadTrainingPlansWithAdaptation(
+        academiaId,
+        participants
+      );
+      setTrainingPlans(plans);
+      
+      // 2. Obtener sesiones históricas para cada jugador
+      const dateRange = getDefaultDateRange(30);
+      const historicalSessions = participants.map(p => ({
+        playerId: p.id,
+        sessions: getSessionsByPlayer(p.id, {
+          start: new Date(dateRange.start),
+          end: new Date(dateRange.end)
+        })
+      }));
+      
+      // 3. Preparar input para el motor
+      const engineInput: EngineInput = {
+        players: participants,
+        historicalSessions,
+        currentSessionExercises,  // Incluir ejercicios de sesión actual
+        plans,
+        config: {
+          rangeDays: 30,
+          timeZone: 'America/Santiago',
+          includeCurrentSession: currentSessionExercises.length > 0
+        }
+      };
+      
+      // 4. Ejecutar motor de recomendaciones
+      const output = RecommendationEngine.buildRecommendations(engineInput);
+      setEngineOutput(output);
+      setRecommendationsGenerated(true);
+      
+    } catch (error) {
+      console.error('Error generando recomendaciones:', error);
+    } finally {
+      setRecommendationsLoading(false);
+    }
+  };
 
-  // Analizar sesiones de un jugador
+  // Refrescar recomendaciones
+  const refreshRecommendations = async () => {
+    setRecommendationsGenerated(false);
+    setRecommendationsLoading(true);
+
+    try {
+      await refreshSessionsFromContext();
+      await generateRecommendations();
+    } catch (error) {
+      console.error('Error recargando:', error);
+    } finally {
+      setRecommendationsLoading(false);
+    }
+  };
+
+  // Actualizar recomendaciones individuales cuando cambia el jugador seleccionado
+  const updateIndividualRecommendations = useCallback((playerId: string) => {
+    if (!engineOutput || !playerId) return engineOutput?.individual[playerId];
+    return engineOutput.individual[playerId];
+  }, [engineOutput]);
+
+  // Analizar ejercicios de un jugador (para compatibilidad)
+  const analyzePlayerExercises = useCallback((playerId: string) => {
+    if (!engineOutput) {
+      return { 
+        recommendations: [], 
+        totalExercises: 0, 
+        totalMinutes: 0,
+        typeStats: {}, 
+        areaStats: {},
+        sessionsAnalyzed: 0,
+        planUsed: 'default' as const
+      };
+    }
+
+    const playerData = engineOutput.individual[playerId];
+    if (!playerData) {
+      return { 
+        recommendations: [], 
+        totalExercises: 0, 
+        totalMinutes: 0,
+        typeStats: {}, 
+        areaStats: {},
+        sessionsAnalyzed: 0,
+        planUsed: 'default' as const
+      };
+    }
+
+    // Convertir RecItem[] al formato legacy para compatibilidad
+    const recommendations = playerData.items.map(item => ({
+      level: item.level,
+      type: item.action === 'INCREMENTAR' ? 'INCREMENTAR' : item.action === 'REDUCIR' ? 'REDUCIR' : 'OPTIMO',
+      area: item.area,
+      parentType: item.parentType,
+      currentPercentage: item.currentPercentage,
+      plannedPercentage: item.plannedPercentage,
+      difference: Math.abs(item.gap),  // Compatibilidad: usar abs
+      priority: item.priority,
+      reason: item.reason,
+      basedOnExercises: item.basedOn.exercises,
+      isStatus: item.action === 'OPTIMO'
+    }));
+
+    return {
+      recommendations,
+      totalExercises: playerData.summary.totalExercises,
+      totalMinutes: playerData.summary.totalMinutes,
+      typeStats: {}, // TODO: Extraer de engineOutput si es necesario
+      areaStats: {}, // TODO: Extraer de engineOutput si es necesario
+      sessionsAnalyzed: playerData.summary.sessionsAnalyzed,
+      planUsed: playerData.summary.planUsed
+    };
+  }, [engineOutput]);
+
+  // Analizar sesiones de un jugador (para compatibilidad)
   const analyzePlayerSessions = useCallback((playerId: string) => {
     const dateRange = getDefaultDateRange(30);
     const playerSessions = getSessionsByPlayer(playerId, { 
@@ -92,64 +173,6 @@ export const useActiveSessionRecommendations = ({
 
     return { totalSessions: playerSessions.length, dateRange: formattedRange };
   }, [getSessionsByPlayer]);
-
-  // Generar recomendaciones
-  const generateRecommendations = async () => {
-    setRecommendationsLoading(true);
-    
-    try {
-      // Recomendaciones individuales
-      const firstPlayerId = participants[0]?.id;
-      if (firstPlayerId) {
-        const analysis = analyzePlayerExercises(firstPlayerId);
-        setIndividualRecommendations(analysis);
-      }
-      
-      // Recomendaciones grupales
-      if (participants.length > 1) {
-        const participantsAnalysis: PlayerAnalysis[] = participants.map(p => ({
-          playerId: p.id,
-          playerName: p.name,
-          analysis: analyzePlayerExercises(p.id),
-          sessions: analyzePlayerSessions(p.id)
-        }));
-        
-        const groupAnalysis = RecommendationService.generateGroupRecommendations(participantsAnalysis);
-        setGroupRecommendations(groupAnalysis);
-      }
-      
-      setRecommendationsGenerated(true);
-    } catch (error) {
-      console.error('Error generando recomendaciones:', error);
-    } finally {
-      setRecommendationsLoading(false);
-    }
-  };
-
-  // Actualizar recomendaciones individuales
-  const updateIndividualRecommendations = useCallback((playerId: string) => {
-    if (!playerId || !recommendationsGenerated) return;
-    
-    const analysis = analyzePlayerExercises(playerId);
-    setIndividualRecommendations(analysis);
-  }, [recommendationsGenerated, analyzePlayerExercises]);
-
-  // Refrescar recomendaciones
-  const refreshRecommendations = async () => {
-    setRecommendationsGenerated(false);
-    setRecommendationsLoading(true);
-
-    try {
-      await refreshSessionsFromContext();
-      const plans = await TrainingAnalysisService.loadTrainingPlansWithAdaptation(academiaId, participants);
-      setTrainingPlans(plans);
-      await generateRecommendations();
-    } catch (error) {
-      console.error('Error recargando:', error);
-    } finally {
-      setRecommendationsLoading(false);
-    }
-  };
 
   // Generar preview de datos
   const updateDataPreview = useCallback(() => {
@@ -189,26 +212,43 @@ export const useActiveSessionRecommendations = ({
     }
   }, [trainingPlans, updateDataPreview]);
 
+  // Re-generar cuando cambien los ejercicios de sesión actual
+  useEffect(() => {
+    if (recommendationsGenerated && currentSessionExercises.length > 0) {
+      generateRecommendations();
+    }
+  }, [currentSessionExercises]);
+
+  // Helpers para compatibilidad con componentes existentes
+  const getIdealPercentageForType = (type: string, playerId: string) => {
+    return TrainingAnalysisService.getIdealPercentageForType(type, trainingPlans[playerId]);
+  };
+
+  const getIdealPercentageForAreaInType = (area: string, type: string, playerId: string) => {
+    return TrainingAnalysisService.getIdealPercentageForAreaInType(area, type, trainingPlans[playerId]);
+  };
+
   return {
     // Estados
     recommendationsGenerated,
-    individualRecommendations,
-    groupRecommendations,
-    dataPreview,
     recommendationsLoading,
     trainingPlans,
+    dataPreview,
+    
+    // Datos del motor
+    engineOutput,
+    individualRecommendations: engineOutput?.individual[participants[0]?.id] || null,
+    groupRecommendations: engineOutput?.group || null,
     
     // Funciones
     generateRecommendations,
     refreshRecommendations,
     updateIndividualRecommendations,
-    analyzePlayerExercises,     // ✅ AGREGADA
-    analyzePlayerSessions,       // ✅ AGREGADA
     
-    // Helpers (usando servicios)
-    getIdealPercentageForType: (type: string, playerId: string) => 
-      TrainingAnalysisService.getIdealPercentageForType(type, trainingPlans[playerId]),
-    getIdealPercentageForAreaInType: (area: string, type: string, playerId: string) =>
-      TrainingAnalysisService.getIdealPercentageForAreaInType(area, type, trainingPlans[playerId])
+    // Compatibilidad con componentes existentes
+    analyzePlayerExercises,
+    analyzePlayerSessions,
+    getIdealPercentageForType,
+    getIdealPercentageForAreaInType
   };
 };
