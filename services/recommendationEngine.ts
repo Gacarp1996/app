@@ -1,4 +1,4 @@
-// services/recommendationEngine.ts
+// services/recommendationEngine.ts 
 import { 
   RecItem, 
   EngineInput, 
@@ -13,39 +13,188 @@ import {
 import { TipoType, AreaType } from '../constants/training';
 import { calculateExerciseStatsByTime } from '../utils/calculations';
 import { SessionService } from './sessionService';
-import { TrainingStructureService } from './trainingStructure';
+import { MigrationService } from './migrationService';
+import { validateStrictTrainingPlan, canGenerateRecommendations } from '../utils/validation';
 import { LoggedExercise } from '../types/types';
 
 /**
- * Motor único de recomendaciones
- * Mantiene el signo del gap y centraliza toda la lógica
+ * Motor de recomendaciones SIN HARDCODE - Fase 1
+ * SOLO funciona con planes completos y validados
  */
 export class RecommendationEngine {
   
   /**
    * Punto de entrada principal del motor
+   * FASE 2: Procesa jugadores válidos y reporta bloqueados
    */
   static buildRecommendations(input: EngineInput): EngineOutput {
-    // 1. Calcular estadísticas por jugador
-    const playerStats = this.calculatePlayerStats(input);
+    // 1. Validar jugadores individualmente (no todos-o-nada)
+    const validationResult = this.validatePlayersIndividually(input);
     
-    // 2. Generar recomendaciones individuales
-    const individual = this.generateIndividualRecommendations(playerStats, input.plans);
+    // Si NO hay jugadores válidos, retornar output vacío
+    if (!validationResult.canProceed) {
+      return this.createEmptyOutput(
+        validationResult.blockedPlayers,
+        input.players.length
+      );
+    }
     
-    // 3. Generar recomendaciones grupales
-    const group = this.generateGroupRecommendations(playerStats, individual, input.players);
+    // Filtrar solo jugadores válidos para procesamiento
+    const validPlayersData = input.players.filter(p => 
+      validationResult.validPlayers.includes(p.id)
+    );
+    const validPlans: Record<string, any> = {};
+    validationResult.validPlayers.forEach(playerId => {
+      if (input.plans[playerId]) {
+        validPlans[playerId] = input.plans[playerId];
+      }
+    });
+    
+    // 2. Migrar planes válidos si es necesario
+    const migratedPlans = this.migratePlansIfNeeded(validPlans);
+    
+    // 3. Calcular estadísticas (solo jugadores válidos)
+    const playerStats = this.calculatePlayerStats({
+      ...input,
+      players: validPlayersData
+    });
+    
+    // 4. Generar recomendaciones individuales
+    const individual = this.generateIndividualRecommendations(
+      playerStats, 
+      migratedPlans
+    );
+    
+    // 5. Generar recomendaciones grupales con información de bloqueados
+    const group = this.generateGroupRecommendations(
+      playerStats, 
+      individual, 
+      validPlayersData,
+      validationResult.blockedPlayers,
+      input.players.length
+    );
     
     return { individual, group };
   }
   
   /**
-   * Calcula estadísticas para cada jugador
+   * FASE 2: Validar jugadores individualmente
+   * Procesa jugadores válidos y reporta bloqueados con sus razones
+   */
+  private static validatePlayersIndividually(input: EngineInput): {
+    canProceed: boolean;
+    validPlayers: string[];
+    blockedPlayers: Array<{
+      playerId: string;
+      playerName: string;
+      reasons: string[];
+    }>;
+  } {
+    const validPlayers: string[] = [];
+    const blockedPlayers: Array<{
+      playerId: string;
+      playerName: string;
+      reasons: string[];
+    }> = [];
+    
+    for (const player of input.players) {
+      const plan = input.plans[player.id];
+      const validation = canGenerateRecommendations(plan);
+      
+      if (!validation.canGenerate) {
+        // Extraer razones específicas del bloqueo
+        const reasons: string[] = [];
+        
+        // Razón principal
+        if (validation.reason) {
+          reasons.push(validation.reason);
+        }
+        
+        // Errores adicionales si existen
+        if (validation.blockingErrors && validation.blockingErrors.length > 0) {
+          // Tomar máximo 3 errores más específicos para no saturar
+          validation.blockingErrors.slice(0, 3).forEach(error => {
+            if (!reasons.includes(error)) {
+              reasons.push(error);
+            }
+          });
+        }
+        
+        blockedPlayers.push({
+          playerId: player.id,
+          playerName: player.name,
+          reasons
+        });
+      } else {
+        validPlayers.push(player.id);
+      }
+    }
+    
+    // CAMBIO CLAVE: Proceder si hay AL MENOS UN jugador válido
+    const canProceed = validPlayers.length > 0;
+    
+    return {
+      canProceed,
+      validPlayers,
+      blockedPlayers
+    };
+  }
+  
+  /**
+   * FASE 2: Crear salida vacía con información detallada de bloqueos
+   */
+  private static createEmptyOutput(
+    blockedPlayers: Array<{
+      playerId: string;
+      playerName: string;
+      reasons: string[];
+    }>,
+    totalPlayers: number
+  ): EngineOutput {
+    const mainMessage = blockedPlayers.length === totalPlayers
+      ? "No se pueden generar recomendaciones porque ningún jugador tiene un plan válido."
+      : `No se pueden generar recomendaciones. ${blockedPlayers.length} jugador(es) sin plan válido.`;
+    
+    return {
+      individual: {},
+      group: {
+        items: [],
+        analyzedPlayers: 0,
+        totalPlayers,
+        averages: {} as Record<TipoType, number>,
+        recommendation: mainMessage,
+        strongCoincidences: [],
+        // NUEVO: Incluir información de bloqueados
+        blocked: blockedPlayers,
+        warnings: blockedPlayers.length > 0 
+          ? [`${blockedPlayers.length} jugador(es) excluido(s) del análisis por falta de plan válido`]
+          : []
+      }
+    };
+  }
+  
+  /**
+   * Migra planes antiguos sin generar defaults
+   */
+  private static migratePlansIfNeeded(plans: Record<string, any>): Record<string, any> {
+    const migrated: Record<string, any> = {};
+    
+    Object.entries(plans).forEach(([playerId, plan]) => {
+      if (plan) {
+        migrated[playerId] = MigrationService.migrateTrainingPlan(plan);
+      }
+    });
+    
+    return migrated;
+  }
+  
+  /**
+   * Calcula estadísticas para cada jugador (sin cambios)
    */
   private static calculatePlayerStats(input: EngineInput): PlayerStats[] {
     const results: PlayerStats[] = [];
     
     for (const player of input.players) {
-      // Recopilar ejercicios del jugador
       const exercises: LoggedExercise[] = [];
       
       // 1. Ejercicios de sesiones históricas
@@ -67,9 +216,20 @@ export class RecommendationEngine {
         exercises.push(...currentExercises);
       }
       
-      // 3. Calcular estadísticas usando la función centralizada
+      // 3. Calcular estadísticas
       const stats = calculateExerciseStatsByTime(exercises);
-      
+      console.group(`🧮 Debug Cálculos - ${player.name}`);
+console.log('📝 Ejercicios brutos:', exercises.map(e => ({
+  tipo: e.tipo,
+  area: e.area,
+  ejercicio: e.ejercicio,
+  tiempo: e.tiempoCantidad
+})));
+console.log('📊 Stats calculadas:', {
+  totalMinutes: stats.totalMinutes,
+  typeStats: stats.typeStats
+});
+console.groupEnd();
       results.push({
         playerId: player.id,
         playerName: player.name,
@@ -85,7 +245,8 @@ export class RecommendationEngine {
   }
   
   /**
-   * Genera recomendaciones individuales para cada jugador
+   * Genera recomendaciones individuales SIN DEFAULTS
+   * ACTUALIZADO: Solo usa datos del plan del jugador, no genera fallbacks
    */
   private static generateIndividualRecommendations(
     playerStats: PlayerStats[],
@@ -97,93 +258,137 @@ export class RecommendationEngine {
       const plan = plans[stats.playerId];
       const items: RecItem[] = [];
       
-      // Obtener porcentajes por defecto
-      const defaultTypePercentages = TrainingStructureService.getDefaultTypePercentages();
-      const defaultAreaPercentages = TrainingStructureService.getDefaultAreaPercentages();
+      // CRÍTICO: Solo procesar si hay plan válido
+      if (!plan) {
+        result[stats.playerId] = {
+          items: [],
+          summary: {
+            totalExercises: stats.exercises.length,
+            totalMinutes: Math.round(stats.totalMinutes),
+            sessionsAnalyzed: stats.sessionsCount,
+            planUsed: 'default'  // Indica que no hay plan
+          }
+        };
+        continue;
+      }
       
-      // Analizar por TIPO
-      Object.values(TipoType).forEach(tipo => {
+      const validation = validateStrictTrainingPlan(plan);
+      console.group(`🔍 Debug Plan Jugador: ${stats.playerName}`);
+console.log('📋 Plan migrado:', {
+  existe: !!plan,
+  tienePlanificacion: !!(plan?.planificacion),
+  keysPlanificacion: Object.keys(plan?.planificacion || {}),
+  version: plan?.version
+});
+console.log('✅ Validation result:', {
+  isValid: validation.isValid,
+  isComplete: validation.isComplete,
+  canGenerate: validation.canGenerateRecommendations,
+  errors: validation.errors,
+  totalPercentage: validation.totalPercentage
+});
+console.log('🚨 Errores específicos:', validation.errors);
+console.groupEnd();
+
+      if (!validation.canGenerateRecommendations) {
+        result[stats.playerId] = {
+          items: [],
+          summary: {
+            totalExercises: stats.exercises.length,
+            totalMinutes: Math.round(stats.totalMinutes),
+            sessionsAnalyzed: stats.sessionsCount,
+            planUsed: 'default'  // Plan inválido
+          }
+        };
+        continue;
+      }
+      
+      // Analizar por TIPO (solo los definidos en el plan)
+      Object.entries(plan.planificacion).forEach(([tipo, tipoData]: [string, any]) => {
+        if (!tipoData || tipoData.porcentajeTotal === undefined) return;
+        
         const typeStats = stats.typeStats[tipo];
         const currentPercentage = typeStats?.percentage || 0;
+        const plannedPercentage = tipoData.porcentajeTotal;
         
-        // Obtener meta del plan o usar default
-        let plannedPercentage: number;
-        let isDefault = false;
-        
-        if (plan?.planificacion?.[tipo]?.porcentajeTotal) {
-          plannedPercentage = plan.planificacion[tipo].porcentajeTotal;
-        } else {
-          plannedPercentage = defaultTypePercentages[tipo] || 33;
-          isDefault = true;
-        }
-        
-        // MANTENER EL SIGNO: gap = plan - real
+        // Gap: plan - real
         const gap = plannedPercentage - currentPercentage;
         const action = getActionFromGap(gap);
         const priority = getPriorityFromGap(gap);
+        console.log(`🎾 Procesando tipo ${tipo}:`, {
+  tipoData: {
+    existe: !!tipoData,
+    porcentajeTotal: tipoData?.porcentajeTotal
+  },
+  stats: {
+    existe: !!typeStats,
+    total: typeStats?.total || 0,
+    percentage: currentPercentage
+  },
+  calculo: {
+    currentPercentage,
+    plannedPercentage,
+    gap: Math.round(gap * 10) / 10,
+    action,
+    priority
+  },
+  decision: {
+    umbralGap: Math.abs(gap) > 5,
+    tieneDatos: (typeStats?.total || 0) > 0,
+    deberiaCrearItem: Math.abs(gap) > 5 || (typeStats?.total || 0) > 0
+  }
+});
         
-        // Solo agregar si no es óptimo o si hay ejercicios
-        if (action !== 'OPTIMO' || typeStats?.total > 0) {
+        // Agregar recomendación de tipo si hay gap significativo o datos
+        if (Math.abs(gap) > 5 || typeStats?.total > 0) {
           items.push({
             level: 'TIPO',
-            parentType: tipo,
+            parentType: tipo as TipoType,
             area: tipo,
             currentPercentage: Math.round(currentPercentage),
             plannedPercentage: Math.round(plannedPercentage),
-            gap: Math.round(gap * 10) / 10,  // Redondear a 1 decimal
+            gap: Math.round(gap * 10) / 10,
             action,
             priority,
-            reason: this.generateReason(action, tipo, 'TIPO', isDefault),
+            reason: this.generateReason(action, tipo, 'TIPO', false),
             basedOn: {
               exercises: stats.exercises.filter(e => e.tipo === tipo).length,
               minutes: Math.round(typeStats?.total || 0)
             },
-            isDefault
+            isDefault: false
           });
         }
         
-        // Analizar por ÁREA dentro del tipo
-        if (typeStats?.areas) {
-          const areasForTipo = Object.keys(typeStats.areas) as AreaType[];
-          
-          areasForTipo.forEach(area => {
-            const areaStats = typeStats.areas[area];
-            const areaCurrentPercentage = areaStats.percentage; // % dentro del tipo
+        // Analizar por ÁREA (solo si están definidas en el plan)
+        if (tipoData.areas && validation.granularityLevel === 'AREA' || validation.granularityLevel === 'EJERCICIO') {
+          Object.entries(tipoData.areas).forEach(([area, areaData]: [string, any]) => {
+            if (!areaData || areaData.porcentajeDelTotal === undefined) return;
             
-            // Meta del área
-            let areaPlannedPercentage: number;
-            let areaIsDefault = false;
-            
-            if (plan?.planificacion?.[tipo]?.areas?.[area]?.porcentajeDelTotal) {
-              // Nota: porcentajeDelTotal es relativo al TOTAL, no al tipo
-              // Necesitamos convertirlo a % dentro del tipo
-              const areaAbsolutePlanned = plan.planificacion[tipo].areas[area].porcentajeDelTotal;
-              areaPlannedPercentage = (areaAbsolutePlanned / plannedPercentage) * 100;
-            } else {
-              areaPlannedPercentage = defaultAreaPercentages[tipo]?.[area] || 25;
-              areaIsDefault = true;
-            }
+            const areaStats = typeStats?.areas?.[area];
+            const areaCurrentPercentage = areaStats?.percentage || 0;  // Absoluto
+            const areaPlannedPercentage = areaData.porcentajeDelTotal;  // Absoluto
             
             const areaGap = areaPlannedPercentage - areaCurrentPercentage;
             const areaAction = getActionFromGap(areaGap);
             const areaPriority = getPriorityFromGap(areaGap);
             
-            if (areaAction !== 'OPTIMO' || areaStats.total > 0) {
+            // Agregar recomendación de área si hay gap significativo o datos
+            if (Math.abs(areaGap) > 5 || (areaStats?.total || 0) > 0) {
               items.push({
                 level: 'AREA',
-                parentType: tipo,
+                parentType: tipo as TipoType,
                 area,
                 currentPercentage: Math.round(areaCurrentPercentage),
                 plannedPercentage: Math.round(areaPlannedPercentage),
                 gap: Math.round(areaGap * 10) / 10,
                 action: areaAction,
                 priority: areaPriority,
-                reason: this.generateReason(areaAction, area, 'AREA', areaIsDefault),
+                reason: this.generateReason(areaAction, area, 'AREA', false),
                 basedOn: {
-                  exercises: Object.keys(areaStats.exercises || {}).length,
-                  minutes: Math.round(areaStats.total)
+                  exercises: Object.keys(areaStats?.exercises || {}).length,
+                  minutes: Math.round(areaStats?.total || 0)
                 },
-                isDefault: areaIsDefault
+                isDefault: false
               });
             }
           });
@@ -205,7 +410,7 @@ export class RecommendationEngine {
           totalExercises: stats.exercises.length,
           totalMinutes: Math.round(stats.totalMinutes),
           sessionsAnalyzed: stats.sessionsCount,
-          planUsed: plan ? 'real' : 'default'
+          planUsed: 'real'  // Plan válido usado
         }
       };
     }
@@ -215,18 +420,43 @@ export class RecommendationEngine {
   
   /**
    * Genera recomendaciones grupales
+   * FASE 2: Incluye información de jugadores bloqueados
    */
   private static generateGroupRecommendations(
     playerStats: PlayerStats[],
     individual: EngineOutput['individual'],
-    players: EngineInput['players']
+    validPlayers: EngineInput['players'],
+    blockedPlayers: Array<{
+      playerId: string;
+      playerName: string;
+      reasons: string[];
+    }>,
+    totalPlayers: number
   ): EngineOutput['group'] {
     
-    // Calcular promedios grupales por tipo
+    // Si no hay jugadores válidos (edge case)
+    if (validPlayers.length === 0) {
+      return {
+        items: [],
+        analyzedPlayers: 0,
+        totalPlayers,
+        averages: {} as Record<TipoType, number>,
+        recommendation: "No se pueden generar recomendaciones grupales porque ningún jugador tiene un plan válido.",
+        strongCoincidences: [],
+        blocked: blockedPlayers,
+        warnings: [`Todos los jugadores (${totalPlayers}) fueron excluidos por falta de planes válidos`]
+      };
+    }
+    
+    // Calcular promedios grupales por tipo (solo jugadores válidos)
     const averages: Record<string, number> = {};
     const typeTotals: Record<string, { sum: number; count: number }> = {};
     
-    playerStats.forEach(stats => {
+    const validPlayerStats = playerStats.filter(stats => 
+      validPlayers.some(p => p.id === stats.playerId)
+    );
+    
+    validPlayerStats.forEach(stats => {
       Object.values(TipoType).forEach(tipo => {
         if (!typeTotals[tipo]) {
           typeTotals[tipo] = { sum: 0, count: 0 };
@@ -243,33 +473,36 @@ export class RecommendationEngine {
         : 0;
     });
     
-    // Detectar coincidencias fuertes
+    // Detectar coincidencias fuertes (solo entre jugadores válidos)
     const coincidenceMap = new Map<string, any>();
     
-    Object.values(individual).forEach(playerAnalysis => {
-      playerAnalysis.items.forEach(item => {
-        if (item.action !== 'OPTIMO') {
-          const key = `${item.level}-${item.area}-${item.action}`;
-          
-          if (!coincidenceMap.has(key)) {
-            coincidenceMap.set(key, {
-              area: item.area,
-              level: item.level,
-              action: item.action,
-              gaps: [],
-              players: []
-            });
+    validPlayers.forEach(player => {
+      const playerAnalysis = individual[player.id];
+      if (playerAnalysis) {
+        playerAnalysis.items.forEach(item => {
+          if (item.action !== 'OPTIMO') {
+            const key = `${item.level}-${item.area}-${item.action}`;
+            
+            if (!coincidenceMap.has(key)) {
+              coincidenceMap.set(key, {
+                area: item.area,
+                level: item.level,
+                action: item.action,
+                gaps: [],
+                players: []
+              });
+            }
+            
+            const coincidence = coincidenceMap.get(key);
+            coincidence.gaps.push(item.gap);
+            coincidence.players.push(item);
           }
-          
-          const coincidence = coincidenceMap.get(key);
-          coincidence.gaps.push(item.gap);
-          coincidence.players.push(item);
-        }
-      });
+        });
+      }
     });
     
     const strongCoincidences = Array.from(coincidenceMap.values())
-      .filter(c => c.players.length >= 2)  // Al menos 2 jugadores
+      .filter(c => c.players.length >= 2)
       .map(c => ({
         area: c.area,
         level: c.level,
@@ -281,18 +514,17 @@ export class RecommendationEngine {
       }))
       .sort((a, b) => b.playerCount - a.playerCount);
     
-    // Generar items grupales basados en promedios
+    // Generar items grupales basados en promedios reales (sin defaults)
     const groupItems: RecItem[] = [];
-    const defaultPercentages = TrainingStructureService.getDefaultTypePercentages();
     
     Object.values(TipoType).forEach(tipo => {
       const currentPercentage = averages[tipo] || 0;
       
-      // Calcular meta grupal (promedio de metas individuales)
+      // Calcular meta grupal (promedio de metas reales de planes válidos)
       let totalPlanned = 0;
-      let validPlayers = 0;
+      let validCount = 0;
       
-      players.forEach(player => {
+      validPlayers.forEach(player => {
         const playerData = individual[player.id];
         if (playerData) {
           const tipoItem = playerData.items.find(
@@ -300,53 +532,60 @@ export class RecommendationEngine {
           );
           if (tipoItem) {
             totalPlanned += tipoItem.plannedPercentage;
-            validPlayers++;
+            validCount++;
           }
         }
       });
       
-      const plannedPercentage = validPlayers > 0 
-        ? Math.round(totalPlanned / validPlayers)
-        : defaultPercentages[tipo] || 33;
-      
-      const gap = plannedPercentage - currentPercentage;
-      const action = getActionFromGap(gap);
-      const priority = getPriorityFromGap(gap);
-      
-      groupItems.push({
-        level: 'TIPO',
-        parentType: tipo,
-        area: tipo,
-        currentPercentage,
-        plannedPercentage,
-        gap: Math.round(gap * 10) / 10,
-        action,
-        priority,
-        reason: this.generateReason(action, tipo, 'TIPO', false),
-        basedOn: {
-          exercises: playerStats.reduce((sum, s) => 
-            sum + s.exercises.filter(e => e.tipo === tipo).length, 0
-          ),
-          minutes: playerStats.reduce((sum, s) => 
-            sum + (s.typeStats[tipo]?.total || 0), 0
-          )
-        }
-      });
+      // Solo crear item si hay datos reales
+      if (validCount > 0) {
+        const plannedPercentage = Math.round(totalPlanned / validCount);
+        const gap = plannedPercentage - currentPercentage;
+        const action = getActionFromGap(gap);
+        const priority = getPriorityFromGap(gap);
+        
+        groupItems.push({
+          level: 'TIPO',
+          parentType: tipo,
+          area: tipo,
+          currentPercentage,
+          plannedPercentage,
+          gap: Math.round(gap * 10) / 10,
+          action,
+          priority,
+          reason: this.generateReason(action, tipo, 'TIPO', false),
+          basedOn: {
+            exercises: validPlayerStats.reduce((sum, s) => 
+              sum + s.exercises.filter(e => e.tipo === tipo).length, 0
+            ),
+            minutes: validPlayerStats.reduce((sum, s) => 
+              sum + (s.typeStats[tipo]?.total || 0), 0
+            )
+          }
+        });
+      }
     });
     
     // Generar texto de recomendación
     const recommendation = this.generateGroupRecommendationText(
       strongCoincidences,
-      groupItems
+      groupItems,
+      validPlayers.length,
+      totalPlayers
     );
     
     return {
       items: groupItems,
-      analyzedPlayers: playerStats.filter(p => p.exercises.length > 0).length,
-      totalPlayers: players.length,
+      analyzedPlayers: validPlayers.length,
+      totalPlayers,
       averages: averages as Record<TipoType, number>,
       recommendation,
-      strongCoincidences
+      strongCoincidences,
+      // NUEVO: Incluir jugadores bloqueados si los hay
+      blocked: blockedPlayers.length > 0 ? blockedPlayers : undefined,
+      warnings: blockedPlayers.length > 0 
+        ? [`${blockedPlayers.length} jugador(es) excluido(s) del análisis grupal`]
+        : undefined
     };
   }
   
@@ -359,57 +598,71 @@ export class RecommendationEngine {
     level: 'TIPO' | 'AREA' | 'EJERCICIO',
     isDefault: boolean
   ): string {
-    const suffix = isDefault ? ' (usando valores por defecto)' : '';
-    
+    // Ya no hay defaults en Fase 1
     switch (action) {
       case 'OPTIMO':
-        return `${area} está dentro del rango óptimo${suffix}`;
+        return `${area} está dentro del rango óptimo`;
       case 'INCREMENTAR':
-        return `Déficit en ${level === 'TIPO' ? 'tipo' : 'área'} ${area}${suffix}`;
+        return `Déficit en ${level === 'TIPO' ? 'tipo' : 'área'} ${area}`;
       case 'REDUCIR':
-        return `Exceso en ${level === 'TIPO' ? 'tipo' : 'área'} ${area}${suffix}`;
+        return `Exceso en ${level === 'TIPO' ? 'tipo' : 'área'} ${area}`;
       default:
-        return `${area} requiere ajuste${suffix}`;
+        return `${area} requiere ajuste`;
     }
   }
   
   /**
    * Genera texto de recomendación grupal
+   * FASE 2: Considera jugadores válidos vs totales
    */
   private static generateGroupRecommendationText(
     coincidences: any[],
-    groupItems: RecItem[]
+    groupItems: RecItem[],
+    validPlayersCount: number,
+    totalPlayersCount: number
   ): string {
+    if (validPlayersCount === 0) {
+      return "No se pueden generar recomendaciones porque ningún jugador tiene un plan válido.";
+    }
+    
+    // Prefijo si hay jugadores excluidos
+    const prefix = validPlayersCount < totalPlayersCount
+      ? `Análisis de ${validPlayersCount}/${totalPlayersCount} jugadores. `
+      : '';
+    
     if (coincidences.length > 0) {
       const top = coincidences[0];
       const action = top.action === 'INCREMENTAR' ? 'incrementar' : 'reducir';
       
       if (top.action === 'REDUCIR') {
-        // Buscar qué tipo necesita más trabajo
         const deficit = groupItems.find(item => 
           item.action === 'INCREMENTAR' && item.level === 'TIPO'
         );
         const alternative = deficit ? deficit.area : 'otro tipo de ejercicio';
         
-        return `Sugerencia: Hay un exceso de ${top.area}. ` +
-               `Inicia la sesión con ejercicios de ${alternative} para balancear el entrenamiento. ` +
-               `(${top.playerCount} jugadores, diferencia promedio de ${Math.abs(top.averageGap)}%)`;
+        return prefix +
+          `Sugerencia: Hay un exceso de ${top.area}. ` +
+          `Inicia la sesión con ejercicios de ${alternative} para balancear el entrenamiento. ` +
+          `(${top.playerCount} jugadores, diferencia promedio de ${Math.abs(top.averageGap)}%)`;
       } else {
-        return `Sugerencia: Iniciar con ejercicios de "${top.area}" (${action}) ` +
-               `que afecta a ${top.playerCount} jugadores con una diferencia promedio de ${Math.abs(top.averageGap)}%.`;
+        return prefix +
+          `Sugerencia: Iniciar con ejercicios de "${top.area}" (${action}) ` +
+          `que afecta a ${top.playerCount} jugadores con una diferencia promedio de ${Math.abs(top.averageGap)}%.`;
       }
     }
     
-    // Si no hay coincidencias fuertes, buscar la mayor necesidad
     const highPriority = groupItems.find(item => 
       item.priority === 'high' && item.action !== 'OPTIMO'
     );
     
     if (highPriority) {
       const action = highPriority.action === 'INCREMENTAR' ? 'incrementar' : 'reducir';
-      return `Sugerencia: Priorizar ${highPriority.area} (${action} ${Math.abs(highPriority.gap)}%)`;
+      return prefix + 
+        `Sugerencia: Priorizar ${highPriority.area} (${action} ${Math.abs(highPriority.gap)}%)`;
     }
     
-    return "El grupo está balanceado. Mantener variedad en los ejercicios.";
+    return prefix + 
+      `El grupo está balanceado (${validPlayersCount} jugador${validPlayersCount !== 1 ? 'es' : ''} con plan${validPlayersCount !== 1 ? 'es' : ''} válido${validPlayersCount !== 1 ? 's' : ''}). ` +
+      `Mantener variedad en los ejercicios.`;
   }
 }

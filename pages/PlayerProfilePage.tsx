@@ -1,11 +1,11 @@
-// pages/PlayerProfilePage.tsx - MIGRADO A TODOS LOS CONTEXTS
+// pages/PlayerProfilePage.tsx - ACTUALIZADO CON VALIDACIONES ESTRICTAS
 import React, { useState, useMemo, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useSession } from '../contexts/SessionContext';
 import { useObjective } from '../contexts/ObjectiveContext';
-import { useTournament } from '../contexts/TournamentContext'; // ✅ NUEVO IMPORT
+import { useTournament } from '../contexts/TournamentContext';
 
 import Modal from '../components/shared/Modal';
 import TrainingsOnDateModal from '../components/training/TrainingOnDateModal';
@@ -39,7 +39,6 @@ import { usePlayerTournaments } from '../hooks/usePlayerTournaments';
 // UTILIDADES
 import { formatDate } from '../components/player-profile/utils';
 
-// ✅ INTERFACE ACTUALIZADA - Ya no necesita tournaments ni objectives
 interface PlayerProfilePageProps {
   onDataChange: () => void;
 }
@@ -83,7 +82,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
   const { 
     getTournamentsByPlayer, 
     getDisputedTournamentsByPlayer,
-    tournaments // Para obtener todos los torneos si es necesario
+    tournaments
   } = useTournament();
   
   // Estados de UI
@@ -175,7 +174,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
       
       <div className="relative z-10 max-w-5xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
         
-        {/* Modal de eliminación - cambio simple */}
+        {/* Modal de eliminación */}
         <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmar Eliminación">
           <p>¿Eliminar a <strong>{player.name}</strong>?</p>
           <p className="text-sm text-gray-400 mt-2">Esta acción no se puede deshacer.</p>
@@ -308,7 +307,6 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
               )}
             </div>
 
-            {/* TrainingCalendarSection ya no necesita sessions prop */}
             <Suspense fallback={<TabLoadingSkeleton message="Cargando calendario..." />}>
               <TrainingCalendarSection
                 playerId={playerId!}
@@ -362,12 +360,11 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
         {activeTab === "planificacion" && (
           <Suspense fallback={<TabLoadingSkeleton message="Cargando planificación..." />}>
             <PlanningSection
+              // ✅ Props básicas mantenidas
               planLoading={planningHook.planLoading || false}
               planSaving={planningHook.planSaving || false}
               rangoAnalisis={planningHook.rangoAnalisis || 0}
               planificacion={planningHook.planificacion || {}}
-              totalPercentage={planningHook.calculations?.calculateTotalPercentage() || 0}
-              validation={planningHook.calculations?.validateFlexiblePlan() || { isValid: true, errors: [] }}
               onRangoAnalisisChange={planningHook.setRangoAnalisis || (() => {})}
               onTipoPercentageChange={planningHook.handlers?.handleTipoPercentageChange || (() => {})}
               onAreaPercentageChange={planningHook.handlers?.handleAreaPercentageChange || (() => {})}
@@ -377,6 +374,41 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
               hasDetailAtLevel={planningHook.calculations?.hasDetailAtLevel || (() => false)}
               onSavePlan={planningHook.handlers?.handleSavePlan || (() => {})}
               onAnalysisClick={() => setIsPlanningAnalysisOpen(true)}
+              
+              // ✅ NUEVAS props con validación estricta
+              totalPercentage={planningHook.calculations?.calculateTotalPercentage() || 0}
+              strictValidation={planningHook.strictValidation || {
+                isValid: true,
+                isComplete: false,
+                errors: [],
+                warnings: [],
+                totalPercentage: 0,
+                granularityLevel: 'TIPO' as const,
+                canGenerateRecommendations: false
+              }}
+              canGenerateRecommendations={planningHook.canGenerateRecommendations || false}
+              planStatus={planningHook.planStatus || { 
+                status: 'EMPTY' as const, 
+                message: 'Sin plan definido', 
+                color: 'gray' as const 
+              }}
+              realTimeValidation={planningHook.realTimeValidation || {
+                fieldErrors: {},
+                globalErrors: [],
+                isValidForSave: false,
+                totalPercentage: 0
+              }}
+              
+              // ✅ MANTENER prop legacy para compatibilidad hasta que se actualice PlanningSection
+              validation={planningHook.calculations?.validateStrictPlan() || { 
+                isValid: true, 
+                errors: [],
+                warnings: [],
+                isComplete: false,
+                totalPercentage: 0,
+                granularityLevel: 'TIPO' as const,
+                canGenerateRecommendations: false
+              }}
             />
           </Suspense>
         )}

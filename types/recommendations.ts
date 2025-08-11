@@ -51,6 +51,13 @@ export interface EngineOutput {
       playerCount: number;
       averageGap: number;
     }>;
+    // NUEVO: Campos opcionales para reportar jugadores bloqueados
+    blocked?: Array<{
+      playerId: string;
+      playerName: string;
+      reasons: string[];
+    }>;
+    warnings?: string[];
   };
 }
 

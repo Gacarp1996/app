@@ -71,6 +71,36 @@ export const formatDateFull = (date: Date, timeZone?: string): string => {
 };
 
 /**
+ * Convierte fecha a string YYYY-MM-DD en hora LOCAL del usuario
+ * NO hardcodea ninguna timezone específica
+ */
+export const toLocalDateString = (date: Date | string): string => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-CA'); // formato YYYY-MM-DD en TZ local
+};
+
+/**
+ * Compara si dos fechas son el mismo día en hora LOCAL del usuario
+ */
+export const isSameLocalDay = (date1: Date | string, date2: Date | string): boolean => {
+  return toLocalDateString(date1) === toLocalDateString(date2);
+};
+
+/**
+ * Verifica si una fecha está dentro de un rango (todo en hora LOCAL)
+ */
+export const isInLocalDateRange = (
+  date: Date | string, 
+  start: Date | string, 
+  end: Date | string
+): boolean => {
+  const dateLocal = toLocalDateString(date);
+  const startLocal = toLocalDateString(start);
+  const endLocal = toLocalDateString(end);
+  return dateLocal >= startLocal && dateLocal <= endLocal;
+};
+
+/**
  * Agrupa elementos por día basándose en una propiedad de fecha
  */
 export function groupByDay<T>(

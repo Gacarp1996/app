@@ -10,6 +10,11 @@ import {
   deleteSession as deleteSessionFromDB,
   getTrainedPlayersByCoach as getTrainedPlayersByCoachFromDB
 } from '../Database/FirebaseSessions';
+// ✅ NUEVO: Imports de dateHelpers
+import { 
+  isSameLocalDay,
+  isInLocalDateRange
+} from '../utils/dateHelpers';
 
 // Tipos para el contexto
 interface TrainedPlayerData {
@@ -218,7 +223,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
   
   // FUNCIONES DE CONSULTA
   
-  // ✅ MODIFICADO: Obtener sesiones por jugador con cache seguro
+  // ✅ ACTUALIZADO: Obtener sesiones por jugador con comparación de fecha local
   const getSessionsByPlayer = useCallback((playerId: string, dateRange?: DateRange): TrainingSession[] => {
     const cacheKey = getCacheKey('player', { playerId, dateRange });
     const cached = cache.get(cacheKey);
@@ -230,16 +235,12 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     let filtered = sessionsWithOptimisticUpdates.filter(s => s.jugadorId === playerId);
     
     if (dateRange) {
-      const startStr = dateRange.start.toISOString().split('T')[0];
-      const endStr = dateRange.end.toISOString().split('T')[0];
-      
-      filtered = filtered.filter(s => {
-        const sessionDate = s.fecha.split('T')[0];
-        return sessionDate >= startStr && sessionDate <= endStr;
-      });
+      // ✅ ACTUALIZADO: Usar isInLocalDateRange
+      filtered = filtered.filter(s => 
+        isInLocalDateRange(s.fecha, dateRange.start, dateRange.end)
+      );
     }
     
-    // ✅ Usar updateCacheSafely en lugar de setCache directamente
     updateCacheSafely(cacheKey, {
       data: filtered,
       timestamp: Date.now(),
@@ -250,7 +251,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     return filtered;
   }, [sessionsWithOptimisticUpdates, cache, updateCacheSafely]);
   
-  // ✅ MODIFICADO: Obtener sesiones por entrenador con cache seguro
+  // ✅ ACTUALIZADO: Obtener sesiones por entrenador con comparación de fecha local
   const getSessionsByCoach = useCallback((coachId: string, dateRange?: DateRange): TrainingSession[] => {
     const cacheKey = getCacheKey('coach', { coachId, dateRange });
     const cached = cache.get(cacheKey);
@@ -262,16 +263,12 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     let filtered = sessionsWithOptimisticUpdates.filter(s => s.entrenadorId === coachId);
     
     if (dateRange) {
-      const startStr = dateRange.start.toISOString().split('T')[0];
-      const endStr = dateRange.end.toISOString().split('T')[0];
-      
-      filtered = filtered.filter(s => {
-        const sessionDate = s.fecha.split('T')[0];
-        return sessionDate >= startStr && sessionDate <= endStr;
-      });
+      // ✅ ACTUALIZADO: Usar isInLocalDateRange
+      filtered = filtered.filter(s => 
+        isInLocalDateRange(s.fecha, dateRange.start, dateRange.end)
+      );
     }
     
-    // ✅ Usar updateCacheSafely
     updateCacheSafely(cacheKey, {
       data: filtered,
       timestamp: Date.now(),
@@ -282,7 +279,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     return filtered;
   }, [sessionsWithOptimisticUpdates, cache, updateCacheSafely]);
   
-  // ✅ MODIFICADO: Obtener sesiones por fecha específica con cache seguro
+  // ✅ ACTUALIZADO: Obtener sesiones por fecha específica con comparación de fecha local
   const getSessionsByDate = useCallback((date: string): TrainingSession[] => {
     const cacheKey = getCacheKey('date', { date });
     const cached = cache.get(cacheKey);
@@ -291,9 +288,11 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
       return cached.data;
     }
     
-    const filtered = sessionsWithOptimisticUpdates.filter(s => s.fecha.startsWith(date));
+    // ✅ ACTUALIZADO: Usar isSameLocalDay
+    const filtered = sessionsWithOptimisticUpdates.filter(s => 
+      isSameLocalDay(s.fecha, date)
+    );
     
-    // ✅ Usar updateCacheSafely
     updateCacheSafely(cacheKey, {
       data: filtered,
       timestamp: Date.now(),
@@ -304,15 +303,12 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     return filtered;
   }, [sessionsWithOptimisticUpdates, cache, updateCacheSafely]);
   
-  // Obtener sesiones por rango de fechas (sin cache porque es menos común)
+  // ✅ ACTUALIZADO: Obtener sesiones por rango de fechas con comparación de fecha local
   const getSessionsByDateRange = useCallback((start: Date, end: Date): TrainingSession[] => {
-    const startStr = start.toISOString().split('T')[0];
-    const endStr = end.toISOString().split('T')[0];
-    
-    return sessionsWithOptimisticUpdates.filter(s => {
-      const sessionDate = s.fecha.split('T')[0];
-      return sessionDate >= startStr && sessionDate <= endStr;
-    });
+    // ✅ ACTUALIZADO: Usar isInLocalDateRange directamente
+    return sessionsWithOptimisticUpdates.filter(s => 
+      isInLocalDateRange(s.fecha, start, end)
+    );
   }, [sessionsWithOptimisticUpdates]);
   
   // Obtener sesiones de hoy

@@ -74,12 +74,13 @@ export class SessionService {
 
   /**
    * Crea datos de sesión desde ejercicios del contexto
-   * REFACTORIZADO: Usa la función centralizada
+   * ✅ ACTUALIZADO: Recibe fecha como parámetro
    */
   static createSessionFromExercises(
     player: Player,
     exercises: SessionExercise[],
     entrenadorId: string,
+    sessionDate: string,        // ✅ NUEVO PARÁMETRO
     observaciones?: string
   ): Omit<TrainingSession, 'id'> {
     // Usar función centralizada
@@ -88,7 +89,7 @@ export class SessionService {
     return {
       jugadorId: player.id,
       entrenadorId,
-      fecha: new Date().toISOString(),
+      fecha: new Date(sessionDate + 'T12:00:00').toISOString(), // ✅ Usar mediodía para evitar problemas de TZ
       ejercicios: playerExercises,
       observaciones: observaciones?.trim() || ''
     };
@@ -96,11 +97,13 @@ export class SessionService {
   
   /**
    * Crea múltiples sesiones para múltiples jugadores
+   * ✅ ACTUALIZADO: Recibe fecha como parámetro
    */
   static createSessionsForPlayers(
     players: Player[],
     exercises: SessionExercise[],
     entrenadorId: string,
+    sessionDate: string,        // ✅ NUEVO PARÁMETRO
     observaciones?: string
   ): Omit<TrainingSession, 'id'>[] {
     return players
@@ -108,6 +111,7 @@ export class SessionService {
         player,
         exercises,
         entrenadorId,
+        sessionDate,            // ✅ NUEVO: Pasar sessionDate
         observaciones
       ))
       .filter(session => 

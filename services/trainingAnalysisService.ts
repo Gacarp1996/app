@@ -33,6 +33,18 @@ export class TrainingAnalysisService {
       return trainingPlan.planificacion[type as TipoType]!.porcentajeTotal;
     }
     
+    // ✅ NUEVO: Si no hay porcentajeTotal pero hay áreas definidas, calcularlo
+    const tipoData = trainingPlan?.planificacion?.[type as TipoType];
+    if (!tipoData?.porcentajeTotal && tipoData?.areas) {
+      const areasTotal = Object.values(tipoData.areas).reduce(
+        (sum, area: any) => sum + (area.porcentajeDelTotal || 0), 
+        0
+      );
+      if (areasTotal > 0) {
+        return areasTotal;
+      }
+    }
+    
     const defaultPercentages = TrainingStructureService.getDefaultTypePercentages();
     return defaultPercentages[type as TipoType] || 50;
   }

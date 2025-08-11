@@ -1,9 +1,9 @@
-// services/recommendationService.ts
-import { LoggedExercise } from '@/types/types';
-import { TrainingPlan } from '../Database/FirebaseTrainingPlans';
+// services/recommendationService.ts - ACTUALIZADO SIN DEFAULTS
+import { LoggedExercise, TrainingPlan } from '@/types/types';
 import { TipoType, AreaType } from '../constants/training';
 import { calculateExerciseStatsByTime } from '../utils/calculations';
-import { TrainingStructureService } from './trainingStructure';
+import { MigrationService } from './migrationService';
+import { validateStrictTrainingPlan, canGenerateRecommendations } from '../utils/validation';
 
 export interface Recommendation {
   level: 'TIPO' | 'AREA' | 'EJERCICIO';
@@ -31,7 +31,7 @@ export interface PlayerAnalysis {
     typeStats: any;
     areaStats: any;
     sessionsAnalyzed: number;
-    planUsed: 'real' | 'default';
+    planUsed: 'real' | 'invalid';  // CAMBIO: 'default' -> 'invalid'
   };
   sessions: {
     totalSessions: number;
@@ -74,7 +74,7 @@ export interface GroupRecommendations {
     totalExercises: number;
     totalMinutes: number;
     sessionsCount: number;
-    planUsed: 'real' | 'default';
+    planUsed: 'real' | 'invalid';
   }>;
   coincidencias: GroupCoincidence[];
   individuales: Array<{
@@ -99,11 +99,13 @@ export interface GroupRecommendations {
   }>;
   hasStrongCoincidences: boolean;
   recommendation: string;
+  hasValidPlans: boolean;  // NUEVO: Indica si hay planes válidos
 }
 
 export class RecommendationService {
   /**
    * Analiza ejercicios de un jugador y genera recomendaciones
+   * ACTUALIZADO: Solo funciona con planes válidos, no genera defaults
    */
   static analyzePlayerExercises(
     exercises: LoggedExercise[],
@@ -114,7 +116,7 @@ export class RecommendationService {
     totalMinutes: number;
     typeStats: any;
     areaStats: any;
-    planUsed: 'real' | 'default';
+    planUsed: 'real' | 'invalid';
   } {
     if (exercises.length === 0) {
       return {
@@ -123,15 +125,37 @@ export class RecommendationService {
         totalMinutes: 0,
         typeStats: {},
         areaStats: {},
-        planUsed: 'default'
+        planUsed: 'invalid'
       };
     }
 
+    // NUEVO: Validar plan antes de usarlo
+    const planValidation = canGenerateRecommendations(trainingPlan);
+    if (!planValidation.canGenerate) {
+      console.warn('No se pueden generar recomendaciones:', planValidation.reason);
+      
+      // Devolver estadísticas sin recomendaciones
+      const stats = calculateExerciseStatsByTime(exercises);
+      return {
+        recommendations: [],
+        totalExercises: exercises.length,
+        totalMinutes: Math.round(stats.totalMinutes),
+        typeStats: this.formatTypeStats(stats.typeStats),
+        areaStats: this.formatAreaStats(stats.areaStats),
+        planUsed: 'invalid'
+      };
+    }
+
+    // Migrar plan si es necesario
+    const migratedPlan = MigrationService.migrateTrainingPlan(trainingPlan!);
+
+    // Calcular estadísticas (con porcentajes absolutos)
     const stats = calculateExerciseStatsByTime(exercises);
+    
     const recommendations = this.generateRecommendations(
       stats.typeStats,
       stats.areaStats,
-      trainingPlan,
+      migratedPlan,
       exercises.length
     );
 
@@ -141,12 +165,13 @@ export class RecommendationService {
       totalMinutes: Math.round(stats.totalMinutes),
       typeStats: this.formatTypeStats(stats.typeStats),
       areaStats: this.formatAreaStats(stats.areaStats),
-      planUsed: trainingPlan ? 'real' : 'default'
+      planUsed: 'real'
     };
   }
 
   /**
    * Genera recomendaciones grupales
+   * ACTUALIZADO: Solo con jugadores que tienen planes válidos
    */
   static generateGroupRecommendations(
     participantsAnalysis: PlayerAnalysis[]
@@ -159,23 +184,44 @@ export class RecommendationService {
       return null;
     }
 
-    // Detectar coincidencias
-    const coincidencias = this.detectGroupCoincidences(participantsWithData);
+    // NUEVO: Separar jugadores con planes válidos vs inválidos
+    const participantsWithValidPlans = participantsWithData.filter(
+      p => p.analysis.planUsed === 'real'
+    );
     
-    // Obtener déficits individuales
-    const individuales = this.getTopDeficitsPerPlayer(participantsWithData);
+    const hasValidPlans = participantsWithValidPlans.length > 0;
+
+    // Detectar coincidencias (solo entre jugadores con planes válidos)
+    const coincidencias = hasValidPlans 
+      ? this.detectGroupCoincidences(participantsWithValidPlans)
+      : [];
+    
+    // Obtener déficits individuales (solo jugadores con planes válidos)
+    const individuales = hasValidPlans
+      ? this.getTopDeficitsPerPlayer(participantsWithValidPlans)
+      : [];
 
     // Calcular estadísticas grupales
     const totalSessions = participantsWithData.reduce(
       (sum, p) => sum + p.sessions.totalSessions, 0
     );
-    const avgSessionsPerPlayer = Math.round(totalSessions / participantsWithData.length);
+    const avgSessionsPerPlayer = participantsWithData.length > 0 
+      ? Math.round(totalSessions / participantsWithData.length)
+      : 0;
 
-    // Calcular promedios de tipos
-    const groupAverages = this.calculateGroupAverages(participantsWithData);
+    // Calcular promedios de tipos (solo jugadores con planes válidos)
+    const groupAverages = hasValidPlans
+      ? this.calculateGroupAverages(participantsWithValidPlans)
+      : {};
 
     // Generar texto de recomendación
-    const recommendation = this.generateGroupRecommendationText(coincidencias, individuales);
+    const recommendation = this.generateGroupRecommendationText(
+      coincidencias, 
+      individuales, 
+      hasValidPlans,
+      participantsWithValidPlans.length,
+      participantsWithData.length
+    );
 
     return {
       analyzedPlayers: participantsWithData.length,
@@ -203,71 +249,78 @@ export class RecommendationService {
       coincidencias,
       individuales,
       hasStrongCoincidences: coincidencias.length > 0,
-      recommendation
+      recommendation,
+      hasValidPlans
     };
   }
 
   /**
    * Genera recomendaciones basadas en estadísticas
+   * ACTUALIZADO: Solo trabaja con planes válidos, sin defaults
    */
   private static generateRecommendations(
     typeStats: any,
     areaStats: any,
-    trainingPlan: TrainingPlan | undefined,
+    trainingPlan: TrainingPlan,
     totalExercises: number
   ): Recommendation[] {
     const recommendations: Recommendation[] = [];
-    const defaultPercentages = TrainingStructureService.getDefaultTypePercentages();
-    const defaultAreaPercentages = TrainingStructureService.getDefaultAreaPercentages();
 
-    // Iterar sobre tipos dinámicamente
-    Object.values(TipoType).forEach(tipo => {
+    // Validar que el plan sea válido
+    const validation = validateStrictTrainingPlan(trainingPlan);
+    if (!validation.canGenerateRecommendations) {
+      console.warn('Plan inválido para generar recomendaciones:', validation.errors);
+      return [];
+    }
+
+    // Iterar sobre tipos definidos en el plan (no todos los tipos)
+    Object.entries(trainingPlan.planificacion).forEach(([tipo, tipoData]) => {
+      if (!tipoData || tipoData.porcentajeTotal === undefined) return;
+
       const stats = typeStats[tipo];
-      if (!stats) return;
+      const currentPercentage = stats?.percentage || 0;
+      const plannedPercentage = tipoData.porcentajeTotal;
 
-      const plannedPercentage = trainingPlan?.planificacion?.[tipo]?.porcentajeTotal 
-        || defaultPercentages[tipo] 
-        || 50;
-
-      const difference = Math.abs(stats.percentage - plannedPercentage);
+      const difference = Math.abs(currentPercentage - plannedPercentage);
 
       if (difference > 5) {
         recommendations.push({
           level: 'TIPO',
-          type: stats.percentage < plannedPercentage ? 'INCREMENTAR' : 'REDUCIR',
+          type: currentPercentage < plannedPercentage ? 'INCREMENTAR' : 'REDUCIR',
           area: tipo,
           parentType: tipo,
-          currentPercentage: Math.round(stats.percentage),
+          currentPercentage: Math.round(currentPercentage),
           plannedPercentage,
           difference: Math.round(difference),
           priority: difference > 15 ? 'high' : difference > 10 ? 'medium' : 'low',
-          reason: `${stats.percentage < plannedPercentage ? 'Déficit' : 'Exceso'} en tipo ${tipo}`,
+          reason: `${currentPercentage < plannedPercentage ? 'Déficit' : 'Exceso'} en tipo ${tipo} según plan`,
           basedOnExercises: totalExercises
         });
       }
 
-      // Recomendaciones por áreas
-      if (stats.areas) {
-        Object.entries(stats.areas).forEach(([area, areaStats]: [string, any]) => {
-          const plannedAreaPercentage = 
-            trainingPlan?.planificacion?.[tipo]?.areas?.[area as AreaType]?.porcentajeDelTotal
-            || defaultAreaPercentages[tipo]?.[area as AreaType]
-            || 15;
+      // Recomendaciones por áreas (solo si están definidas en el plan)
+      if (tipoData.areas && (validation.granularityLevel === 'AREA' || validation.granularityLevel === 'EJERCICIO')) {
+        Object.entries(tipoData.areas).forEach(([area, areaData]: [string, any]) => {
+          if (!areaData || areaData.porcentajeDelTotal === undefined) return;
 
-          const areaDifference = Math.abs(areaStats.percentage - plannedAreaPercentage);
+          const areaStats = stats?.areas?.[area];
+          const areaCurrentPercentage = areaStats?.percentage || 0;
+          const areaPlannedPercentage = areaData.porcentajeDelTotal;
 
-          if (areaDifference > 8) {
+          const areaDifference = Math.abs(areaCurrentPercentage - areaPlannedPercentage);
+
+          if (areaDifference > 5) {
             recommendations.push({
               level: 'AREA',
-              type: areaStats.percentage < plannedAreaPercentage ? 'INCREMENTAR' : 'REDUCIR',
+              type: areaCurrentPercentage < areaPlannedPercentage ? 'INCREMENTAR' : 'REDUCIR',
               area,
               parentType: tipo,
-              currentPercentage: Math.round(areaStats.percentage),
-              plannedPercentage: plannedAreaPercentage,
+              currentPercentage: Math.round(areaCurrentPercentage),
+              plannedPercentage: areaPlannedPercentage,
               difference: Math.round(areaDifference),
-              priority: areaDifference > 15 ? 'high' : areaDifference > 10 ? 'medium' : 'low',
-              reason: `${areaStats.percentage < plannedAreaPercentage ? 'Déficit' : 'Exceso'} en ${area}`,
-              basedOnExercises: Math.round(areaStats.total / 60), // convertir a minutos
+              priority: areaDifference > 10 ? 'high' : areaDifference > 7 ? 'medium' : 'low',
+              reason: `${areaCurrentPercentage < areaPlannedPercentage ? 'Déficit' : 'Exceso'} en ${area} según plan`,
+              basedOnExercises: Object.keys(areaStats?.exercises || {}).length,
               parentArea: area
             });
           }
@@ -279,7 +332,7 @@ export class RecommendationService {
   }
 
   /**
-   * Detecta coincidencias grupales
+   * Detecta coincidencias grupales (sin cambios significativos)
    */
   private static detectGroupCoincidences(
     participantsWithData: PlayerAnalysis[]
@@ -329,7 +382,7 @@ export class RecommendationService {
   }
 
   /**
-   * Obtiene los principales déficits por jugador
+   * Obtiene los principales déficits por jugador (sin cambios)
    */
   private static getTopDeficitsPerPlayer(
     participantsWithData: PlayerAnalysis[]
@@ -365,7 +418,7 @@ export class RecommendationService {
   }
 
   /**
-   * Calcula promedios grupales
+   * Calcula promedios grupales (sin cambios)
    */
   private static calculateGroupAverages(
     participantsWithData: PlayerAnalysis[]
@@ -392,17 +445,38 @@ export class RecommendationService {
 
   /**
    * Genera texto de recomendación grupal
+   * ACTUALIZADO: Considera jugadores sin planes válidos
    */
   private static generateGroupRecommendationText(
     coincidencias: GroupCoincidence[],
-    individuales: any[]
+    individuales: any[],
+    hasValidPlans: boolean,
+    validPlayersCount: number,
+    totalPlayersCount: number
   ): string {
+    if (!hasValidPlans) {
+      return "No se pueden generar recomendaciones porque ningún jugador tiene un plan de entrenamiento completo definido.";
+    }
+
+    if (validPlayersCount < totalPlayersCount) {
+      const invalidCount = totalPlayersCount - validPlayersCount;
+      const prefix = `⚠️ Solo ${validPlayersCount} de ${totalPlayersCount} jugadores tienen planes válidos (${invalidCount} sin plan completo). `;
+      
+      if (coincidencias.length > 0) {
+        const topCoincidence = coincidencias[0];
+        const action = topCoincidence.type === 'INCREMENTAR' ? 'incrementar' : 'reducir';
+        return prefix + `Sugerencia para los jugadores con plan: Iniciar con ejercicios de "${topCoincidence.area}" (${action}).`;
+      }
+      
+      return prefix + "Definir planes completos para generar recomendaciones específicas.";
+    }
+
+    // Lógica original para cuando todos tienen planes válidos
     if (coincidencias.length > 0) {
       const topCoincidence = coincidencias[0];
       const action = topCoincidence.type === 'INCREMENTAR' ? 'incrementar' : 'reducir';
 
       if (topCoincidence.type === 'REDUCIR') {
-        // Determinar alternativa dinámica
         const alternativo = this.getAlternativeType(topCoincidence.parentType);
         return `Sugerencia: Hay un exceso de ${topCoincidence.area}. Inicia la sesión con ejercicios de ${alternativo} para balancear el entrenamiento. (${topCoincidence.playerCount} jugadores, diferencia promedio de ${topCoincidence.promedioDiferencia}%)`;
       } else {
@@ -418,7 +492,7 @@ export class RecommendationService {
   }
 
   /**
-   * Obtiene el tipo alternativo para balancear
+   * Obtiene el tipo alternativo para balancear (sin cambios)
    */
   private static getAlternativeType(currentType?: string): string {
     const types = Object.values(TipoType);
@@ -426,13 +500,12 @@ export class RecommendationService {
       return 'otro tipo de ejercicio';
     }
     
-    // Retornar el primer tipo que no sea el actual
     const alternative = types.find(t => t !== currentType);
     return alternative || 'otro tipo de ejercicio';
   }
 
   /**
-   * Formatea estadísticas de tipo
+   * Formatea estadísticas de tipo (sin cambios)
    */
   private static formatTypeStats(typeStats: any): any {
     const formatted: any = {};
@@ -450,6 +523,7 @@ export class RecommendationService {
           formatted[tipo].areas[area] = {
             total: Math.round(areaData.total),
             percentage: Math.round(areaData.percentage),
+            percentageWithinType: Math.round(areaData.percentageWithinType || 0),
             exercises: areaData.exercises
           };
         });
@@ -460,7 +534,7 @@ export class RecommendationService {
   }
 
   /**
-   * Formatea estadísticas de área
+   * Formatea estadísticas de área (sin cambios)
    */
   private static formatAreaStats(areaStats: any): any {
     const formatted: any = {};

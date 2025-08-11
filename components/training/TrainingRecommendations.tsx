@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Player } from '../../types/types';
 import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
-import { useSession } from '../../contexts/SessionContext'; // ✅ NUEVO IMPORT
+import { useSession } from '../../contexts/SessionContext'; // ✅ USAR CONTEXTO
 import { useAcademia } from '../../contexts/AcademiaContext';
 import PlanningAccordion from '../PlanningAccordion';
 
@@ -32,10 +32,19 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
       try {
         const plan = await getTrainingPlan(academiaActual.id, player.id);
         if (plan && plan.planificacion) {
-          // Verificar si el plan tiene algún porcentaje asignado
-          const tienePorcentajes = Object.values(plan.planificacion).some(
-            tipo => tipo && tipo.porcentajeTotal > 0
-          );
+          // ✅ ACTUALIZADO: Verificación más flexible de planes
+          const tienePorcentajes = Object.values(plan.planificacion).some(tipo => {
+            // Aceptar si tiene porcentajeTotal
+            if (tipo && tipo.porcentajeTotal > 0) return true;
+            
+            // O si tiene áreas con porcentajes definidos
+            if (tipo?.areas) {
+              return Object.values(tipo.areas).some(
+                (area: any) => area.porcentajeDelTotal > 0
+              );
+            }
+            return false;
+          });
           
           if (tienePorcentajes) {
             // ✅ USAR FUNCIÓN DEL CONTEXTO

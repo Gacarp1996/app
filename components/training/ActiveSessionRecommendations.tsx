@@ -12,12 +12,12 @@ interface Participant {
 
 interface ActiveSessionRecommendationsProps {
   participants: Participant[];
-  currentSessionExercises?: SessionExercise[];  // NUEVO: Recibir ejercicios actuales
+  currentSessionExercises?: SessionExercise[];
 }
 
 const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> = ({ 
   participants,
-  currentSessionExercises = []  // NUEVO: Con default vacío
+  currentSessionExercises = []
 }) => {
   const [activeTab, setActiveTab] = useState<'individual' | 'group'>('individual');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(participants[0]?.id || '');
@@ -35,7 +35,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     trainingPlans
   } = useActiveSessionRecommendations({ 
     participants,
-    currentSessionExercises  // NUEVO: Pasar ejercicios al hook
+    currentSessionExercises
   });
 
   const getUILabel = (value: string, type: 'tipo' | 'area'): string => {
@@ -54,12 +54,19 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
     }
   }, [participants, selectedPlayerId]);
 
-  // NUEVO: Re-generar cuando cambien los ejercicios actuales
+  // ✅ REMOVIDO: No auto-generar, solo manual
+  // Comentado para control manual del usuario
+
+  // ✅ NUEVO: Debug - Ver estado actual
   useEffect(() => {
-    if (recommendationsGenerated && currentSessionExercises.length > 0) {
-      // El hook ya maneja esto internamente
-    }
-  }, [currentSessionExercises, recommendationsGenerated]);
+    console.log('📊 Estado Recomendaciones:', {
+      participants: participants.length,
+      dataPreview,
+      recommendationsGenerated,
+      recommendationsLoading,
+      engineOutput: !!engineOutput
+    });
+  }, [participants, dataPreview, recommendationsGenerated, recommendationsLoading, engineOutput]);
 
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-700 p-4">
@@ -108,6 +115,7 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
         </div>
       )}
 
+      {/* ✅ MEJORADO: Mostrar estado de data preview */}
       {!recommendationsLoading && !recommendationsGenerated && dataPreview && (
         <div className="space-y-4">
           <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-2 border-blue-400/30 rounded-xl p-4">
@@ -118,7 +126,9 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
               <div>
                 <h4 className="font-semibold text-blue-400 text-base">Datos Disponibles para Análisis</h4>
                 <p className="text-blue-300 text-sm">
-                  Revisión previa antes de generar recomendaciones
+                  {dataPreview.canGenerateRecommendations 
+                    ? "Generando recomendaciones automáticamente..." 
+                    : "Revisión previa - datos insuficientes"}
                 </p>
               </div>
             </div>
@@ -141,19 +151,28 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                 <div className="text-xs text-blue-300">Ejercicios</div>
               </div>
             </div>
+
+            {/* ✅ NUEVO: Debug info */}
+            <div className="text-xs text-gray-400 mt-2">
+              Estado: playersWithData={dataPreview.playersWithData}, canGenerate={dataPreview.canGenerateRecommendations ? 'Sí' : 'No'}
+            </div>
           </div>
           
           <div className="text-center">
             <button
-              onClick={generateRecommendations}
-              disabled={!dataPreview.canGenerateRecommendations}
+              onClick={() => {
+                console.log('🔄 Botón manual presionado - Generando recomendaciones...');
+                console.log('📊 Data Preview:', dataPreview);
+                console.log('🎯 Participants:', participants);
+                generateRecommendations();
+              }}
               className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${
-                dataPreview.canGenerateRecommendations
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 shadow-lg hover:shadow-xl'
+                dataPreview && dataPreview.playersWithData > 0
+                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 shadow-lg hover:shadow-xl cursor-pointer'
                   : 'bg-gray-600 text-gray-400 cursor-not-allowed'
               }`}
             >
-              {dataPreview.canGenerateRecommendations ? (
+              {dataPreview && dataPreview.playersWithData > 0 ? (
                 <div className="flex items-center justify-center gap-3">
                   <span className="text-2xl">🎯</span>
                   <span>Generar Recomendaciones</span>
@@ -164,16 +183,93 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
               ) : (
                 <div className="flex items-center justify-center gap-3">
                   <span className="text-2xl">❌</span>
-                  <span>Sin datos para analizar</span>
+                  <div>
+                    <div>Sin datos para analizar</div>
+                    <div className="text-sm opacity-80">
+                      Necesita: planes de entrenamiento + sesiones históricas
+                    </div>
+                  </div>
                 </div>
               )}
             </button>
+            
+            {/* ✅ NUEVO: Debug info para troubleshooting */}
+            <div className="mt-4 p-3 bg-gray-800/50 rounded-lg text-xs text-gray-400">
+              <div>🔍 <strong>Debug Info:</strong></div>
+              <div>• Participantes: {participants.length}</div>
+              <div>• Con datos: {dataPreview ? dataPreview.playersWithData : 'Cargando...'}</div>
+              <div>• Sesiones: {dataPreview ? dataPreview.totalSessions : 'Cargando...'}</div>
+              <div>• Ejercicios: {dataPreview ? dataPreview.totalExercises : 'Cargando...'}</div>
+              <div>• ¿Puede generar?: {dataPreview ? (dataPreview.canGenerateRecommendations ? 'Sí' : 'No') : 'Cargando...'}</div>
+            </div>
           </div>
         </div>
       )}
 
+      {/* ✅ NUEVO: Mostrar cuando no hay data preview */}
+      {!recommendationsLoading && !recommendationsGenerated && !dataPreview && (
+        <div className="text-center py-8">
+          <div className="text-gray-400">
+            <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <p className="text-lg font-medium mb-2">Cargando datos...</p>
+            <p className="text-sm">Preparando análisis para {participants.length} participante(s)</p>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ MOSTRAR RECOMENDACIONES - Corregir lógica de renderizado */}
       {!recommendationsLoading && recommendationsGenerated && engineOutput && (
         <div className="space-y-4">
+          {/* ✅ DEBUG: Confirmar que llegamos aquí */}
+          <div className="text-xs text-green-400 bg-green-900/20 p-2 rounded">
+            ✅ Recomendaciones cargadas: {Object.keys(engineOutput.individual).length} jugadores
+          </div>
+          
+          {/* 🎯 FASE 4: Mostrar jugadores bloqueados si los hay */}
+          {engineOutput.group.blocked && engineOutput.group.blocked.length > 0 && (
+            <div className="bg-yellow-900/20 border border-yellow-600 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="bg-yellow-500/20 rounded-full p-2">
+                  <span className="text-yellow-400 text-lg">⚠️</span>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-yellow-400 text-base">
+                    Jugadores sin recomendaciones
+                  </h4>
+                  <p className="text-yellow-300 text-sm">
+                    {engineOutput.group.blocked.length} jugador{engineOutput.group.blocked.length !== 1 ? 'es' : ''} no {engineOutput.group.blocked.length !== 1 ? 'pueden' : 'puede'} generar recomendaciones
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                {engineOutput.group.blocked.map((blocked) => (
+                  <div key={blocked.playerId} className="bg-yellow-800/20 rounded p-3">
+                    <div className="font-medium text-yellow-300 mb-1">
+                      {blocked.playerName}
+                    </div>
+                    <ul className="text-sm text-yellow-400 space-y-1">
+                      {blocked.reasons.slice(0, 3).map((reason, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-yellow-500 mt-1">•</span>
+                          <span>{reason}</span>
+                        </li>
+                      ))}
+                      {blocked.reasons.length > 3 && (
+                        <li className="flex items-start gap-2 text-yellow-500 italic">
+                          <span className="mt-1">•</span>
+                          <span>...y {blocked.reasons.length - 3} razón{blocked.reasons.length - 3 !== 1 ? 'es' : ''} más</span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           {participants.length > 1 && (
             <div className="flex mb-4 bg-gray-800 rounded-lg p-1">
               <button
@@ -344,10 +440,22 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                 const playerData = engineOutput.individual[selectedPlayerId];
                 const playerAnalysis = analyzePlayerSessions(selectedPlayerId);
                 
+                // ✅ DEBUG: Ver qué está pasando
+                console.log('🎯 Player Data Debug:', {
+                  selectedPlayerId,
+                  playerData: !!playerData,
+                  playerDataItems: playerData?.items?.length || 0,
+                  availablePlayers: Object.keys(engineOutput.individual)
+                });
+                
                 if (!playerData) {
                   return (
                     <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-6 text-center">
                       <p className="text-gray-400">No hay datos para este jugador</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Jugador seleccionado: {selectedPlayerId}<br/>
+                        Jugadores disponibles: {Object.keys(engineOutput.individual).join(', ')}
+                      </p>
                     </div>
                   );
                 }
@@ -387,6 +495,18 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                     </div>
 
                     <div className="space-y-3">
+                      {/* ✅ DEBUG: Ver cuántos tipos están disponibles */}
+                      <div className="text-xs text-blue-400 bg-blue-900/20 p-2 rounded">
+                        🔍 Items totales: {playerData.items.length} | 
+                        Tipos encontrados: {Object.values(TipoType).map(tipo => {
+                          const count = playerData.items.filter(item => 
+                            (item.level === 'TIPO' && item.area === tipo) ||
+                            (item.parentType === tipo)
+                          ).length;
+                          return `${tipo}(${count})`;
+                        }).join(', ')}
+                      </div>
+                      
                       {/* Agrupar items por tipo */}
                       {Object.values(TipoType).map(tipo => {
                         const tipoItems = playerData.items.filter(item => 
@@ -394,7 +514,16 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
                           (item.parentType === tipo)
                         );
                         
-                        if (tipoItems.length === 0) return null;
+                        // ✅ DEBUG: Ver qué encuentra para cada tipo
+                        console.log(`🎾 Tipo ${tipo}:`, {
+                          itemsEncontrados: tipoItems.length,
+                          items: tipoItems.map(i => `${i.level}-${i.area}`)
+                        });
+                        
+                        if (tipoItems.length === 0) {
+                          console.log(`⚠️ No hay items para tipo ${tipo}`);
+                          return null;
+                        }
                         
                         const tipoMain = tipoItems.find(item => item.level === 'TIPO');
                         if (!tipoMain) return null;

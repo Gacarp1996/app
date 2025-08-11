@@ -45,22 +45,23 @@ export const parseTimeToMinutes = (time: string): number => {
 
 /**
  * Calcula estadísticas de ejercicios por tiempo
- * VERSIÓN UNIFICADA que usan todos los componentes
+ * ACTUALIZADO: Todos los porcentajes son ABSOLUTOS respecto al total
  */
 export const calculateExerciseStatsByTime = (exercises: LoggedExercise[]) => {
   const typeStats: Record<string, {
     total: number;
-    percentage: number;
+    percentage: number;  // ABSOLUTO: % del total
     areas: Record<string, {
       total: number;
-      percentage: number;
+      percentage: number;  // ACTUALIZADO: ABSOLUTO % del total (no del tipo)
+      percentageWithinType: number;  // NUEVO: % relativo dentro del tipo (para info adicional)
       exercises: Record<string, number>;
     }>;
   }> = {};
   
   const areaStats: Record<string, {
     total: number;
-    percentage: number;
+    percentage: number;  // ABSOLUTO: % del total
   }> = {};
   
   let totalMinutes = 0;
@@ -72,11 +73,17 @@ export const calculateExerciseStatsByTime = (exercises: LoggedExercise[]) => {
     
     totalMinutes += minutes;
     
-    // Normalizar nombres para consistencia
-    const tipo = exercise.tipo.charAt(0).toUpperCase() + exercise.tipo.slice(1).toLowerCase();
-    const area = exercise.area.split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
+    // ✅ CORREGIDO: Normalización consistente con el sistema de planes
+    // Tipo: Primera letra mayúscula, resto minúscula
+    const tipo = exercise.tipo.trim().charAt(0).toUpperCase() + 
+                 exercise.tipo.trim().slice(1).toLowerCase();
+    
+    // Área: Solo capitalizar la primera letra de la primera palabra
+    // "juego de red" → "Juego de red" ✅
+    // "CONTROL" → "Control" ✅
+    const areaLower = exercise.area.trim().toLowerCase();
+    const area = areaLower.charAt(0).toUpperCase() + areaLower.slice(1);
+    
     const ejercicioName = exercise.ejercicio || exercise.ejercicioEspecifico || "Sin nombre";
     
     // Estadísticas por tipo
@@ -94,6 +101,7 @@ export const calculateExerciseStatsByTime = (exercises: LoggedExercise[]) => {
       typeStats[tipo].areas[area] = {
         total: 0,
         percentage: 0,
+        percentageWithinType: 0,
         exercises: {}
       };
     }
@@ -115,21 +123,28 @@ export const calculateExerciseStatsByTime = (exercises: LoggedExercise[]) => {
     areaStats[area].total += minutes;
   });
   
-  // Segunda pasada: calcular porcentajes
+  // Segunda pasada: calcular porcentajes ABSOLUTOS
   if (totalMinutes > 0) {
     Object.keys(typeStats).forEach(tipo => {
+      // Porcentaje absoluto del tipo
       typeStats[tipo].percentage = (typeStats[tipo].total / totalMinutes) * 100;
       
-      // Porcentajes de áreas dentro del tipo
+      // Porcentajes de áreas
       const tipoTotal = typeStats[tipo].total;
-      if (tipoTotal > 0) {
-        Object.keys(typeStats[tipo].areas).forEach(area => {
-          typeStats[tipo].areas[area].percentage = 
+      Object.keys(typeStats[tipo].areas).forEach(area => {
+        // CAMBIO CLAVE: Porcentaje ABSOLUTO respecto al total
+        typeStats[tipo].areas[area].percentage = 
+          (typeStats[tipo].areas[area].total / totalMinutes) * 100;  // ABSOLUTO
+        
+        // Mantener también el porcentaje relativo dentro del tipo (para referencia)
+        if (tipoTotal > 0) {
+          typeStats[tipo].areas[area].percentageWithinType = 
             (typeStats[tipo].areas[area].total / tipoTotal) * 100;
-        });
-      }
+        }
+      });
     });
     
+    // Porcentajes absolutos para estadísticas generales de área
     Object.keys(areaStats).forEach(area => {
       areaStats[area].percentage = (areaStats[area].total / totalMinutes) * 100;
     });

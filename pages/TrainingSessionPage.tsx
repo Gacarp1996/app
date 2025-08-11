@@ -64,6 +64,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
     observaciones,
     isAddSpecificExerciseModalOpen,
     enabledSurveyQuestions,
+    sessionDate,                    // ✅ NUEVO
     
     // Estados del formulario
     currentTipo,
@@ -94,6 +95,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
     setCurrentEjercicioEspecifico,
     setTiempoCantidad,
     setIntensidad,
+    setSessionDate,                  // ✅ NUEVO
     
     // Handlers
     handlePlayerToggleActive,
@@ -264,6 +266,31 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
                     {isEditMode ? "Editando Sesión" : "Nueva Sesión"}
                   </span>
                 </nav>
+                
+                {/* ✅ NUEVO: Selector de fecha de la sesión */}
+                <div className="flex items-center gap-3 ml-auto">
+                  <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-700">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <input
+                      type="date"
+                      value={sessionDate}
+                      onChange={(e) => setSessionDate(e.target.value)}
+                      max={new Date().toLocaleDateString('en-CA')}
+                      className="bg-transparent text-sm font-medium text-gray-300 focus:outline-none 
+                                 focus:ring-2 focus:ring-green-500/50 rounded px-2 py-1 cursor-pointer
+                                 hover:text-white transition-colors"
+                      title="Fecha del entrenamiento"
+                    />
+                    {sessionDate !== new Date().toLocaleDateString('en-CA') && (
+                      <span className="text-xs text-yellow-400 font-medium animate-pulse">
+                        ⚠️ Fecha manual
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Título e información */}

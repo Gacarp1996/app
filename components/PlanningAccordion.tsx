@@ -108,80 +108,89 @@ const PlanningAccordion: React.FC<PlanningAccordionProps> = ({
     const isExpanded = expandedNodes.has(nodePath);
     const hasChildren = node.children && node.children.length > 0;
     const status = getStatusConfig(node.diferencia);
-    const progressPercentage = Math.min(100, (node.realizado / node.planificado) * 100);
-    
-    return (
-      <div key={nodePath} className={`${level > 0 ? 'ml-4 sm:ml-6' : ''}`}>
-        <div 
-          className={`
-            group relative overflow-hidden
-            ${level === 0 ? 'bg-gray-900/60 border border-gray-800' : 'bg-gray-900/40 border border-gray-800/50'} 
-            rounded-xl mb-3 transition-all duration-300
-            ${hasChildren ? 'cursor-pointer hover:border-green-500/30' : 'hover:bg-gray-900/50'}
-            shadow-lg ${level === 0 ? 'shadow-green-500/5' : ''}
-          `}
-          onClick={() => hasChildren && toggleNode(nodePath)}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-          
-          <div className="relative p-4 sm:p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
-                {hasChildren && (
-                  <span className={`
-                    text-gray-500 text-sm transition-transform duration-300 flex-shrink-0 mt-1 sm:mt-0
-                    ${isExpanded ? 'rotate-90' : ''}
+   const progressPercentage = node.planificado > 0 
+    ? Math.min(100, Math.max(0, (node.realizado / node.planificado) * 100))
+    : 0;
+  
+  return (
+    <div key={nodePath} className={`${level > 0 ? 'ml-4 sm:ml-6' : ''}`}>
+      <div 
+        className={`
+          group relative overflow-hidden
+          ${level === 0 ? 'bg-gray-900/60 border border-gray-800' : 'bg-gray-900/40 border border-gray-800/50'} 
+          rounded-xl mb-3 transition-all duration-300
+          ${hasChildren ? 'cursor-pointer hover:border-green-500/30' : 'hover:bg-gray-900/50'}
+          shadow-lg ${level === 0 ? 'shadow-green-500/5' : ''}
+        `}
+        onClick={() => hasChildren && toggleNode(nodePath)}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        
+        <div className="relative p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+              {hasChildren && (
+                <span className={`
+                  text-gray-500 text-sm transition-transform duration-300 flex-shrink-0 mt-1 sm:mt-0
+                  ${isExpanded ? 'rotate-90' : ''}
+                `}>
+                  ▶
+                </span>
+              )}
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <h4 className={`
+                    font-semibold truncate
+                    ${level === 0 ? 'text-lg sm:text-xl text-white' : 'text-base sm:text-lg text-gray-200'}
                   `}>
-                    ▶
-                  </span>
-                )}
+                    {node.name}
+                  </h4>
+                  {node.esDistribucionLibre && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full border border-yellow-500/30 flex-shrink-0">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Distribución libre
+                    </span>
+                  )}
+                </div>
                 
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <h4 className={`
-                      font-semibold truncate
-                      ${level === 0 ? 'text-lg sm:text-xl text-white' : 'text-base sm:text-lg text-gray-200'}
-                    `}>
-                      {node.name}
-                    </h4>
-                    {node.esDistribucionLibre && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full border border-yellow-500/30 flex-shrink-0">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Distribución libre
-                      </span>
-                    )}
+                <div className="space-y-2">
+                  <div className="relative">
+                    <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-700 ease-out ${status.bgColor} relative`}
+                        style={{ width: `${progressPercentage}%` }}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+                      </div>
+                    </div>
+                    <div 
+                      className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-gray-600"
+                      style={{ left: `${Math.min(100, node.planificado)}%` }}
+                    />
                   </div>
                   
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-700 ease-out ${status.bgColor} relative`}
-                          style={{ width: `${progressPercentage}%` }}
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
-                        </div>
-                      </div>
-                      <div 
-                        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-gray-600"
-                        style={{ left: `${Math.min(100, node.planificado)}%` }}
-                      />
+                  {/* NUEVO: Mensaje cuando no hay meta definida */}
+                  {node.planificado === 0 && (
+                    <div className="text-xs text-gray-400 mt-1">
+                      Sin meta definida - Distribución libre
                     </div>
-                    
-                    <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                      <span className="text-gray-400">
-                        Plan: <span className="text-gray-300 font-medium">{node.planificado.toFixed(1)}%</span>
-                      </span>
-                      <span className="text-gray-600">•</span>
-                      <span className="text-gray-400">
-                        Real: <span className="text-gray-300 font-medium">{node.realizado.toFixed(1)}%</span>
-                      </span>
-                    </div>
+                  )}
+                  
+                  <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                    <span className="text-gray-400">
+                      Plan: <span className="text-gray-300 font-medium">{node.planificado.toFixed(1)}%</span>
+                    </span>
+                    <span className="text-gray-600">•</span>
+                    <span className="text-gray-400">
+                      Real: <span className="text-gray-300 font-medium">{node.realizado.toFixed(1)}%</span>
+                    </span>
                   </div>
                 </div>
               </div>
+            </div>
               
               <div className={`
                 flex flex-col items-center justify-center p-3 rounded-lg

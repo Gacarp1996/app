@@ -1,3 +1,4 @@
+// types.ts - ARCHIVO COMPLETO CON VALIDACIONES ESTRICTAS ACTUALIZADAS
 import { TipoType, AreaType } from '../constants/training';
 
 export interface Player {
@@ -151,42 +152,71 @@ export interface SessionExercise extends LoggedExercise {
   loggedForPlayerName: string;
 }
 
-// Tipos para planes de entrenamiento
+// ✅ ACTUALIZADO: Tipos para planes de entrenamiento con porcentajes absolutos y validaciones estrictas
 export interface TrainingPlanArea {
-  porcentajeDelTotal: number;
+  porcentajeDelTotal: number;     // % ABSOLUTO del total del entrenamiento (OBLIGATORIO)
+  porcentajeAbsoluto?: number;    // Alias futuro para mayor claridad
   ejercicios?: {
     [ejercicioName: string]: {
-      porcentajeDelTotal: number;
+      porcentajeDelTotal: number;  // % ABSOLUTO del total del entrenamiento (OBLIGATORIO si se define ejercicio)
+      porcentajeAbsoluto?: number; // Alias futuro
     };
   };
 }
 
 export interface TrainingPlanTipo {
-  porcentajeTotal: number;
+  porcentajeTotal: number;  // % del TOTAL del entrenamiento que corresponde a este tipo (OBLIGATORIO)
   areas: {
     [area in AreaType]?: TrainingPlanArea;
   };
 }
 
-// TODO: Refactorizar en el futuro para separar en StoredTrainingPlan y TrainingPlanWithContext
-// NOTA: Estos campos son opcionales porque Firebase no los almacena directamente,
-// pero se pueden agregar en runtime cuando se cargan los datos.
-// - `id`: Generalmente se usa el playerId como identificador
-// - `academiaId`: Se obtiene del contexto de la aplicación
-// Este es un compromiso temporal para evitar romper código existente.
-/*export interface TrainingPlan {
-  id?: string;              // Opcional: No se guarda en Firebase, se usa playerId
+// ✅ ACTUALIZADA: Interface TrainingPlan con nuevas propiedades
+export interface TrainingPlan {
+  id?: string;              
   jugadorId: string;
-  academiaId?: string;      // Opcional: No se guarda en Firebase, viene del contexto
+  academiaId?: string;      
   planificacion: {
     [tipo in TipoType]?: TrainingPlanTipo;
   };
   fechaCreacion: string;
   fechaActualizacion: string;
   rangoAnalisis?: number;
-  usaDistribucionFlexible?: boolean;
-}*/
+  
+  // ✅ NUEVAS PROPIEDADES AGREGADAS para validaciones estrictas
+  version?: number;                    // Para tracking de migraciones (2 = porcentajes absolutos)
+  isComplete?: boolean;                // Plan 100% completo y validado
+  granularityLevel?: 'TIPO' | 'AREA' | 'EJERCICIO';  // Nivel de detalle detectado
+  validationErrors?: string[];         // Errores de validación si los hay
+  
+  // Para Fase 2 (futuro)
+  usaDistribucionFlexible?: boolean;   // Deprecated en Fase 1
+}
 
+// ✅ NUEVAS: Interfaces para validación estricta
+export interface StrictValidationResult {
+  isValid: boolean;                    // Pasa validaciones básicas
+  isComplete: boolean;                 // Plan 100% completo para generar recomendaciones
+  errors: string[];                    // Errores que bloquean guardado
+  warnings: string[];                  // Advertencias que no bloquean
+  totalPercentage: number;             // Suma total actual
+  granularityLevel: 'TIPO' | 'AREA' | 'EJERCICIO';  // Nivel detectado
+  canGenerateRecommendations: boolean; // Determina si se pueden generar recomendaciones
+}
+
+export interface PlanConfiguration {
+  granularityLevel: 'TIPO' | 'AREA' | 'EJERCICIO';
+  allowIncompleteData: boolean;  // Siempre false en Fase 1
+  tolerancePercentage: number;   // Default: 0.5% para redondeo
+  enforceStrictValidation: boolean; // Siempre true en Fase 1
+}
+
+export interface RecommendationValidation {
+  canGenerate: boolean;
+  reason?: string;
+  validationResult?: StrictValidationResult;
+  blockingErrors?: string[];
+}
 
 // Tipos para análisis y estadísticas
 export interface TrainingStats {
@@ -195,7 +225,6 @@ export interface TrainingStats {
   ejercicio: string;
   tiempoTotal: number;
   porcentaje: number;
-  sesiones: number;
 }
 
 export interface PlayerTrainingAnalysis {
@@ -230,3 +259,48 @@ export function isTrainingSession(obj: any): obj is TrainingSession {
     Array.isArray(obj.ejercicios) &&
     obj.ejercicios.every(isLoggedExercise);
 }
+
+// ✅ ACTUALIZADO: Type guard para TrainingPlan válido
+export function isValidTrainingPlan(obj: any): obj is TrainingPlan {
+  return obj &&
+    typeof obj.jugadorId === 'string' &&
+    typeof obj.planificacion === 'object' &&
+    typeof obj.fechaCreacion === 'string' &&
+    typeof obj.fechaActualizacion === 'string';
+}
+
+// ✅ NUEVO: Type guard para StrictValidationResult
+export function isStrictValidationResult(obj: any): obj is StrictValidationResult {
+  return obj &&
+    typeof obj.isValid === 'boolean' &&
+    typeof obj.isComplete === 'boolean' &&
+    Array.isArray(obj.errors) &&
+    Array.isArray(obj.warnings) &&
+    typeof obj.totalPercentage === 'number' &&
+    typeof obj.canGenerateRecommendations === 'boolean' &&
+    ['TIPO', 'AREA', 'EJERCICIO'].includes(obj.granularityLevel);
+}
+
+// Helper types para validación
+export type ValidationLevel = 'STRICT' | 'PERMISSIVE';
+export type PlanStatus = 'COMPLETE' | 'INCOMPLETE' | 'INVALID' | 'EMPTY';
+export type RecommendationStatus = 'ENABLED' | 'BLOCKED' | 'LIMITED';
+
+// Interface para metadatos de plan
+export interface PlanMetadata {
+  status: PlanStatus;
+  completionPercentage: number;
+  lastValidation: string;
+  errorsCount: number;
+  warningsCount: number;
+  recommendationStatus: RecommendationStatus;
+}
+
+// ✅ NUEVAS: Constants para validación
+export const VALIDATION_CONSTANTS = {
+  TOLERANCE_PERCENTAGE: 0.5,        // ±0.5% tolerancia para suma
+  REQUIRED_TOTAL: 100,              // Plan debe sumar 100%
+  MIN_PERCENTAGE: 0,                // Mínimo porcentaje permitido
+  MAX_PERCENTAGE: 100,              // Máximo porcentaje permitido
+  RECOMMENDATION_THRESHOLD: 5       // ±5% para determinar incrementar/reducir
+} as const;

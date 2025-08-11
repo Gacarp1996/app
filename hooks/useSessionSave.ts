@@ -9,13 +9,15 @@ interface UseSessionSaveProps {
   currentUser: any;
   originalSession?: TrainingSession | null;
   isEditMode: boolean;
+  sessionDate?: string;  // ✅ NUEVO PROP
 }
 
 export const useSessionSave = ({
   academiaId,
   currentUser,
   originalSession,
-  isEditMode
+  isEditMode,
+  sessionDate = new Date().toLocaleDateString('en-CA')  // ✅ NUEVO: Con default
 }: UseSessionSaveProps) => {
   const navigate = useNavigate();
   const [observaciones, setObservaciones] = useState(originalSession?.observaciones || '');
@@ -43,7 +45,7 @@ export const useSessionSave = ({
     }
   }, [specificExercises, academiaId]);
 
-  // Crear sesiones para guardar
+  // Crear sesiones para guardar - ✅ ACTUALIZADO
   const createSessionsToSave = useCallback((
     participants: Player[],
     exercises: SessionExercise[]
@@ -56,9 +58,10 @@ export const useSessionSave = ({
       participants,
       exercises,
       currentUser.uid,
+      sessionDate,      // ✅ NUEVO: Pasar sessionDate
       observaciones
     );
-  }, [currentUser, observaciones]);
+  }, [currentUser, observaciones, sessionDate]);  // ✅ NUEVO: Agregar sessionDate a dependencias
 
   // Guardar sesiones directamente
   const saveSessionsDirectly = useCallback(async (
@@ -109,14 +112,15 @@ export const useSessionSave = ({
     return sessionIdsMap;
   }, [currentUser, navigate]);
 
-  // Actualizar sesión existente
+  // Actualizar sesión existente - ✅ ACTUALIZADO
   const handleUpdateExistingSession = useCallback(async (
     exercises: SessionExercise[],
     updateSessionInContext: (id: string, updates: Partial<TrainingSession>) => Promise<void>,
     allPlayers: Player[],
     endSession: () => void,
     refreshSessions: () => Promise<void>,
-    refreshPlayers: () => Promise<void>
+    refreshPlayers: () => Promise<void>,
+    sessionDate?: string  // ✅ NUEVO PARÁMETRO
   ) => {
     if (!originalSession || !currentUser) {
       alert('Error: Faltan datos necesarios para actualizar la sesión.');
@@ -132,7 +136,11 @@ export const useSessionSave = ({
       const updatedSession: Partial<Omit<TrainingSession, "id">> = {
         ejercicios: updatedExercises,
         observaciones: observaciones.trim(),
-        entrenadorId: currentUser.uid
+        entrenadorId: currentUser.uid,
+        // ✅ NUEVO: Si se cambió la fecha, actualizarla
+        ...(sessionDate && sessionDate !== new Date(originalSession.fecha).toLocaleDateString('en-CA') 
+          ? { fecha: new Date(sessionDate + 'T12:00:00').toISOString() }
+          : {})
       };
 
       await updateSessionInContext(originalSession.id, updatedSession);
@@ -153,7 +161,7 @@ export const useSessionSave = ({
     }
   }, [originalSession, currentUser, observaciones, navigate]);
 
-  // Handler principal para finalizar entrenamiento
+  // Handler principal para finalizar entrenamiento - ✅ ACTUALIZADO
   const handleFinishTraining = useCallback(async (
     exercises: SessionExercise[],
     participants: Player[],
@@ -163,7 +171,8 @@ export const useSessionSave = ({
     endSession: () => void,
     refreshSessions: () => Promise<void>,
     refreshPlayers: () => Promise<void>,
-    startSurveyProcess?: (players: Player[]) => boolean
+    startSurveyProcess?: (players: Player[]) => boolean,
+    sessionDate?: string  // ✅ NUEVO PARÁMETRO
   ) => {
     if (exercises.length === 0 && !window.confirm("No has registrado ningún ejercicio. ¿Deseas finalizar de todas formas?")) {
       return;
@@ -181,7 +190,8 @@ export const useSessionSave = ({
         allPlayers,
         endSession,
         refreshSessions,
-        refreshPlayers
+        refreshPlayers,
+        sessionDate  // ✅ NUEVO: Pasar sessionDate
       );
     } else {
       const sessionsToSave = createSessionsToSave(participants, exercises);
