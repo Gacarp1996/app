@@ -1,26 +1,31 @@
+// components/player-profile/ObjectiveModal.tsx - VERSIÓN FINAL COMPLETA Y SEGURA
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useObjective } from '../../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
-import TrainingRecommendations from '../training/TrainingRecommendations';
 import Modal from '../shared/Modal';
-import { Player, Tournament } from '@/types/types'; // ✅ Ya no necesita Objective
+import { Objective, Player, Tournament } from '@/types/types';
 
-// ✅ INTERFACE ACTUALIZADA - Sin allObjectives
 interface ObjectiveModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedPlayers: Player[];
-  allTournaments: Tournament[];
+  selectedPlayers?: Player[];
+  allObjectives?: Objective[];
+  allTournaments?: Tournament[];
 }
 
 const ObjectiveModal: React.FC<ObjectiveModalProps> = ({ 
   isOpen, 
   onClose, 
-  selectedPlayers, 
-  allTournaments 
+  selectedPlayers,
+  allObjectives,
+  allTournaments
 }) => {
   const navigate = useNavigate();
-  const { objectives: allObjectives } = useObjective(); // ✅ OBTENER DEL CONTEXTO
+
+  // Asegurar que siempre trabajamos con arrays
+  const players = selectedPlayers || [];
+  const objectives = allObjectives || [];
+  const tournaments = allTournaments || [];
 
   const handleObjectiveClick = (objectiveId: string) => {
     navigate(`/objective/${objectiveId}/edit`);
@@ -28,11 +33,15 @@ const ObjectiveModal: React.FC<ObjectiveModalProps> = ({
   };
 
   const getNextTournamentInfo = (playerId: string): React.ReactNode => {
+    if (tournaments.length === 0) {
+      return <p className="text-gray-500 text-sm">No hay información de torneos disponible.</p>;
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const playerTournaments = allTournaments
-      .filter(t => t.jugadorId === playerId)
+    const playerTournaments = tournaments
+      .filter(t => t && t.jugadorId === playerId)
       .map(t => ({
         ...t,
         fechaInicioObj: new Date(t.fechaInicio),
@@ -105,66 +114,63 @@ const ObjectiveModal: React.FC<ObjectiveModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Información de Jugadores">
-      {selectedPlayers.length === 0 && <p className="text-gray-400">No hay jugadores seleccionados.</p>}
-      <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-        {/* Sección de recomendaciones */}
-        <TrainingRecommendations players={selectedPlayers} />
-        
-        {/* Separador visual si hay recomendaciones */}
-        {selectedPlayers.length > 0 && (
-          <div className="border-t border-gray-700 pt-4"></div>
-        )}
-        
-        {/* Sección de objetivos y torneos */}
-        {selectedPlayers.map(player => {
-          const playerActiveObjectives = allObjectives.filter(obj => obj.jugadorId === player.id && obj.estado === 'actual-progreso');
-          return (
-            <div key={player.id} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-              <h4 className="text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">
-                {player.name}
-              </h4>
+      {players.length === 0 ? (
+        <p className="text-gray-400">No hay jugadores seleccionados.</p>
+      ) : (
+        <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+          {players.map(player => {
+            const playerActiveObjectives = objectives
+              .filter(obj => obj && obj.jugadorId === player.id && obj.estado === 'actual-progreso');
               
-              <div className="space-y-4">
-                <div>
-                  <h5 className="text-md font-semibold text-green-400 mb-2">
-                    Objetivos Actuales:
-                  </h5>
-                  {playerActiveObjectives.length > 0 ? (
-                    <ul className="space-y-2">
-                      {playerActiveObjectives.map((obj) => (
-                        <li key={obj.id} 
-                            className="bg-gray-800/70 p-3 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700/70 cursor-pointer transition-all duration-200 border border-gray-700 hover:border-green-500/50 group"
-                            onClick={() => handleObjectiveClick(obj.id)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyPress={(e) => e.key === 'Enter' && handleObjectiveClick(obj.id)}
-                            title={`Ver/Editar: ${obj.textoObjetivo}`}
-                        >
-                          <p className="text-sm flex items-center justify-between">
-                            <span>{obj.textoObjetivo}</span>
-                            <svg className="w-4 h-4 text-gray-500 group-hover:text-green-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-500 text-sm italic">No hay objetivos actuales.</p>
-                  )}
-                </div>
+            return (
+              <div key={player.id} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                <h4 className="text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">
+                  {player.name}
+                </h4>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h5 className="text-md font-semibold text-green-400 mb-2">
+                      Objetivos Actuales:
+                    </h5>
+                    {playerActiveObjectives.length > 0 ? (
+                      <ul className="space-y-2">
+                        {playerActiveObjectives.map((obj) => (
+                          <li key={obj.id} 
+                              className="bg-gray-800/70 p-3 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700/70 cursor-pointer transition-all duration-200 border border-gray-700 hover:border-green-500/50 group"
+                              onClick={() => handleObjectiveClick(obj.id)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyPress={(e) => e.key === 'Enter' && handleObjectiveClick(obj.id)}
+                              title={`Ver/Editar: ${obj.textoObjetivo}`}
+                          >
+                            <p className="text-sm flex items-center justify-between">
+                              <span>{obj.textoObjetivo}</span>
+                              <svg className="w-4 h-4 text-gray-500 group-hover:text-green-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-500 text-sm italic">No hay objetivos actuales.</p>
+                    )}
+                  </div>
 
-                <div className="pt-3 border-t border-gray-700">
-                  <h5 className="text-md font-semibold text-green-400 mb-1">
-                    Próximo Torneo:
-                  </h5>
-                  {getNextTournamentInfo(player.id)}
+                  <div className="pt-3 border-t border-gray-700">
+                    <h5 className="text-md font-semibold text-green-400 mb-1">
+                      Próximo Torneo:
+                    </h5>
+                    {getNextTournamentInfo(player.id)}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
+      
       <button
         onClick={onClose}
         className="mt-6 w-full py-3 px-4 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-green-500/25"

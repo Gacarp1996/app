@@ -1,4 +1,5 @@
-// hooks/usePlanningAnalysis.ts
+// hooks/usePlanningAnalysis.ts - VERSIÓN CORREGIDA CON TIPOS
+
 import { useState, useEffect, useMemo } from 'react';
 import { TrainingSession, Player, LoggedExercise } from '../types/types';
 import { TrainingPlan, getTrainingPlan } from '../Database/FirebaseTrainingPlans';
@@ -24,7 +25,18 @@ interface UsePlanningAnalysisProps {
   enabled?: boolean;
 }
 
-// Variable de debug - cambiar a false para producción
+// ✅ AGREGAR TIPO PARA LAS STATS
+interface TypeStats {
+  total: number;
+  percentage: number;
+  areas: Record<string, {
+    total: number;
+    percentage: number;
+    percentageWithinType: number;
+    exercises: Record<string, number>;
+  }>;
+}
+
 const DEBUG_MODE = false;
 
 export const usePlanningAnalysis = ({ 
@@ -87,10 +99,13 @@ export const usePlanningAnalysis = ({
     loadData();
   }, [player.id, academiaId, enabled, player.name]);
 
-  // Calcular estadísticas reales usando la función centralizada
+  // ✅ CORREGIDO: Calcular estadísticas reales con tipo correcto
   const realStats = useMemo(() => {
     if (!enabled || (!sessions.length && !currentSessionExercises.length)) {
-      return {};
+      return { 
+        typeStats: {} as Record<string, TypeStats>, 
+        totalMinutes: 0 
+      };
     }
 
     // Recopilar todos los ejercicios
@@ -104,37 +119,31 @@ export const usePlanningAnalysis = ({
     });
     
     // Ejercicios de la sesión actual
-    const currentExercisesAsLogged = SessionService.sessionExercisesToLogged(currentSessionExercises, player.id);
+    const currentExercisesAsLogged = SessionService.sessionExercisesToLogged(
+      currentSessionExercises, 
+      player.id
+    );
     allExercises.push(...currentExercisesAsLogged);
 
-    // ✅ USAR FUNCIÓN CENTRALIZADA
+    // Usar función centralizada que YA CALCULA PORCENTAJES ABSOLUTOS
     const stats = calculateExerciseStatsByTime(allExercises);
     
-    // Convertir a formato esperado por el componente
-    const percentageStats: Record<string, Record<string, Record<string, number>>> = {};
-    
-    Object.keys(stats.typeStats).forEach(tipo => {
-      percentageStats[tipo] = {};
-      Object.keys(stats.typeStats[tipo].areas).forEach(area => {
-        percentageStats[tipo][area] = {};
-        Object.keys(stats.typeStats[tipo].areas[area].exercises).forEach(ejercicio => {
-          // Usar porcentaje ya calculado
-          const tiempo = stats.typeStats[tipo].areas[area].exercises[ejercicio];
-          percentageStats[tipo][area][ejercicio] = (tiempo / stats.totalMinutes) * 100;
-        });
-      });
-    });
-
     if (DEBUG_MODE && stats.totalMinutes > 0) {
-      console.log(`📊 [PLANNING] Stats calculadas para ${player.name}: ${sessions.length} sesiones, ${stats.totalMinutes.toFixed(0)} min totales`);
+      console.log(`📊 [PLANNING] Stats para ${player.name}:`, {
+        totalMinutes: stats.totalMinutes,
+        typeStats: stats.typeStats
+      });
     }
 
-    return percentageStats;
+    return {
+      typeStats: stats.typeStats as Record<string, TypeStats>,
+      totalMinutes: stats.totalMinutes
+    };
   }, [sessions, currentSessionExercises, enabled, player.id, player.name]);
 
-  // Construir árbol de análisis
+  // ✅ CORREGIDO: Construir árbol de análisis con cálculos correctos
   const analysisTree = useMemo((): AnalysisNode[] => {
-    if (!enabled || !trainingPlan || !realStats) {
+    if (!enabled || !trainingPlan || !realStats.typeStats) {
       return [];
     }
 
@@ -142,76 +151,91 @@ export const usePlanningAnalysis = ({
 
     Object.keys(trainingPlan.planificacion).forEach(tipoKey => {
       const tipoPlan = trainingPlan.planificacion[tipoKey];
-      const tipoReal = realStats[tipoKey] || {};
       
-      // Calcular total realizado para este tipo
-      let tipoRealizadoTotal = 0;
-      Object.keys(tipoReal).forEach(areaKey => {
-        Object.values(tipoReal[areaKey]).forEach(ejercicioValue => {
-          tipoRealizadoTotal += ejercicioValue;
-        });
-      });
+      // ✅ VERIFICAR QUE EXISTE ANTES DE ACCEDER
+      const tipoStats = realStats.typeStats[tipoKey] as TypeStats | undefined;
+      const tipoRealizadoTotal = tipoStats?.percentage || 0;
 
       const tipoNode: AnalysisNode = {
         name: tipoKey,
         planificado: tipoPlan.porcentajeTotal,
         realizado: tipoRealizadoTotal,
-        diferencia: tipoPlan.porcentajeTotal - tipoRealizadoTotal,
+        diferencia: tipoPlan.porcentajeTotal - tipoRealizadoTotal,  // Plan - Real = positivo si falta
         children: []
       };
 
-      // Construir nodos de área
-      Object.keys(tipoPlan.areas).forEach(areaKey => {
-        const areaPlan = tipoPlan.areas[areaKey];
-        const areaReal = tipoReal[areaKey] || {};
-        
-        // Calcular total realizado para esta área
-        let areaRealizadaTotal = 0;
-        Object.values(areaReal).forEach(ejercicioValue => {
-          areaRealizadaTotal += ejercicioValue;
+      if (DEBUG_MODE) {
+        console.log(`📈 Tipo ${tipoKey}:`, {
+          plan: tipoPlan.porcentajeTotal,
+          real: tipoRealizadoTotal,
+          diferencia: tipoNode.diferencia
         });
+      }
 
-        const areaNode: AnalysisNode = {
-          name: areaKey,
-          planificado: areaPlan.porcentajeDelTotal,
-          realizado: areaRealizadaTotal,
-          diferencia: areaPlan.porcentajeDelTotal - areaRealizadaTotal,
-          esDistribucionLibre: !areaPlan.ejercicios,
-          children: []
-        };
+      // Construir nodos de área
+      if (tipoPlan.areas) {
+        Object.keys(tipoPlan.areas).forEach(areaKey => {
+          const areaPlan = tipoPlan.areas[areaKey];
+          const areaStats = tipoStats?.areas?.[areaKey];
+          
+          // ✅ USAR EL PORCENTAJE ABSOLUTO YA CALCULADO
+          const areaRealizadaTotal = areaStats?.percentage || 0;
 
-        // Si hay ejercicios específicos planificados, agregarlos
-        if (areaPlan.ejercicios) {
-          Object.keys(areaPlan.ejercicios).forEach(ejercicioName => {
-            const ejercicioPlan = areaPlan.ejercicios![ejercicioName];
-            const ejercicioReal = areaReal[ejercicioName] || 0;
+          const areaNode: AnalysisNode = {
+            name: areaKey,
+            planificado: areaPlan.porcentajeDelTotal,
+            realizado: areaRealizadaTotal,
+            diferencia: areaPlan.porcentajeDelTotal - areaRealizadaTotal,  // Plan - Real
+            esDistribucionLibre: !areaPlan.ejercicios || Object.keys(areaPlan.ejercicios).length === 0,
+            children: []
+          };
 
-            areaNode.children!.push({
-              name: ejercicioName,
-              planificado: ejercicioPlan.porcentajeDelTotal,
-              realizado: ejercicioReal,
-              diferencia: ejercicioPlan.porcentajeDelTotal - ejercicioReal
+          if (DEBUG_MODE && areaRealizadaTotal > 0) {
+            console.log(`  📊 Área ${areaKey}:`, {
+              plan: areaPlan.porcentajeDelTotal,
+              real: areaRealizadaTotal,
+              diferencia: areaNode.diferencia
             });
-          });
-        }
+          }
 
-        tipoNode.children!.push(areaNode);
-      });
+          // Si hay ejercicios específicos planificados, agregarlos
+          if (areaPlan.ejercicios && Object.keys(areaPlan.ejercicios).length > 0) {
+            Object.keys(areaPlan.ejercicios).forEach(ejercicioName => {
+              const ejercicioPlan = areaPlan.ejercicios![ejercicioName];
+              const ejercicioMinutes = areaStats?.exercises?.[ejercicioName] || 0;
+              
+              // ✅ Calcular porcentaje del ejercicio respecto al total
+              const ejercicioReal = realStats.totalMinutes > 0 
+                ? (ejercicioMinutes / realStats.totalMinutes) * 100 
+                : 0;
+
+              areaNode.children!.push({
+                name: ejercicioName,
+                planificado: ejercicioPlan.porcentajeDelTotal,
+                realizado: ejercicioReal,
+                diferencia: ejercicioPlan.porcentajeDelTotal - ejercicioReal
+              });
+            });
+          }
+
+          tipoNode.children!.push(areaNode);
+        });
+      }
 
       tree.push(tipoNode);
     });
 
     if (DEBUG_MODE) {
-      console.log(`🌳 [PLANNING] Árbol de análisis construido para ${player.name}`);
+      console.log(`🌳 [PLANNING] Árbol final para ${player.name}:`, tree);
     }
     
     return tree;
   }, [trainingPlan, realStats, enabled, player.name]);
 
   // Convertir ejercicios de sesión actual para mostrar info
-   const currentSessionAsLoggedExercises = useMemo((): LoggedExercise[] => {
-   return SessionService.sessionExercisesToLogged(currentSessionExercises, player.id);
-   }, [currentSessionExercises, player.id]);
+  const currentSessionAsLoggedExercises = useMemo((): LoggedExercise[] => {
+    return SessionService.sessionExercisesToLogged(currentSessionExercises, player.id);
+  }, [currentSessionExercises, player.id]);
 
   return {
     loading,

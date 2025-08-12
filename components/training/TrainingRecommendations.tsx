@@ -166,6 +166,7 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
               <PlanningAccordion 
                 player={selectedPlayer} 
                 academiaId={academiaActual.id} 
+               
               />
             </div>
           </div>

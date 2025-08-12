@@ -424,40 +424,43 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
         
         {/* Modal de Análisis de Planificación */}
         {isPlanningAnalysisOpen && player && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-gray-900/95 backdrop-blur-xl rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-gray-800">
-              <div className="p-6 border-b border-gray-700 flex-shrink-0">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold text-green-400">
-                    {player.name} - Análisis de Planificación
-                  </h2>
-                  <button
-                    onClick={() => setIsPlanningAnalysisOpen(false)}
-                    className="text-gray-400 hover:text-gray-300 transition-colors"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-6">
-                  <Suspense fallback={<TabLoadingSkeleton message="Cargando análisis..." />}>
-                    <PlanningAccordion 
-                      player={player} 
-                      academiaId={academiaId} 
-                    />
-                  </Suspense>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+           <div className="bg-gray-900/95 backdrop-blur-xl rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col border border-gray-800">
+             <div className="p-6 border-b border-gray-700 flex-shrink-0">
+               <div className="flex justify-between items-center">
+                 <h2 className="text-2xl font-bold text-green-400">
+                   {player.name} - Análisis de Planificación
+                        </h2>
+                 <button
+                   onClick={() => setIsPlanningAnalysisOpen(false)}
+                   className="text-gray-400 hover:text-gray-300 transition-colors"
+                 >
+                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                   </svg>
+                 </button>
+               </div>
+             </div>
+             
+             <div className="flex-1 overflow-y-auto">
+               <div className="p-6">
+                 <Suspense fallback={<TabLoadingSkeleton message="Cargando análisis..." />}>
+                   <PlanningAccordion 
+                     player={player} 
+                     academiaId={academiaId}
+                     rangoAnalisis={planningHook.rangoAnalisis}  // ✅ NUEVO: Pasar el valor actual
+                     onRangoAnalisisChange={planningHook.setRangoAnalisis}  // ✅ NUEVO: Sincronizar cambios
+                    
+                   />
+                 </Suspense>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+               )}
+             </div>
+           </div>
+         );
+       };
 
 export default PlayerProfilePage;
