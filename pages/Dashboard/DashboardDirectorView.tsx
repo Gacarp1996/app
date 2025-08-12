@@ -374,7 +374,7 @@ const DashboardDirectorView: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <WeeklySatisfactionWidget weeklySatisfaction={weeklySatisfaction} />
           <PlanningResumeWidget playerStatus={playerStatus} />
-          <UpcomingCompetitionsWidget academiaId={academiaActual.id} />
+          <UpcomingCompetitionsWidget />
         </div>
       </div>
     </div>

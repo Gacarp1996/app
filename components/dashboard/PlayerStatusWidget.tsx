@@ -130,7 +130,7 @@ const PlayerStatusWidget: React.FC<PlayerStatusWidgetProps> = ({
           <h3 className="text-lg font-semibold text-white">Estado de Jugadores</h3>
         </div>
         
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="text-center">
             <p className="text-gray-400 text-sm">Activos hoy</p>
             <button
@@ -147,15 +147,6 @@ const PlayerStatusWidget: React.FC<PlayerStatusWidgetProps> = ({
               className="text-yellow-400 text-lg font-semibold hover:text-yellow-300 transition-colors cursor-pointer"
             >
               {playerStatus.inactive.length}
-            </button>
-          </div>
-          <div className="text-center">
-            <p className="text-gray-400 text-sm">Sin planificación</p>
-            <button
-              onClick={() => openModal(playerStatus.withoutPlan, 'Jugadores Sin Planificación')}
-              className="text-red-400 text-lg font-semibold hover:text-red-300 transition-colors cursor-pointer"
-            >
-              {playerStatus.withoutPlan.length}
             </button>
           </div>
         </div>

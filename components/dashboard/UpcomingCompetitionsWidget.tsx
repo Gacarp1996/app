@@ -34,10 +34,17 @@ export const UpcomingCompetitionsWidget: React.FC<UpcomingCompetitionsWidgetProp
       const upcomingTournaments = getUpcomingTournaments(60); // Próximos 60 días
       const activePlayers = getActivePlayers();
       
-      // Filtrar por jugadores específicos si se proporcionan
-      let filteredTournaments = upcomingTournaments;
+      // ✅ CREAR SET DE IDs DE JUGADORES ACTIVOS para filtrado eficiente
+      const activePlayerIds = new Set(activePlayers.map(p => p.id));
+      
+      // ✅ FILTRAR SOLO TORNEOS DE JUGADORES ACTIVOS
+      let filteredTournaments = upcomingTournaments.filter(t => 
+        activePlayerIds.has(t.jugadorId)
+      );
+      
+      // Filtrar por jugadores específicos si se proporcionan (y que estén activos)
       if (playerIds && playerIds.length > 0) {
-        filteredTournaments = upcomingTournaments.filter(t => 
+        filteredTournaments = filteredTournaments.filter(t => 
           playerIds.includes(t.jugadorId)
         );
       }
