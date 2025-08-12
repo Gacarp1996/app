@@ -1,9 +1,9 @@
 // components/player-profile/ExerciseAnalysis.tsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import AreaPieChart from './AreaPieChart';
-import { ChartDataPoint, IntensityDataPoint, TrainingSession } from '../../types/types';
+import { ChartDataPoint, IntensityDataPoint, TrainingSession, LoggedExercise } from '../../types/types';
 import IntensityLineChart from './IntensityLineChart';
- import { parseTimeToMinutes } from './utils';
+import { parseTimeToMinutes } from './utils';
 
 interface ExerciseAnalysisProps {
   dateFilteredSessions: any[];
@@ -18,8 +18,6 @@ interface ExerciseAnalysisProps {
   allSessions?: TrainingSession[];
 }
 
-
-
 const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
   dateFilteredSessions,
   drillDownPath,
@@ -32,6 +30,17 @@ const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
   playerId,
   allSessions = []
 }) => {
+  // Estado para habilitar el 4to nivel
+  const [enableSpecificLevel, setEnableSpecificLevel] = useState(false);
+  
+  // Estado local para el path extendido (maneja el 4to nivel internamente)
+  const [localDrillDownPath, setLocalDrillDownPath] = useState<string[]>([]);
+
+  // Sincronizar con el path del hook
+  useEffect(() => {
+    setLocalDrillDownPath(drillDownPath);
+  }, [drillDownPath]);
+  
   // Calculate 7-day session analysis data
   const sessionAnalysisData = useMemo(() => {
     if (!playerId || !allSessions || allSessions.length === 0) {
@@ -138,9 +147,143 @@ const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
     };
   }, [sessionAnalysisData]);
 
+  // Calcular datos para el 4to nivel (ejercicios específicos) - Usando localDrillDownPath
+  const specificLevelData = useMemo(() => {
+    // Usar localDrillDownPath en lugar de drillDownPath
+    if (localDrillDownPath.length !== 3 || !enableSpecificLevel) return null;
+    
+    const [tipo, area, ejercicio] = localDrillDownPath;
+    const specificMap = new Map<string, number>();
+    
+    // Filtrar y agrupar ejercicios específicos
+    dateFilteredSessions.forEach(session => {
+      session.ejercicios?.forEach((ex: LoggedExercise) => {
+        // Solo considerar ejercicios que coincidan con el path actual
+        if (ex.tipo === tipo && ex.area === area && ex.ejercicio === ejercicio) {
+          // Usar "Sin especificar" para los que no tienen específico
+          const key = ex.ejercicioEspecifico?.trim() || 'Sin especificar';
+          const minutes = parseTimeToMinutes(ex.tiempoCantidad) || 0;
+          specificMap.set(key, (specificMap.get(key) || 0) + minutes);
+        }
+      });
+    });
+    
+    // Convertir a formato ChartDataPoint
+    return Array.from(specificMap.entries())
+      .map(([name, value]) => ({ 
+        name, 
+        value,
+        type: 'SpecificExercise' as 'SpecificExercise'
+      }))
+      .filter(item => item.value > 0)
+      .sort((a, b) => {
+        // "Sin especificar" siempre al final
+        if (a.name === 'Sin especificar') return 1;
+        if (b.name === 'Sin especificar') return -1;
+        return b.value - a.value;
+      });
+  }, [dateFilteredSessions, localDrillDownPath, enableSpecificLevel]);
+
+  // Handler modificado para manejar el 4to nivel localmente
+  const handlePieSliceClickExtended = useCallback((dataPoint: ChartDataPoint) => {
+    if (!dataPoint.name) return;
+    
+    // Si estamos en nivel 2 con toggle activo, manejar localmente el nivel 3
+    if (enableSpecificLevel && localDrillDownPath.length === 2 && dataPoint.type === 'Exercise') {
+      // Agregar el ejercicio al path LOCAL (no al del hook)
+      setLocalDrillDownPath(prev => [...prev, dataPoint.name]);
+    } 
+    // Para niveles 0-1, usar el handler del hook normalmente
+    else if (localDrillDownPath.length < 2) {
+      onPieSliceClick(dataPoint);
+    }
+  }, [localDrillDownPath, enableSpecificLevel, onPieSliceClick]);
+
+  // Handler del breadcrumb para manejar el path local
+  const handleBreadcrumbClickExtended = useCallback((index: number) => {
+    if (index < 3) {
+      // Para niveles 0-2, usar el handler del hook
+      onBreadcrumbClick(index);
+    }
+    // Y también actualizar el path local
+    setLocalDrillDownPath(prev => prev.slice(0, index));
+  }, [onBreadcrumbClick]);
+
+  // Determinar qué datos mostrar en el gráfico - Usando localDrillDownPath
+  const chartData = useMemo(() => {
+    if (localDrillDownPath.length === 3 && specificLevelData && enableSpecificLevel) {
+      return specificLevelData;
+    }
+    return drillDownData;
+  }, [localDrillDownPath, specificLevelData, enableSpecificLevel, drillDownData]);
+
+  // Determinar el título del gráfico - Usando localDrillDownPath
+  const chartTitle = useMemo(() => {
+    if (localDrillDownPath.length === 3 && enableSpecificLevel) {
+      return `Específicos de "${localDrillDownPath[2]}"`;
+    }
+    return areaChartTitle;
+  }, [localDrillDownPath, enableSpecificLevel, areaChartTitle]);
+
+  // Determinar si permitir clicks en el gráfico
+  const allowChartClick = useMemo(() => {
+    // No permitir clicks si estamos en nivel 3 (específicos)
+    if (localDrillDownPath.length === 3 && enableSpecificLevel) {
+      return undefined;
+    }
+    return handlePieSliceClickExtended;
+  }, [localDrillDownPath, enableSpecificLevel, handlePieSliceClickExtended]);
+
   return (
     <div className="border-t border-gray-800 pt-8 lg:pt-12">
-      <h2 className="text-2xl lg:text-3xl font-semibold text-green-400 mb-6 lg:mb-8">Análisis de Ejercicios</h2>
+      {/* Header con toggle */}
+      <div className="flex items-center justify-between mb-6 lg:mb-8">
+        <h2 className="text-2xl lg:text-3xl font-semibold text-green-400">
+          Análisis de Ejercicios
+        </h2>
+        
+        {/* Toggle para habilitar 4to nivel */}
+        {dateFilteredSessions.length > 0 && (
+          <div className="flex items-center gap-3 bg-gray-800/50 px-4 py-2 rounded-lg border border-gray-700">
+            <label 
+              className="text-sm text-gray-300 cursor-pointer select-none"
+              htmlFor="specific-toggle"
+            >
+              Ver ejercicios específicos
+            </label>
+            <button
+              id="specific-toggle"
+              type="button"
+              role="switch"
+              aria-checked={enableSpecificLevel}
+              onClick={() => {
+                const newValue = !enableSpecificLevel;
+                setEnableSpecificLevel(newValue);
+                // Si desactivan el toggle y están en nivel 3, volver al nivel 2
+                if (!newValue && localDrillDownPath.length === 3) {
+                  setLocalDrillDownPath(prev => prev.slice(0, 2));
+                }
+              }}
+              className={`${
+                enableSpecificLevel ? 'bg-green-500' : 'bg-gray-600'
+              } relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900`}
+            >
+              <span className="sr-only">Habilitar ejercicios específicos</span>
+              <span
+                className={`${
+                  enableSpecificLevel ? 'translate-x-6' : 'translate-x-1'
+                } inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200`}
+              />
+            </button>
+            {enableSpecificLevel && localDrillDownPath.length === 2 && (
+              <span className="text-xs text-green-400 ml-2 animate-pulse">
+                Click en ejercicios para ver detalles
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
       {dateFilteredSessions.length === 0 ? (
         <p className="text-center p-4 text-gray-400">No hay sesiones de entrenamiento en el período seleccionado</p>
       ) : (
@@ -148,15 +291,50 @@ const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
           {/* Main Charts Section */}
           <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
             <div>
-              {drillDownPath.length > 0 && (
-                <nav className="mb-2 text-sm lg:text-base">
-                  <button onClick={() => onBreadcrumbClick(0)} className="text-gray-400 hover:text-green-400 transition-colors">Inicio</button>
-                  {drillDownPath.map((item, i) => (
-                    <span key={i}> &gt; <button onClick={() => onBreadcrumbClick(i + 1)} className="text-gray-400 hover:text-green-400 transition-colors">{item}</button></span>
+              {/* Breadcrumb mejorado para soportar 4 niveles - Usando localDrillDownPath */}
+              {localDrillDownPath.length > 0 && (
+                <nav className="mb-2 text-sm lg:text-base flex items-center flex-wrap gap-1">
+                  <button 
+                    onClick={() => handleBreadcrumbClickExtended(0)} 
+                    className="text-gray-400 hover:text-green-400 transition-colors"
+                  >
+                    Inicio
+                  </button>
+                  {localDrillDownPath.map((item, i) => (
+                    <React.Fragment key={i}>
+                      <span className="text-gray-500"> &gt; </span>
+                      <button 
+                        onClick={() => handleBreadcrumbClickExtended(i + 1)} 
+                        className="text-gray-400 hover:text-green-400 transition-colors"
+                      >
+                        {item}
+                      </button>
+                    </React.Fragment>
                   ))}
+                  {localDrillDownPath.length === 3 && enableSpecificLevel && (
+                    <span className="text-xs text-gray-500 ml-2 bg-gray-800 px-2 py-1 rounded">
+                      Nivel específico
+                    </span>
+                  )}
                 </nav>
               )}
-              <AreaPieChart data={drillDownData} chartTitle={areaChartTitle} onSliceClick={onPieSliceClick} height={384}/>
+              
+              {/* Indicador cuando no hay específicos */}
+              {localDrillDownPath.length === 3 && specificLevelData && specificLevelData.length === 1 && 
+               specificLevelData[0].name === 'Sin especificar' && (
+                <div className="mb-2 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+                  <p className="text-xs text-yellow-400">
+                    No hay ejercicios específicos registrados para "{localDrillDownPath[2]}"
+                  </p>
+                </div>
+              )}
+              
+              <AreaPieChart 
+                data={chartData} 
+                chartTitle={chartTitle} 
+                onSliceClick={allowChartClick} 
+                height={384}
+              />
             </div>
             <IntensityLineChart data={intensityChartData} chartTitle={intensityChartTitle} />
           </div>

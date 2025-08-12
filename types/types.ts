@@ -58,7 +58,7 @@ export interface SpecificExercise {
 export interface ChartDataPoint {
   name: string; 
   value: number; 
-  type?: 'TrainingType' | 'TrainingArea' | 'Exercise'; 
+  type?: 'TrainingType' | 'TrainingArea' | 'Exercise' |'SpecificExercise';
 }
 
 export interface IntensityDataPoint {
