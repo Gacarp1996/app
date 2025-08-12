@@ -3,6 +3,8 @@ import React from 'react';
 import { AcademiaConfig } from '../../../Database/FirebaseAcademiaConfig';
 import { ExerciseStructureConfig } from './ExerciseStructureConfig';
 import { SurveyConfig } from './SurveyConfig';
+import { RecommendationsConfig } from './RecommendationsConfig';
+
 
 interface AdvancedConfigModalProps {
   isOpen: boolean;
@@ -13,6 +15,12 @@ interface AdvancedConfigModalProps {
   onToggleSurveys: (enabled: boolean) => void;
   onSurveyConfigChange: (key: keyof AcademiaConfig['preguntasEncuesta'], checked: boolean) => void;
   onSaveSurveyConfig: () => Promise<void>;
+  // ✅ NUEVAS PROPS para configuración de recomendaciones
+  recommendationsConfig: AcademiaConfig | null;
+  loadingRecommendationsConfig: boolean;
+  savingRecommendationsConfig: boolean;
+  onRecommendationsConfigChange: (days: number) => void;
+  onSaveRecommendationsConfig: () => Promise<void>;
 }
 
 export const AdvancedConfigModal: React.FC<AdvancedConfigModalProps> = ({
@@ -23,7 +31,13 @@ export const AdvancedConfigModal: React.FC<AdvancedConfigModalProps> = ({
   savingSurveyConfig,
   onToggleSurveys,
   onSurveyConfigChange,
-  onSaveSurveyConfig
+  onSaveSurveyConfig,
+  // ✅ NUEVAS PROPS
+  recommendationsConfig,
+  loadingRecommendationsConfig,
+  savingRecommendationsConfig,
+  onRecommendationsConfigChange,
+  onSaveRecommendationsConfig
 }) => {
   if (!isOpen) return null;
 
@@ -69,7 +83,21 @@ export const AdvancedConfigModal: React.FC<AdvancedConfigModalProps> = ({
                 {/* Separador */}
                 <div className="border-t border-gray-700"></div>
 
-                {/* Segunda sección: Encuestas */}
+                {/* ✅ NUEVA SECCIÓN: Configuración de Recomendaciones */}
+                <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                  <RecommendationsConfig
+                    config={recommendationsConfig}
+                    loading={loadingRecommendationsConfig}
+                    saving={savingRecommendationsConfig}
+                    onConfigChange={onRecommendationsConfigChange}
+                    onSave={onSaveRecommendationsConfig}
+                  />
+                </div>
+
+                {/* Separador */}
+                <div className="border-t border-gray-700"></div>
+
+                {/* Tercera sección: Encuestas */}
                 <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
                   <SurveyConfig
                     surveyConfig={surveyConfig}

@@ -1,4 +1,4 @@
-// hooks/useActiveSessionRecommendations.ts
+// hooks/useActiveSessionRecommendations.ts - ACTUALIZADO con configuración de ventana de análisis
 import { useState, useEffect, useCallback } from 'react';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useSession } from '../contexts/SessionContext';
@@ -8,6 +8,8 @@ import { RecommendationEngine } from '../services/recommendationEngine';
 import { EngineInput, EngineOutput } from '../types/recommendations';
 import { getDefaultDateRange } from '../utils/dateHelpers';
 import { SessionExercise } from '../contexts/TrainingContext';
+// ✅ NUEVO: Importar helper para obtener configuración
+import { getRecommendationsAnalysisWindow } from '../Database/FirebaseAcademiaConfig';
 
 interface Participant {
   id: string;
@@ -16,7 +18,7 @@ interface Participant {
 
 interface UseActiveSessionRecommendationsProps {
   participants: Participant[];
-  currentSessionExercises?: SessionExercise[];  // NUEVO: Ejercicios de sesión actual
+  currentSessionExercises?: SessionExercise[];  
 }
 
 // FASE 3: Interface para estado de bloqueos
@@ -32,7 +34,7 @@ interface BlockedPlayersState {
 
 export const useActiveSessionRecommendations = ({
   participants,
-  currentSessionExercises = []  // NUEVO: Recibir ejercicios actuales
+  currentSessionExercises = []  
 }: UseActiveSessionRecommendationsProps) => {
   const { academiaActual } = useAcademia();
   const { getSessionsByPlayer, refreshSessions: refreshSessionsFromContext } = useSession();
@@ -46,12 +48,45 @@ export const useActiveSessionRecommendations = ({
   const [engineOutput, setEngineOutput] = useState<EngineOutput | null>(null);
   const [dataPreview, setDataPreview] = useState<DataPreview | null>(null);
   
+  // ✅ NUEVO: Estado para configuración de ventana de análisis
+  const [analysisWindowDays, setAnalysisWindowDays] = useState<number>(7); // Default fallback
+  const [loadingAnalysisConfig, setLoadingAnalysisConfig] = useState(true);
+  
   // FASE 3: Estado para jugadores bloqueados
   const [blockedPlayers, setBlockedPlayers] = useState<BlockedPlayersState>({
     count: 0,
     players: [],
     hasBlockedPlayers: false
   });
+
+  // ✅ NUEVO: Efecto para cargar configuración de ventana de análisis
+  useEffect(() => {
+    const loadAnalysisWindow = async () => {
+      if (!academiaId) {
+        setLoadingAnalysisConfig(false);
+        return;
+      }
+
+      try {
+        const configuredDays = await getRecommendationsAnalysisWindow(academiaId);
+        setAnalysisWindowDays(configuredDays);
+        
+        console.log('📊 Configuración de análisis cargada:', {
+          academia: academiaId,
+          dias: configuredDays,
+          anteriorDefault: analysisWindowDays
+        });
+      } catch (error) {
+        console.error('❌ Error cargando configuración de análisis:', error);
+        // Mantener default de 7 días si hay error
+        setAnalysisWindowDays(7);
+      } finally {
+        setLoadingAnalysisConfig(false);
+      }
+    };
+
+    loadAnalysisWindow();
+  }, [academiaId]); // Re-cargar si cambia la academia
 
   // FASE 3: Logger para debugging
   const logEngineOutput = (output: EngineOutput, input: EngineInput) => {
@@ -61,7 +96,8 @@ export const useActiveSessionRecommendations = ({
         totalPlayers: input.players.length,
         playerNames: input.players.map(p => p.name),
         hasCurrentExercises: input.currentSessionExercises && input.currentSessionExercises.length > 0,
-        configDays: input.config.rangeDays
+        configDays: input.config.rangeDays, // ✅ ACTUALIZADO: Ahora viene de configuración
+        analysisWindow: analysisWindowDays // ✅ NUEVO: Mostrar ventana configurada
       },
       output: {
         analyzedPlayers: output.group.analyzedPlayers,
@@ -78,7 +114,8 @@ export const useActiveSessionRecommendations = ({
     console.log('📊 Resumen:', {
       procesados: `${debugInfo.output.analyzedPlayers}/${debugInfo.output.totalPlayers}`,
       bloqueados: debugInfo.output.blockedCount,
-      advertencias: debugInfo.output.warnings.length
+      advertencias: debugInfo.output.warnings.length,
+      ventanaAnalisis: `${debugInfo.input.analysisWindow} días` // ✅ NUEVO
     });
     
     if (debugInfo.output.blockedCount > 0) {
@@ -91,8 +128,14 @@ export const useActiveSessionRecommendations = ({
     return debugInfo;
   };
 
-  // Generar recomendaciones usando el motor único
+  // ✅ ACTUALIZADO: Generar recomendaciones usando configuración dinámica
   const generateRecommendations = async () => {
+    // ✅ NUEVO: Esperar a que se cargue la configuración
+    if (loadingAnalysisConfig) {
+      console.log('⏳ Esperando configuración de análisis...');
+      return;
+    }
+
     setRecommendationsLoading(true);
     
     // FASE 3: Reset estado de bloqueados
@@ -121,8 +164,8 @@ export const useActiveSessionRecommendations = ({
         }))
       });
       
-      // 2. Obtener sesiones históricas para cada jugador
-      const dateRange = getDefaultDateRange(30);
+      // ✅ ACTUALIZADO: Usar ventana de análisis configurada
+      const dateRange = getDefaultDateRange(analysisWindowDays);
       const historicalSessions = participants.map(p => ({
         playerId: p.id,
         sessions: getSessionsByPlayer(p.id, {
@@ -131,20 +174,25 @@ export const useActiveSessionRecommendations = ({
         })
       }));
       
-      // FASE 3: Log sesiones históricas
-      console.log('📅 Sesiones históricas:', historicalSessions.map(h => ({
-        jugador: participants.find(p => p.id === h.playerId)?.name,
-        sesiones: h.sessions.length
-      })));
+      // ✅ ACTUALIZADO: Log sesiones históricas con ventana configurada
+      console.log('📅 Sesiones históricas:', {
+        ventanaAnalisis: `${analysisWindowDays} días`,
+        fechaDesde: dateRange.start,
+        fechaHasta: dateRange.end,
+        jugadores: historicalSessions.map(h => ({
+          jugador: participants.find(p => p.id === h.playerId)?.name,
+          sesiones: h.sessions.length
+        }))
+      });
       
       // 3. Preparar input para el motor
       const engineInput: EngineInput = {
         players: participants,
         historicalSessions,
-        currentSessionExercises,  // Incluir ejercicios de sesión actual
+        currentSessionExercises,  
         plans,
         config: {
-          rangeDays: 30,
+          rangeDays: analysisWindowDays, // ✅ ACTUALIZADO: Usar configuración
           timeZone: 'America/Santiago',
           includeCurrentSession: currentSessionExercises.length > 0
         }
@@ -180,7 +228,9 @@ export const useActiveSessionRecommendations = ({
       // FASE 3: Notificación si hay jugadores bloqueados
       if (output.group.blocked && output.group.blocked.length > 0) {
         const blockedNames = output.group.blocked.map(b => b.playerName).join(', ');
-        console.info(`ℹ️ Recomendaciones generadas. ${output.group.blocked.length} jugador(es) excluido(s): ${blockedNames}`);
+        console.info(`ℹ️ Recomendaciones generadas con ventana de ${analysisWindowDays} días. ${output.group.blocked.length} jugador(es) excluido(s): ${blockedNames}`);
+      } else {
+        console.info(`✅ Recomendaciones generadas exitosamente con ventana de ${analysisWindowDays} días para ${output.group.analyzedPlayers} jugadores`);
       }
       
     } catch (error) {
@@ -191,7 +241,8 @@ export const useActiveSessionRecommendations = ({
         mensaje: error instanceof Error ? error.message : 'Error desconocido',
         stack: error instanceof Error ? error.stack : undefined,
         participantes: participants.map(p => p.name),
-        academiaId
+        academiaId,
+        ventanaAnalisis: analysisWindowDays // ✅ NUEVO
       });
     } finally {
       setRecommendationsLoading(false);
@@ -250,7 +301,7 @@ export const useActiveSessionRecommendations = ({
     return playerData;
   }, [engineOutput]);
 
-  // Analizar ejercicios de un jugador (para compatibilidad)
+  // ✅ ACTUALIZADO: Analizar ejercicios de un jugador con ventana configurada
   const analyzePlayerExercises = useCallback((playerId: string) => {
     if (!engineOutput) {
       return { 
@@ -260,7 +311,9 @@ export const useActiveSessionRecommendations = ({
         typeStats: {}, 
         areaStats: {},
         sessionsAnalyzed: 0,
-        planUsed: 'default' as const
+        planUsed: 'default' as const,
+        // ✅ NUEVO: Incluir info de ventana de análisis
+        analysisWindowDays
       };
     }
 
@@ -283,7 +336,9 @@ export const useActiveSessionRecommendations = ({
         planUsed: 'default' as const,
         // FASE 3: Agregar info de bloqueo
         isBlocked: !!blocked,
-        blockReason: blocked?.reasons[0]
+        blockReason: blocked?.reasons[0],
+        // ✅ NUEVO: Incluir ventana de análisis
+        analysisWindowDays
       };
     }
 
@@ -309,31 +364,41 @@ export const useActiveSessionRecommendations = ({
       typeStats: {}, // TODO: Extraer de engineOutput si es necesario
       areaStats: {}, // TODO: Extraer de engineOutput si es necesario
       sessionsAnalyzed: playerData.summary.sessionsAnalyzed,
-      planUsed: playerData.summary.planUsed
+      planUsed: playerData.summary.planUsed,
+      // ✅ NUEVO: Incluir ventana de análisis usada
+      analysisWindowDays
     };
-  }, [engineOutput]);
+  }, [engineOutput, analysisWindowDays]);
 
-  // Analizar sesiones de un jugador (para compatibilidad)
+  // ✅ ACTUALIZADO: Analizar sesiones con ventana configurada
   const analyzePlayerSessions = useCallback((playerId: string) => {
-    const dateRange = getDefaultDateRange(30);
+    const dateRange = getDefaultDateRange(analysisWindowDays); // ✅ Usar configuración
     const playerSessions = getSessionsByPlayer(playerId, { 
       start: new Date(dateRange.start), 
       end: new Date(dateRange.end) 
     });
 
     if (playerSessions.length === 0) {
-      return { totalSessions: 0, dateRange: null };
+      return { 
+        totalSessions: 0, 
+        dateRange: null,
+        analysisWindowDays // ✅ NUEVO: Incluir ventana usada
+      };
     }
 
     const dates = playerSessions.map(s => new Date(s.fecha));
     const formattedRange = TrainingAnalysisService.formatDateRange(dates);
 
-    return { totalSessions: playerSessions.length, dateRange: formattedRange };
-  }, [getSessionsByPlayer]);
+    return { 
+      totalSessions: playerSessions.length, 
+      dateRange: formattedRange,
+      analysisWindowDays // ✅ NUEVO: Incluir ventana usada
+    };
+  }, [getSessionsByPlayer, analysisWindowDays]);
 
-  // Generar preview de datos
+  // ✅ ACTUALIZADO: Generar preview con ventana configurada
   const updateDataPreview = useCallback(() => {
-    const dateRange = getDefaultDateRange(30);
+    const dateRange = getDefaultDateRange(analysisWindowDays); // ✅ Usar configuración
     const sessionData = participants.map(p => {
       const sessions = getSessionsByPlayer(p.id, {
         start: new Date(dateRange.start),
@@ -349,7 +414,7 @@ export const useActiveSessionRecommendations = ({
     );
     
     setDataPreview(preview);
-  }, [participants, getSessionsByPlayer, trainingPlans]);
+  }, [participants, getSessionsByPlayer, trainingPlans, analysisWindowDays]);
 
   // Cargar planes cuando cambien participantes
   useEffect(() => {
@@ -363,12 +428,12 @@ export const useActiveSessionRecommendations = ({
     }
   }, [academiaId, participants.map(p => p.id).join(',')]);
 
-  // Actualizar preview cuando cambien los planes
+  // Actualizar preview cuando cambien los planes O la ventana de análisis
   useEffect(() => {
     if (Object.keys(trainingPlans).length > 0) {
       updateDataPreview();
     }
-  }, [trainingPlans, updateDataPreview]);
+  }, [trainingPlans, updateDataPreview, analysisWindowDays]); // ✅ NUEVO: Re-calcular si cambia ventana
 
   // Re-generar cuando cambien los ejercicios de sesión actual
   useEffect(() => {
@@ -377,6 +442,14 @@ export const useActiveSessionRecommendations = ({
       generateRecommendations();
     }
   }, [currentSessionExercises]);
+
+  // ✅ NUEVO: Re-generar cuando cambie la configuración de ventana de análisis
+  useEffect(() => {
+    if (recommendationsGenerated && !loadingAnalysisConfig) {
+      console.log(`📊 Ventana de análisis cambió a ${analysisWindowDays} días, regenerando recomendaciones...`);
+      generateRecommendations();
+    }
+  }, [analysisWindowDays]); // Re-generar si cambia la ventana configurada
 
   // FASE 3: Log cuando cambien los jugadores bloqueados
   useEffect(() => {
@@ -418,6 +491,10 @@ export const useActiveSessionRecommendations = ({
     recommendationsLoading,
     trainingPlans,
     dataPreview,
+    
+    // ✅ NUEVOS: Estados de configuración
+    analysisWindowDays,
+    loadingAnalysisConfig,
     
     // FASE 3: Estado de bloqueos
     blockedPlayers,

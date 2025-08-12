@@ -1,3 +1,5 @@
+// AppWithAcademia.tsx - ARREGLADO CON CONFIGURACIÓN DE RECOMENDACIONES
+
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { TrainingProvider } from '../../contexts/TrainingContext';
@@ -6,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlayer } from '../../contexts/PlayerContext'; 
 import { useSession } from '../../contexts/SessionContext';
 import { useObjective } from '../../contexts/ObjectiveContext';
-import { useTournament } from '../../contexts/TournamentContext'; // ✅ NUEVO IMPORT
+import { useTournament } from '../../contexts/TournamentContext';
 import GlobalHeader from './GlobalHeader';
 
 import PlayersListPage from '../../pages/PlayersListPage';
@@ -25,7 +27,12 @@ import { MainConfigModal } from '../../components/academia-settings/sections/Mai
 import { AdvancedConfigModal } from '../../components/academia-settings/sections/AdvancedConfigModal';
 import { RoleChangeModal } from '../../components/academia-settings';
 import Modal from '../../components/shared/Modal';
-import { AcademiaConfig, getAcademiaConfig, saveAcademiaConfig } from '../../Database/FirebaseAcademiaConfig';
+import { 
+  AcademiaConfig, 
+  getAcademiaConfig, 
+  saveAcademiaConfig,
+  updateRecommendationsAnalysisWindow // ✅ NUEVO IMPORT
+} from '../../Database/FirebaseAcademiaConfig';
 import { 
   useAcademiaSettings, 
   useUserManagement, 
@@ -61,7 +68,7 @@ const AppWithAcademia: React.FC = () => {
     refreshObjectives 
   } = useObjective();
   
-  // ✅ NUEVO: USAR TournamentContext
+  // ✅ USAR TournamentContext
   const {
     tournaments,
     disputedTournaments,
@@ -79,13 +86,19 @@ const AppWithAcademia: React.FC = () => {
     closeAdvancedModal 
   } = useConfigModal();
   
-  // ✅ Estados solo para procesamiento y configuración
+  // ✅ Estados solo para procesamiento
   const [processingAction, setProcessingAction] = useState<string | boolean>(false);
 
   // ✅ ESTADOS PARA CONFIGURACIÓN DE ENCUESTAS
   const [surveyConfig, setSurveyConfig] = useState<AcademiaConfig | null>(null);
   const [loadingSurveyConfig, setLoadingSurveyConfig] = useState(false);
   const [savingSurveyConfig, setSavingSurveyConfig] = useState(false);
+
+  // ✅ NUEVO: ESTADOS PARA CONFIGURACIÓN DE RECOMENDACIONES
+  const [recommendationsConfig, setRecommendationsConfig] = useState<AcademiaConfig | null>(null);
+  const [loadingRecommendationsConfig, setLoadingRecommendationsConfig] = useState(false);
+  const [savingRecommendationsConfig, setSavingRecommendationsConfig] = useState(false);
+  const [pendingRecommendationsDays, setPendingRecommendationsDays] = useState<number>(7);
 
   // ✅ HOOKS PARA EL MODAL DE CONFIGURACIÓN
   const {
@@ -135,12 +148,55 @@ const AppWithAcademia: React.FC = () => {
     }
   }, [academiaActual, navigate]);
 
-  // ✅ EFECTO PARA CARGAR CONFIGURACIÓN CUANDO SE ABRE EL MODAL AVANZADO
+  // ✅ NUEVO: EFECTO PARA CARGAR CONFIGURACIÓN DE RECOMENDACIONES
+  useEffect(() => {
+    if (isAdvancedModalOpen && academiaActual && !recommendationsConfig && !loadingRecommendationsConfig) {
+      loadRecommendationsConfig();
+    }
+  }, [isAdvancedModalOpen, academiaActual, recommendationsConfig, loadingRecommendationsConfig]);
+
+  // ✅ EFECTO PARA CARGAR CONFIGURACIÓN DE SURVEYS
   useEffect(() => {
     if (isAdvancedModalOpen && academiaActual && !surveyConfig && !loadingSurveyConfig) {
       loadSurveyConfig();
     }
   }, [isAdvancedModalOpen, academiaActual, surveyConfig, loadingSurveyConfig]);
+
+  // ✅ NUEVO: FUNCIÓN PARA CARGAR CONFIGURACIÓN DE RECOMENDACIONES
+  const loadRecommendationsConfig = async () => {
+    if (!academiaActual) return;
+    
+    setLoadingRecommendationsConfig(true);
+    try {
+      const config = await getAcademiaConfig(academiaActual.id);
+      setRecommendationsConfig(config);
+      setPendingRecommendationsDays(config.recommendationsAnalysisWindowDays);
+      
+      console.log('🔧 Configuración de recomendaciones cargada:', {
+        academia: academiaActual.id,
+        dias: config.recommendationsAnalysisWindowDays
+      });
+    } catch (error) {
+      console.error('❌ Error cargando configuración de recomendaciones:', error);
+    } finally {
+      setLoadingRecommendationsConfig(false);
+    }
+  };
+
+  // ✅ FUNCIÓN PARA CARGAR CONFIGURACIÓN DE SURVEYS
+  const loadSurveyConfig = async () => {
+    if (!academiaActual) return;
+    
+    setLoadingSurveyConfig(true);
+    try {
+      const config = await getAcademiaConfig(academiaActual.id);
+      setSurveyConfig(config);
+    } catch (error) {
+      console.error('Error cargando configuración de encuestas:', error);
+    } finally {
+      setLoadingSurveyConfig(false);
+    }
+  };
 
   // ✅ HANDLERS PARA EL MODAL DE CONFIGURACIÓN
   const handleRemoveUser = async (userId: string) => {
@@ -202,21 +258,45 @@ const AppWithAcademia: React.FC = () => {
     openAdvancedModal();
   };
 
-  // ✅ HANDLERS PARA CONFIGURACIÓN DE ENCUESTAS
-  const loadSurveyConfig = async () => {
-    if (!academiaActual) return;
-    
-    setLoadingSurveyConfig(true);
+  // ✅ NUEVO: HANDLERS PARA CONFIGURACIÓN DE RECOMENDACIONES
+  const handleRecommendationsConfigChange = (days: number) => {
+    console.log('🔄 Cambiando días de recomendaciones a:', days);
+    setPendingRecommendationsDays(days);
+  };
+
+  const handleSaveRecommendationsConfig = async () => {
+    if (!academiaActual || !recommendationsConfig) {
+      console.error('❌ No hay academia o configuración para guardar');
+      return;
+    }
+
+    setSavingRecommendationsConfig(true);
     try {
-      const config = await getAcademiaConfig(academiaActual.id);
-      setSurveyConfig(config);
+      console.log('💾 Guardando configuración de recomendaciones:', {
+        academia: academiaActual.id,
+        dias: pendingRecommendationsDays
+      });
+
+      await updateRecommendationsAnalysisWindow(academiaActual.id, pendingRecommendationsDays);
+      
+      // Actualizar estado local
+      setRecommendationsConfig({
+        ...recommendationsConfig,
+        recommendationsAnalysisWindowDays: pendingRecommendationsDays
+      });
+
+      alert('✅ Configuración de recomendaciones guardada exitosamente');
+      console.log('✅ Configuración guardada exitosamente');
+      
     } catch (error) {
-      console.error('Error cargando configuración de encuestas:', error);
+      console.error('❌ Error guardando configuración de recomendaciones:', error);
+      alert('Error al guardar la configuración de recomendaciones');
     } finally {
-      setLoadingSurveyConfig(false);
+      setSavingRecommendationsConfig(false);
     }
   };
 
+  // ✅ HANDLERS PARA CONFIGURACIÓN DE ENCUESTAS
   const handleSurveyConfigChange = (key: keyof AcademiaConfig['preguntasEncuesta'], checked: boolean) => {
     if (!surveyConfig) return;
     
@@ -238,13 +318,12 @@ const AppWithAcademia: React.FC = () => {
         encuestasHabilitadas: surveyConfig.encuestasHabilitadas,
         preguntasEncuesta: surveyConfig.preguntasEncuesta
       });
-      alert('Configuración guardada exitosamente');
+      alert('Configuración de encuestas guardada exitosamente');
     } catch (error) {
       console.error('Error guardando configuración:', error);
       alert('Error al guardar la configuración');
     } finally {
       setSavingSurveyConfig(false);
-      closeAdvancedModal();
     }
   };
 
@@ -287,10 +366,10 @@ const AppWithAcademia: React.FC = () => {
   // ✅ FUNCIÓN ACTUALIZADA para refrescar todos los datos
   const handleDataChange = async () => {
     await Promise.all([
-      refreshPlayers(),       // Refrescar jugadores desde el contexto
-      refreshSessions(),      // Refrescar sesiones desde el contexto
-      refreshObjectives(),    // Refrescar objetivos desde el contexto
-      refreshAllTournaments() // ✅ NUEVO: Refrescar torneos desde el contexto
+      refreshPlayers(),
+      refreshSessions(),
+      refreshObjectives(),
+      refreshAllTournaments()
     ]);
   };
 
@@ -325,7 +404,6 @@ const AppWithAcademia: React.FC = () => {
             <Route path="/academia-settings" element={<AcademiaSettingsPage />} />
             <Route path="/player/:playerId" element={
               <PlayerProfilePage 
-                // ✅ YA NO necesita props de tournaments
                 onDataChange={handleDataChange}
               />
             } />
@@ -333,9 +411,7 @@ const AppWithAcademia: React.FC = () => {
               <StartTrainingPage />
             } />
             <Route path="/training/:playerId" element={
-              <TrainingSessionPage 
-                // ✅ YA NO necesita allTournaments
-              />
+              <TrainingSessionPage />
             } />
             <Route path="/session/:sessionId" element={
               <SessionDetailPage/>
@@ -375,17 +451,24 @@ const AppWithAcademia: React.FC = () => {
         />
       )}
 
-      {/* ✅ MODAL DE CONFIGURACIÓN AVANZADA */}
+      {/* ✅ MODAL DE CONFIGURACIÓN AVANZADA - ARREGLADO CON PROPS DE RECOMENDACIONES */}
       {academiaActual && (
         <AdvancedConfigModal
           isOpen={isAdvancedModalOpen}
           onClose={closeAdvancedModal}
+          // Props para surveys
           surveyConfig={surveyConfig}
           loadingSurveyConfig={loadingSurveyConfig}
           savingSurveyConfig={savingSurveyConfig}
           onToggleSurveys={handleToggleSurveys}
           onSurveyConfigChange={handleSurveyConfigChange}
           onSaveSurveyConfig={handleSaveSurveyConfig}
+          // ✅ NUEVAS PROPS PARA RECOMENDACIONES - ANTES FALTABAN
+          recommendationsConfig={recommendationsConfig}
+          loadingRecommendationsConfig={loadingRecommendationsConfig}
+          savingRecommendationsConfig={savingRecommendationsConfig}
+          onRecommendationsConfigChange={handleRecommendationsConfigChange}
+          onSaveRecommendationsConfig={handleSaveRecommendationsConfig}
         />
       )}
 
