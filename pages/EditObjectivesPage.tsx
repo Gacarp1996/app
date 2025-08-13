@@ -1,18 +1,16 @@
-// EditObjectivesPage.tsx - MIGRADO a ObjectiveContext
+// EditObjectivesPage.tsx - MEJORADO CON CAMPO DE EXPLICACIÓN
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Player, ObjectiveEstado } from '../types/types';
 import { MAX_ACTIVE_OBJECTIVES, OBJECTIVE_ESTADOS } from '../constants/index';
 import { usePlayer } from '../contexts/PlayerContext';
-import { useObjective } from '../contexts/ObjectiveContext'; // ✅ NUEVO IMPORT
+import { useObjective } from '../contexts/ObjectiveContext';
 
-// ✅ SIMPLIFICADO: Ya no necesita props
 const EditObjectivesPage: React.FC = () => {
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
   const { players } = usePlayer();
   
-  // ✅ USAR ObjectiveContext
   const {
     objectives,
     loadingObjectives,
@@ -28,6 +26,8 @@ const EditObjectivesPage: React.FC = () => {
 
   const [player, setPlayer] = useState<Player | null>(null);
   const [newObjectiveText, setNewObjectiveText] = useState('');
+  // ✅ NUEVO: Estado para la explicación
+  const [newObjectiveBody, setNewObjectiveBody] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,7 +39,6 @@ const EditObjectivesPage: React.FC = () => {
     }
   }, [playerId, players, navigate]);
 
-  // ✅ USAR funciones del contexto
   const playerObjectives = playerId ? getObjectivesByPlayer(playerId) : [];
   const objectivesByEstado = (estado: ObjectiveEstado) => 
     playerId ? getObjectivesByState(playerId, estado) : [];
@@ -50,21 +49,23 @@ const EditObjectivesPage: React.FC = () => {
     setError(null);
     
     if (!newObjectiveText.trim()) {
-      setError('El texto del objetivo no puede estar vacío.');
+      setError('El título del objetivo no puede estar vacío.');
       return;
     }
     
     if (!playerId) return;
     
-    // ✅ El contexto ya valida el límite
     try {
       await addObjective({
         jugadorId: playerId,
         textoObjetivo: newObjectiveText.trim(),
         estado: 'actual-progreso',
-        cuerpoObjetivo: ''
+        // ✅ MEJORADO: Usar la explicación del formulario
+        cuerpoObjetivo: newObjectiveBody.trim()
       });
+      // ✅ LIMPIAR AMBOS CAMPOS
       setNewObjectiveText('');
+      setNewObjectiveBody('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al agregar objetivo');
     }
@@ -131,13 +132,24 @@ const EditObjectivesPage: React.FC = () => {
               <li key={obj.id} className={`group bg-gradient-to-br ${colors.bg} p-[1px] rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl`}>
                 <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-4 lg:p-6">
                   <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
-                    <Link 
-                      to={`/objective/${obj.id}/edit`} 
-                      className="flex-grow text-white hover:text-green-400 transition-colors duration-200 text-base lg:text-lg"
-                      title="Editar detalles del objetivo"
-                    >
-                      {obj.textoObjetivo}
-                    </Link>
+                    <div className="flex-grow">
+                      <Link 
+                        to={`/objective/${obj.id}/edit`} 
+                        className="block text-white hover:text-green-400 transition-colors duration-200 text-base lg:text-lg font-medium mb-2"
+                        title="Editar detalles del objetivo"
+                      >
+                        {obj.textoObjetivo}
+                      </Link>
+                      {/* ✅ MOSTRAR EXPLICACIÓN SI EXISTE */}
+                      {obj.cuerpoObjetivo && (
+                        <p className="text-gray-400 text-sm lg:text-base leading-relaxed">
+                          {obj.cuerpoObjetivo.length > 150 
+                            ? `${obj.cuerpoObjetivo.substring(0, 150)}...` 
+                            : obj.cuerpoObjetivo
+                          }
+                        </p>
+                      )}
+                    </div>
                     <div className="flex gap-2 w-full lg:w-auto">
                       <button 
                         onClick={() => navigate(`/objective/${obj.id}/edit`)} 
@@ -226,29 +238,51 @@ const EditObjectivesPage: React.FC = () => {
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
           {/* Columna principal */}
           <div className="lg:col-span-8">
-            {/* Formulario para añadir objetivo */}
+            {/* ✅ FORMULARIO MEJORADO CON EXPLICACIÓN */}
             <form onSubmit={handleAddNewObjective} className="mb-8 lg:mb-10">
               <div className="bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-xl shadow-2xl shadow-green-500/10">
-                <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-6 lg:p-8 space-y-4">
-                  <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
-                    Añadir Nuevo Objetivo
-                  </h2>
-                  <p className="text-sm lg:text-base text-gray-400">
-                    El objetivo se agregará automáticamente a "Actual/En Progreso"
-                  </p>
-                  
+                <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-6 lg:p-8 space-y-6">
                   <div>
-                    <label htmlFor="objectiveText" className="block text-sm lg:text-base font-medium text-gray-400 mb-2">
-                      Título del Nuevo Objetivo
+                    <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+                      Añadir Nuevo Objetivo
+                    </h2>
+                    <p className="text-sm lg:text-base text-gray-400">
+                      El objetivo se agregará automáticamente a "Actual/En Progreso"
+                    </p>
+                  </div>
+                  
+                  {/* ✅ CAMPO DE TÍTULO (OBLIGATORIO) */}
+                  <div>
+                    <label htmlFor="objectiveText" className="block text-sm lg:text-base font-medium text-gray-300 mb-2">
+                      Título del Objetivo <span className="text-red-400">*</span>
                     </label>
                     <textarea
                       id="objectiveText"
                       value={newObjectiveText}
                       onChange={e => setNewObjectiveText(e.target.value)}
-                      rows={3}
+                      rows={2}
                       className="w-full p-3 lg:p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 resize-none"
-                      placeholder="Ej: Mejorar primer saque (este es solo el título, edita detalles luego)"
+                      placeholder="Ej: Mejorar primer saque al 75% de efectividad"
+                      required
                     />
+                  </div>
+
+                  {/* ✅ NUEVO: CAMPO DE EXPLICACIÓN (OPCIONAL) */}
+                  <div>
+                    <label htmlFor="objectiveBody" className="block text-sm lg:text-base font-medium text-gray-300 mb-2">
+                      Explicación y Detalles <span className="text-gray-500">(opcional)</span>
+                    </label>
+                    <textarea
+                      id="objectiveBody"
+                      value={newObjectiveBody}
+                      onChange={e => setNewObjectiveBody(e.target.value)}
+                      rows={4}
+                      className="w-full p-3 lg:p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 resize-y"
+                      placeholder="Describe cómo trabajar este objetivo, métricas específicas, ejercicios recomendados, etc. Este campo es opcional pero ayuda a tener más contexto."
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Puedes agregar detalles como ejercicios específicos, métricas de progreso, o notas importantes.
+                    </p>
                   </div>
                   
                   <button 

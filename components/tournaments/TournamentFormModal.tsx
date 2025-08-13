@@ -64,34 +64,39 @@ const TournamentFormModal: React.FC<TournamentFormModalProps> = ({
  };
 
  const getImportanceColor = (level: TournamentImportance) => {
-   // Usamos indexOf para determinar el nivel de importancia
    const index = TOURNAMENT_IMPORTANCE_LEVELS.indexOf(level);
    switch (index) {
-     case 0: // Primer nivel (menos importante)
-       return 'text-gray-500';
-     case 1: // Segundo nivel
-       return 'text-blue-400';
-     case 2: // Tercer nivel (medio)
-       return 'text-yellow-400';
-     case 3: // Cuarto nivel
-       return 'text-orange-400';
-     case 4: // Quinto nivel (más importante)
+     case 0: // Muy importante
        return 'text-red-400';
+     case 1: // Importante
+       return 'text-orange-400';
+     case 2: // Importancia media
+       return 'text-yellow-400';
+     case 3: // Poco importante
+       return 'text-blue-400';
+     case 4: // Nada importante
+       return 'text-gray-500';
      default:
        return 'text-gray-400';
    }
  };
 
  const getImportanceDescription = (level: TournamentImportance) => {
-   const index = TOURNAMENT_IMPORTANCE_LEVELS.indexOf(level);
-   const descriptions = [
-     '🎯 Torneo de práctica o amistoso',
-     '🏃 Torneo de preparación para eventos importantes',
-     '⭐ Torneo con puntos o ranking regional',
-     '🏆 Torneo nacional o con clasificación importante',
-     '🔥 Torneo crucial para los objetivos del año'
-   ];
-   return descriptions[index] || '';
+   // ✅ CORREGIDO: Descripciones en el orden correcto
+   switch (level) {
+     case 'Muy importante':
+       return '🔥 Torneo crucial para los objetivos del año';
+     case 'Importante':
+       return '🏆 Torneo nacional o con clasificación importante';
+     case 'Importancia media':
+       return '⭐ Torneo con puntos o ranking regional';
+     case 'Poco importante':
+       return '🏃 Torneo de preparación para eventos importantes';
+     case 'Nada importante':
+       return '🎯 Torneo de práctica o amistoso';
+     default:
+       return '';
+   }
  };
 
  return (

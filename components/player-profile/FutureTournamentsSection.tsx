@@ -41,7 +41,6 @@ const FutureTournamentsSection: React.FC<FutureTournamentsSectionProps> = ({
                 <div className="flex flex-col lg:flex-row justify-between gap-4">
                   <div className="flex-1">
                     <h3 className="font-semibold text-xl lg:text-2xl text-white">{t.nombreTorneo}</h3>
-                    <p className="text-sm lg:text-base text-gray-400 mt-1">{t.gradoImportancia}</p>
                     <p className="text-sm lg:text-base text-gray-300 mt-1">
                       {formatDate(t.fechaInicio)} - {formatDate(t.fechaFin)}
                     </p>
