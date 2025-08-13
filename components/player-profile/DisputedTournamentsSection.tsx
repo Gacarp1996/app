@@ -37,64 +37,100 @@ const DisputedTournamentsSection: React.FC<DisputedTournamentsSectionProps> = ({
           </p>
         ) : (
           <>
-            {/* Lista de torneos disputados - Grid en desktop */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-8">
-              {playerDisputedTournaments.map(t => (
-                <div key={t.id} className="bg-gray-800/50 p-4 lg:p-6 rounded-lg border border-gray-700 hover:border-green-500/50 transition-all duration-200">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg lg:text-xl text-white">{t.nombreTorneo}</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-sm lg:text-base">
-                        <p>
-                          <span className="text-gray-400">Fecha:</span>{' '}
-                          {formatDate(t.fechaInicio)} - {formatDate(t.fechaFin)}
-                        </p>
-                        <p>
-                          <span className="text-gray-400">Resultado:</span>{' '}
-                          <span className="font-medium text-green-400">{t.resultado}</span>
-                        </p>
-                        <p>
-                          <span className="text-gray-400">Rendimiento:</span>{' '}
-                          <span className={`font-medium ${
-                            t.rendimientoJugador === 'Excelente' ? 'text-green-500' :
-                            t.rendimientoJugador === 'Muy bueno' ? 'text-blue-500' :
-                            t.rendimientoJugador === 'Bueno' ? 'text-yellow-500' :
-                            'text-red-500'
-                          }`}>
+            {/* Lista de torneos disputados - Diseño mejorado */}
+            <div className="space-y-4 mb-8">
+              {playerDisputedTournaments.map(t => {
+                // Función para obtener el icono según el resultado
+                const getResultIcon = (resultado: string) => {
+                  if (resultado === 'Campeón') return '🏆';
+                  if (resultado === 'Finalista') return '🥈';
+                  if (resultado === 'Semifinal') return '🥉';
+                  if (resultado.includes('Cuartos')) return '⭐';
+                  if (resultado.includes('Octavos')) return '✨';
+                  return '🎾';
+                };
+
+                // Función para obtener el color del rendimiento
+                const getRendimientoColor = (rendimiento: string) => {
+                  switch (rendimiento) {
+                    case 'Excelente': return 'text-emerald-400 bg-emerald-500/10';
+                    case 'Muy bueno': return 'text-blue-400 bg-blue-500/10';
+                    case 'Bueno': return 'text-yellow-400 bg-yellow-500/10';
+                    case 'Malo': return 'text-orange-400 bg-orange-500/10';
+                    case 'Muy malo': return 'text-red-400 bg-red-500/10';
+                    default: return 'text-gray-400 bg-gray-500/10';
+                  }
+                };
+
+                return (
+                  <div key={t.id} className="group bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden hover:border-green-500/30 hover:shadow-lg hover:shadow-green-500/10 transition-all duration-300">
+                    {/* Header con título y acciones */}
+                    <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-700/30">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{getResultIcon(t.resultado)}</span>
+                        <div>
+                          <h3 className="font-semibold text-lg lg:text-xl text-white group-hover:text-green-400 transition-colors">
+                            {t.nombreTorneo}
+                          </h3>
+                          <p className="text-sm text-gray-400">
+                            {formatDate(t.fechaInicio)} - {formatDate(t.fechaFin)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => onEditClick(t)}
+                          className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          title="Editar torneo"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => onDeleteClick(t.id)}
+                          className="p-2 rounded-lg bg-red-900/30 hover:bg-red-800/40 text-red-400 hover:text-red-300 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          title="Eliminar torneo"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Contenido principal */}
+                    <div className="p-4 lg:p-6">
+                      <div className="flex flex-wrap items-center gap-4">
+                        {/* Resultado */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Resultado</span>
+                          <span className="px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-sm font-medium">
+                            {t.resultado}
+                          </span>
+                        </div>
+
+                        {/* Rendimiento */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Rendimiento</span>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRendimientoColor(t.rendimientoJugador)}`}>
                             {t.rendimientoJugador}
                           </span>
-                        </p>
-                        <p>
-                          <span className="text-gray-400">Dificultad:</span>{' '}
-                          <span className="font-medium">
-                            {'⭐'.repeat(t.nivelDificultad)}
-                            <span className="text-gray-400 ml-1">({t.nivelDificultad}/5)</span>
-                          </span>
-                        </p>
+                        </div>
                       </div>
+
+                      {/* Observaciones */}
                       {t.observaciones && (
-                        <p className="mt-3 text-sm lg:text-base text-gray-500 italic">
-                          "{t.observaciones}"
-                        </p>
+                        <div className="mt-4 p-3 bg-gray-800/30 rounded-lg border border-gray-700/30">
+                          <p className="text-sm text-gray-300 italic">
+                            "{t.observaciones}"
+                          </p>
+                        </div>
                       )}
                     </div>
-                    <div className="flex flex-col space-y-2 ml-4">
-                      <button
-                        onClick={() => onEditClick(t)}
-                        className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all duration-200 border border-gray-700 hover:border-green-500/50 text-sm"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => onDeleteClick(t.id)}
-                        className="px-4 py-2 bg-red-900/50 hover:bg-red-800/50 text-red-400 font-semibold rounded-lg transition-all duration-200 border border-red-800 hover:border-red-600 text-sm"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Gráficos de rendimiento */}

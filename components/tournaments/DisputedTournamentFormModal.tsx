@@ -16,7 +16,6 @@ const RENDIMIENTO_OPTIONS: RendimientoJugador[] = [
   'Muy malo', 'Malo', 'Bueno', 'Muy bueno', 'Excelente'
 ];
 
-// Nuevas opciones de resultado con orden lógico
 const RESULTADO_OPTIONS = [
   'Primera ronda de clasificación',
   'Segunda ronda de clasificación',
@@ -41,7 +40,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   const [resultado, setResultado] = useState('');
-  const [nivelDificultad, setNivelDificultad] = useState(3);
   const [rendimientoJugador, setRendimientoJugador] = useState<RendimientoJugador>('Bueno');
   const [observaciones, setObservaciones] = useState('');
   const [error, setError] = useState<string>('');
@@ -52,7 +50,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
       setFechaInicio(isoToLocalDate(existingDisputedTournament.fechaInicio));
       setFechaFin(isoToLocalDate(existingDisputedTournament.fechaFin));
       setResultado(existingDisputedTournament.resultado);
-      setNivelDificultad(existingDisputedTournament.nivelDificultad);
       setRendimientoJugador(existingDisputedTournament.rendimientoJugador);
       setObservaciones(existingDisputedTournament.observaciones || '');
     } else if (futureTournamentToConvert) {
@@ -60,7 +57,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
       setFechaInicio(isoToLocalDate(futureTournamentToConvert.fechaInicio));
       setFechaFin(isoToLocalDate(futureTournamentToConvert.fechaFin));
       setResultado('');
-      setNivelDificultad(3);
       setRendimientoJugador('Bueno');
       setObservaciones('');
     } else {
@@ -74,7 +70,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
     setFechaInicio('');
     setFechaFin('');
     setResultado('');
-    setNivelDificultad(3);
     setRendimientoJugador('Bueno');
     setObservaciones('');
   };
@@ -98,9 +93,7 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
       fechaInicio: dateToISOString(fechaInicio),
       fechaFin: dateToISOString(fechaFin),
       resultado: resultado,
-      nivelDificultad,
       rendimientoJugador,
-      // Conformidad general eliminada
       ...(observaciones.trim() && { observaciones: observaciones.trim() }),
       ...(futureTournamentToConvert?.id && { torneoFuturoId: futureTournamentToConvert.id })
     };
@@ -115,7 +108,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
     return 'Agregar Torneo Disputado';
   };
 
-  // Función para obtener el emoji según el resultado
   const getResultEmoji = (result: string) => {
     if (result === 'Campeón') return '🏆';
     if (result === 'Finalista') return '🥈';
@@ -129,7 +121,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={getTitle()}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Información básica del torneo */}
         <div className="space-y-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
           <h4 className="font-semibold text-green-400">Información del Torneo</h4>
           
@@ -180,7 +171,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
           </div>
         </div>
 
-        {/* Resultado del torneo */}
         <div className="space-y-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
           <h4 className="font-semibold text-green-400">Resultado y Evaluación</h4>
           
@@ -202,25 +192,6 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-3">
-              Nivel de Dificultad del Torneo
-            </label>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-500">Muy fácil</span>
-              <input
-                type="range"
-                min="1"
-                max="5"
-                value={nivelDificultad}
-                onChange={(e) => setNivelDificultad(Number(e.target.value))}
-                className="flex-1 accent-green-500"
-              />
-              <span className="text-sm text-gray-500">Muy difícil</span>
-              <span className="ml-2 font-bold text-green-400 bg-gray-800 px-3 py-1 rounded-full">{nivelDificultad}</span>
-            </div>
           </div>
 
           <div>

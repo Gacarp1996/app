@@ -117,7 +117,6 @@ export interface DisputedTournament {
   fechaInicio: string;
   fechaFin: string;
   resultado: string;
-  nivelDificultad: number; // 1-5
   rendimientoJugador: RendimientoJugador;
   observaciones?: string;
   fechaRegistro?: string;
