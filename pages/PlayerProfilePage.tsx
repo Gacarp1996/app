@@ -1,6 +1,6 @@
-// pages/PlayerProfilePage.tsx - ACTUALIZADO CON VALIDACIONES ESTRICTAS
-import React, { useState, useMemo, Suspense } from 'react';
-import { useParams, Link } from 'react-router-dom';
+// pages/PlayerProfilePage.tsx - ACTUALIZADO CON VALIDACIONES ESTRICTAS Y AUTO-SELECCIÓN DE TAB
+import React, { useState, useMemo, Suspense, useEffect } from 'react';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useSession } from '../contexts/SessionContext';
@@ -68,6 +68,7 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
   onDataChange
 }) => {
   const { playerId } = useParams<{ playerId: string }>();
+  const [searchParams] = useSearchParams(); // ✅ NUEVO: Para leer parámetros URL
   const { players } = usePlayer();
   const { academiaActual } = useAcademia();
   const academiaId = academiaActual?.id || '';
@@ -89,6 +90,17 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
   const [activeTab, setActiveTab] = useState<Tab>("perfil");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isPlanningAnalysisOpen, setIsPlanningAnalysisOpen] = useState(false);
+
+  // ✅ NUEVO: Efecto para establecer tab automáticamente desde URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl) {
+      const validTabs: Tab[] = ["perfil", "trainings", "objectives", "tournaments", "planificacion"];
+      if (validTabs.includes(tabFromUrl as Tab)) {
+        setActiveTab(tabFromUrl as Tab);
+      }
+    }
+  }, [searchParams]);
 
   // Hook básico del jugador (siempre cargado)
   const { 
@@ -174,13 +186,74 @@ const PlayerProfilePage: React.FC<PlayerProfilePageProps> = ({
       
       <div className="relative z-10 max-w-5xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
         
-        {/* Modal de eliminación */}
-        <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmar Eliminación">
-          <p>¿Eliminar a <strong>{player.name}</strong>?</p>
-          <p className="text-sm text-gray-400 mt-2">Esta acción no se puede deshacer.</p>
-          <div className="flex justify-end space-x-3 mt-4">
-            <button onClick={() => setIsDeleteModalOpen(false)} className="app-button btn-secondary">Cancelar</button>
-            <button onClick={confirmDeletePlayer} className="app-button btn-danger">Sí, Eliminar</button>
+        {/* Modal de eliminación mejorado */}
+        <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="">
+          <div className="p-6">
+            {/* Header con icono de advertencia */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-shrink-0 w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-red-400 mb-1">Eliminar Jugador</h3>
+                <p className="text-gray-400 text-sm">Esta acción es permanente</p>
+              </div>
+            </div>
+
+            {/* Contenido principal */}
+            <div className="mb-6">
+              <p className="text-gray-300 text-lg mb-3">
+                ¿Estás seguro de que quieres eliminar a{' '}
+                <span className="text-white font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+                  {player.name}
+                </span>
+                ?
+              </p>
+              
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" />
+                  </svg>
+                  <div className="text-sm">
+                    <p className="text-red-300 font-medium mb-1">Esta acción eliminará:</p>
+                    <ul className="text-red-200 space-y-1">
+                      <li>• Todos los datos del perfil del jugador</li>
+                      <li>• Historial de entrenamientos y sesiones</li>
+                      <li>• Objetivos y planificaciones</li>
+                      <li>• Datos de torneos y competencias</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-gray-400 text-sm">
+                <strong>Nota:</strong> Esta acción no se puede deshacer. Considera archivar al jugador en lugar de eliminarlo.
+              </p>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all duration-200 border border-gray-600 hover:border-gray-500"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeletePlayer}
+                className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-red-500/25 border border-red-500/50"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Sí, Eliminar Definitivamente
+                </div>
+              </button>
+            </div>
           </div>
         </Modal>
         

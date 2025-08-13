@@ -357,16 +357,42 @@ const EditObjectivesPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer con enlace de retorno */}
-        <div className="mt-8 lg:mt-12 text-center">
+        {/* Botón flotante para navegación - Siempre visible */}
+        <div className="fixed bottom-6 right-6 z-40">
           <Link 
-            to={`/player/${player.id}`} 
+            to={`/player/${player.id}?tab=objectives`}
+            className="inline-flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black font-bold rounded-full shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-105 active:scale-95"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            <span className="hidden sm:inline">Volver a Objetivos</span>
+            <span className="sm:hidden">Volver</span>
+          </Link>
+        </div>
+
+        {/* Footer con enlaces de retorno adicionales */}
+        <div className="mt-8 lg:mt-12 flex flex-col sm:flex-row items-center justify-center gap-4 text-center">
+          <Link 
+            to={`/player/${player.id}?tab=objectives`} 
             className="inline-flex items-center gap-2 text-gray-400 hover:text-green-400 transition-colors duration-200 font-medium text-lg group"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 group-hover:-translate-x-1 transition-transform duration-200">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
-            <span>Volver al Perfil de {player.name}</span>
+            <span>Volver a Objetivos de {player.name}</span>
+          </Link>
+          
+          <span className="hidden sm:block text-gray-600">|</span>
+          
+          <Link 
+            to={`/player/${player.id}`} 
+            className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-400 transition-colors duration-200 font-medium text-base group"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+            <span>Ver Perfil</span>
           </Link>
         </div>
       </div>
