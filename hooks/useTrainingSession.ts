@@ -14,6 +14,7 @@ import { useSessionParticipants } from './useSessionParticipants';
 import { useSessionSurveys } from './useSessionSurveys';
 import { useSessionSave } from './useSessionSave';
 import { useSessionPersistence } from './useSessionPersistence';
+import { useNotification } from './useNotification'; // ✅ NUEVO IMPORT
 
 interface UseTrainingSessionProps {
   allTournaments: Tournament[];
@@ -27,6 +28,7 @@ export const useTrainingSession = ({
   originalSession
 }: UseTrainingSessionProps) => {
   const navigate = useNavigate();
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
   const { players: allPlayers, refreshPlayers } = usePlayer();
@@ -50,24 +52,18 @@ export const useTrainingSession = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isEditMode] = useState(!!editSessionId);
   
-  // ✅ Ref para controlar si ya se cargó la sesión en modo edición
   const editSessionLoadedRef = useRef(false);
   
-  // ✅ NUEVO: Estado para la fecha de la sesión (editable por el usuario)
   const [sessionDate, setSessionDate] = useState<string>(() => {
-    // En modo edición, usar la fecha original
     if (isEditMode && originalSession) {
       const originalDate = new Date(originalSession.fecha);
-      return originalDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
+      return originalDate.toLocaleDateString('en-CA');
     }
-    // Por defecto, usar fecha de hoy en hora local
     return new Date().toLocaleDateString('en-CA');
   });
 
-  // Hook de persistencia en localStorage
   const localStorage = useSessionPersistence(academiaId);
 
-  // Hook de guardado en Firebase - ✅ ACTUALIZADO para pasar sessionDate
   const {
     observaciones,
     specificExercises,
@@ -82,16 +78,14 @@ export const useTrainingSession = ({
     currentUser,
     originalSession,
     isEditMode,
-    sessionDate  // ✅ NUEVO: Pasar sessionDate
+    sessionDate
   });
 
-  // Hook de formulario
   const exerciseForm = useExerciseForm({
     specificExercises,
     setSpecificExercises
   });
 
-  // Hook de participantes
   const participantsManager = useSessionParticipants({
     participants,
     setParticipants,
@@ -99,7 +93,6 @@ export const useTrainingSession = ({
     isEditMode
   });
 
-  // Hook de encuestas
   const surveysManager = useSessionSurveys({
     academiaId,
     currentUser,
@@ -118,14 +111,12 @@ export const useTrainingSession = ({
     }
   });
 
-  // Guardar en localStorage cuando cambien exercises o participants
   useEffect(() => {
     if (participants.length > 0 || exercises.length > 0) {
       localStorage.saveSession(participants, exercises);
     }
   }, [participants, exercises, localStorage]);
 
-  // Cargar sesión inicial
   useEffect(() => {
     if (participants.length === 0 && !isEditMode) {
       const loaded = loadSession();
@@ -139,13 +130,7 @@ export const useTrainingSession = ({
     }
   }, [participants.length, loadSession, navigate, isEditMode]);
 
-  // ✅ Cargar datos de sesión en modo edición - MEJORADO
   useEffect(() => {
-    // Solo ejecutar si:
-    // 1. Estamos en modo edición
-    // 2. Hay una sesión original con ejercicios
-    // 3. No se ha cargado previamente
-    // 4. Tenemos la lista de jugadores disponible
     if (
       isEditMode && 
       originalSession && 
@@ -163,10 +148,7 @@ export const useTrainingSession = ({
           player.name
         );
         
-        // Usar loadSessionForEdit que reemplaza todo de una vez
         loadSessionForEdit([player], exercisesForContext);
-        
-        // Marcar como cargado para evitar re-ejecuciones
         editSessionLoadedRef.current = true;
         
         console.log('✅ Sesión cargada para edición con', exercisesForContext.length, 'ejercicios');
@@ -174,21 +156,21 @@ export const useTrainingSession = ({
     }
   }, [isEditMode, originalSession?.id, allPlayers, loadSessionForEdit]);
 
-  // ✅ Reset del ref cuando cambie la sesión original
   useEffect(() => {
     if (originalSession?.id) {
       editSessionLoadedRef.current = false;
     }
   }, [originalSession?.id]);
 
-  // Handler para agregar ejercicio
+  // ✅ MIGRADO: Handler para agregar ejercicio
   const handleAddExerciseToSession = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
     const validation = exerciseForm.validateForm(participantsManager.activePlayerIds);
     
     if (!validation.isValid) {
-      alert(validation.error);
+      // MIGRADO: alert → notification.error
+      notification.error(validation.error || 'Error en el formulario');
       return;
     }
     
@@ -209,14 +191,12 @@ export const useTrainingSession = ({
     });
     
     exerciseForm.resetForm();
-  }, [exerciseForm, participantsManager.activePlayerIds, participants, addExercise]);
+  }, [exerciseForm, participantsManager.activePlayerIds, participants, addExercise, notification]);
 
-  // Handler modificado para encuestas
   const handleSurveySubmit = useCallback(async (playerId: string, responses: any) => {
     await surveysManager.handleSurveySubmit(playerId, responses, addSessionToContext);
   }, [surveysManager, addSessionToContext]);
 
-  // Handler para finalizar entrenamiento - ✅ ACTUALIZADO
   const handleFinishTraining = useCallback(async () => {
     await handleFinishTrainingBase(
       exercises,
@@ -228,10 +208,9 @@ export const useTrainingSession = ({
       refreshSessionsInContext,
       refreshPlayers,
       surveysManager.askForSurveys ? surveysManager.startSurveyProcess : undefined,
-      sessionDate  // ✅ NUEVO: Pasar sessionDate
+      sessionDate
     );
     
-    // Limpiar localStorage después de guardar
     localStorage.clearSession();
   }, [
     handleFinishTrainingBase,
@@ -246,10 +225,9 @@ export const useTrainingSession = ({
     surveysManager.askForSurveys,
     surveysManager.startSurveyProcess,
     localStorage,
-    sessionDate  // ✅ NUEVO: Agregar a dependencias
+    sessionDate
   ]);
 
-  // Handler para declinar encuestas
   const handleDeclineSurveys = useCallback(async () => {
     surveysManager.handleDeclineSurveys();
     await saveSessionsDirectly(
@@ -272,7 +250,6 @@ export const useTrainingSession = ({
   ]);
 
   return {
-    // Estados básicos
     isLoading,
     isEditMode,
     originalSession,
@@ -280,16 +257,12 @@ export const useTrainingSession = ({
     exercises,
     observaciones,
     setObservaciones,
-    sessionDate,        // ✅ NUEVO
-    setSessionDate,     // ✅ NUEVO
+    sessionDate,
+    setSessionDate,
     
-    // Desde participantsManager
     ...participantsManager,
-    
-    // Desde exerciseForm
     ...exerciseForm,
     
-    // Desde surveysManager (selectivo)
     isSurveyModalOpen: surveysManager.isSurveyModalOpen,
     currentSurveyPlayerIndex: surveysManager.currentSurveyPlayerIndex,
     pendingSurveyPlayers: surveysManager.pendingSurveyPlayers,
@@ -303,13 +276,11 @@ export const useTrainingSession = ({
     handleConfirmExitSurveys: surveysManager.handleConfirmExitSurveys,
     handleCancelExitSurveys: surveysManager.handleCancelExitSurveys,
     
-    // Handlers principales
     handleAddExerciseToSession,
     handleFinishTraining,
     handleSurveySubmit,
     handleDeclineSurveys,
     
-    // Props para componentes
     allPlayers,
     allTournaments,
   };

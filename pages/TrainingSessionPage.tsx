@@ -4,7 +4,8 @@ import { useTrainingSession } from '../hooks/useTrainingSession';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useSession } from '../contexts/SessionContext';
-import { useTournament } from '../contexts/TournamentContext'; // ✅ NUEVO IMPORT
+import { useTournament } from '../contexts/TournamentContext';
+import { useNotification } from '../hooks/useNotification'; // ✅ NUEVO IMPORT
 import PostTrainingSurveyModal from '../components/training/PostTrainingSurveyModal';
 import SurveyConfirmationModal from '../components/training/SurveyConfirmationModal';
 import SurveyExitConfirmModal from '../components/training/SurveyExitConfirmModal';
@@ -29,6 +30,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
   const { players: allPlayers } = usePlayer();
   const { academiaActual } = useAcademia();
   const academiaId = academiaActual?.id || '';
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
   
   // ✅ USAR SessionContext para obtener sesiones
   const { getSessionById } = useSession();
@@ -126,12 +128,18 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
     setHasUnsavedChanges(exercises.length > 0 || observaciones.trim().length > 0);
   }, [exercises, observaciones]);
 
-  // Función para manejar navegación hacia atrás
-  const handleGoBack = () => {
+  // ✅ FUNCIÓN MIGRADA CON SONNER - Manejar navegación hacia atrás
+  const handleGoBack = async () => {
     if (hasUnsavedChanges) {
-      const confirmExit = window.confirm(
-        '¿Estás seguro de que quieres salir? Se perderán todos los cambios no guardados.'
-      );
+      // MIGRADO: window.confirm → notification.confirm
+      const confirmExit = await notification.confirm({
+        title: 'Cambios sin guardar',
+        message: '¿Estás seguro de que quieres salir? Se perderán todos los cambios no guardados.',
+        type: 'warning',
+        confirmText: 'Sí, salir sin guardar',
+        cancelText: 'Continuar editando'
+      });
+      
       if (!confirmExit) return;
     }
 

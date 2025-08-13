@@ -1,4 +1,4 @@
-// AppWithAcademia.tsx - ARREGLADO CON CONFIGURACIÓN DE RECOMENDACIONES
+// AppWithAcademia.tsx - MIGRADO CON SONNER NOTIFICATIONS
 
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { usePlayer } from '../../contexts/PlayerContext';
 import { useSession } from '../../contexts/SessionContext';
 import { useObjective } from '../../contexts/ObjectiveContext';
 import { useTournament } from '../../contexts/TournamentContext';
+import { useNotification } from '../../hooks/useNotification'; // ✅ NUEVO IMPORT
 import GlobalHeader from './GlobalHeader';
 
 import PlayersListPage from '../../pages/PlayersListPage';
@@ -31,7 +32,7 @@ import {
   AcademiaConfig, 
   getAcademiaConfig, 
   saveAcademiaConfig,
-  updateRecommendationsAnalysisWindow // ✅ NUEVO IMPORT
+  updateRecommendationsAnalysisWindow
 } from '../../Database/FirebaseAcademiaConfig';
 import { 
   useAcademiaSettings, 
@@ -49,6 +50,7 @@ const AppWithAcademia: React.FC = () => {
   const { academiaActual } = useAcademia();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
   
   // ✅ USAR PlayerContext
   const { players, loadingPlayers, refreshPlayers } = usePlayer();
@@ -198,7 +200,7 @@ const AppWithAcademia: React.FC = () => {
     }
   };
 
-  // ✅ HANDLERS PARA EL MODAL DE CONFIGURACIÓN
+  // ✅ HANDLERS PARA EL MODAL DE CONFIGURACIÓN - MIGRADO CON SONNER
   const handleRemoveUser = async (userId: string) => {
     if (!academiaActual || !currentUser) return;
     
@@ -211,23 +213,38 @@ const AppWithAcademia: React.FC = () => {
     if (isAcademia && userToRemove.role === 'academyDirector') {
       const directorCount = await countDirectors(academiaActual.id);
       if (directorCount <= 1) {
-        alert(`No puedes eliminar al último director de la ${entityTypeText}.`);
+        // MIGRADO: alert → notification.error
+        notification.error(
+          `No puedes eliminar al último director de la ${entityTypeText}`,
+          'Debe haber al menos un director'
+        );
         return;
       }
     }
     
-    if (window.confirm(`¿Estás seguro de eliminar a ${userToRemove.userEmail} del ${entityTypeText}?`)) {
-      setProcessingAction(userId);
-      try {
-        await removeUserFromAcademia(academiaActual.id, userId);
-        await loadUsers();
-        alert('Usuario eliminado exitosamente');
-      } catch (error) {
-        console.error('Error eliminando usuario:', error);
-        alert('Error al eliminar el usuario');
-      } finally {
-        setProcessingAction(false);
-      }
+    // MIGRADO: window.confirm → notification.confirm
+    const confirmed = await notification.confirm({
+      title: 'Eliminar Usuario',
+      message: `¿Estás seguro de eliminar a ${userToRemove.userEmail} del ${entityTypeText}?`,
+      type: 'danger',
+      confirmText: 'Sí, eliminar',
+      cancelText: 'Cancelar'
+    });
+
+    if (!confirmed) return;
+
+    setProcessingAction(userId);
+    try {
+      await removeUserFromAcademia(academiaActual.id, userId);
+      await loadUsers();
+      // MIGRADO: alert → notification.success
+      notification.success('Usuario eliminado exitosamente');
+    } catch (error) {
+      console.error('Error eliminando usuario:', error);
+      // MIGRADO: alert → notification.error
+      notification.error('Error al eliminar el usuario');
+    } finally {
+      setProcessingAction(false);
     }
   };
 
@@ -235,16 +252,19 @@ const AppWithAcademia: React.FC = () => {
     if (!academiaActual) return;
     
     setProcessingAction(userId);
-    try {
-      await updateUserRole(academiaActual.id, userId, newRole);
-      await loadUsers();
-      alert('Rol actualizado exitosamente');
-    } catch (error) {
-      console.error('Error actualizando rol:', error);
-      alert('Error al actualizar el rol');
-    } finally {
-      setProcessingAction(false);
-    }
+    
+    // MIGRADO: Usar promise toast
+    await notification.promise(
+      updateUserRole(academiaActual.id, userId, newRole),
+      {
+        loading: 'Actualizando rol...',
+        success: 'Rol actualizado exitosamente',
+        error: 'Error al actualizar el rol'
+      }
+    );
+    
+    await loadUsers();
+    setProcessingAction(false);
   };
 
   const handleChangeAcademia = () => {
@@ -258,7 +278,7 @@ const AppWithAcademia: React.FC = () => {
     openAdvancedModal();
   };
 
-  // ✅ NUEVO: HANDLERS PARA CONFIGURACIÓN DE RECOMENDACIONES
+  // ✅ NUEVO: HANDLERS PARA CONFIGURACIÓN DE RECOMENDACIONES - MIGRADO
   const handleRecommendationsConfigChange = (days: number) => {
     console.log('🔄 Cambiando días de recomendaciones a:', days);
     setPendingRecommendationsDays(days);
@@ -266,11 +286,14 @@ const AppWithAcademia: React.FC = () => {
 
   const handleSaveRecommendationsConfig = async () => {
     if (!academiaActual || !recommendationsConfig) {
-      console.error('❌ No hay academia o configuración para guardar');
+      // MIGRADO: console.error + return → notification.error
+      notification.error('No hay academia o configuración para guardar');
       return;
     }
 
     setSavingRecommendationsConfig(true);
+    const loadingId = notification.loading('Guardando configuración de recomendaciones...');
+    
     try {
       console.log('💾 Guardando configuración de recomendaciones:', {
         academia: academiaActual.id,
@@ -285,12 +308,16 @@ const AppWithAcademia: React.FC = () => {
         recommendationsAnalysisWindowDays: pendingRecommendationsDays
       });
 
-      alert('✅ Configuración de recomendaciones guardada exitosamente');
+      // MIGRADO: alert → notification.success
+      notification.dismiss(loadingId);
+      notification.success('Configuración de recomendaciones guardada exitosamente');
       console.log('✅ Configuración guardada exitosamente');
       
     } catch (error) {
       console.error('❌ Error guardando configuración de recomendaciones:', error);
-      alert('Error al guardar la configuración de recomendaciones');
+      // MIGRADO: alert → notification.error
+      notification.dismiss(loadingId);
+      notification.error('Error al guardar la configuración de recomendaciones');
     } finally {
       setSavingRecommendationsConfig(false);
     }
@@ -313,18 +340,21 @@ const AppWithAcademia: React.FC = () => {
     if (!surveyConfig || !academiaActual) return;
     
     setSavingSurveyConfig(true);
-    try {
-      await saveAcademiaConfig(academiaActual.id, {
+    
+    // MIGRADO: Usar promise toast
+    await notification.promise(
+      saveAcademiaConfig(academiaActual.id, {
         encuestasHabilitadas: surveyConfig.encuestasHabilitadas,
         preguntasEncuesta: surveyConfig.preguntasEncuesta
-      });
-      alert('Configuración de encuestas guardada exitosamente');
-    } catch (error) {
-      console.error('Error guardando configuración:', error);
-      alert('Error al guardar la configuración');
-    } finally {
-      setSavingSurveyConfig(false);
-    }
+      }),
+      {
+        loading: 'Guardando configuración de encuestas...',
+        success: 'Configuración de encuestas guardada exitosamente',
+        error: 'Error al guardar la configuración'
+      }
+    );
+    
+    setSavingSurveyConfig(false);
   };
 
   const handleToggleSurveys = (enabled: boolean) => {
@@ -463,7 +493,7 @@ const AppWithAcademia: React.FC = () => {
           onToggleSurveys={handleToggleSurveys}
           onSurveyConfigChange={handleSurveyConfigChange}
           onSaveSurveyConfig={handleSaveSurveyConfig}
-          // ✅ NUEVAS PROPS PARA RECOMENDACIONES - ANTES FALTABAN
+          // ✅ NUEVAS PROPS PARA RECOMENDACIONES
           recommendationsConfig={recommendationsConfig}
           loadingRecommendationsConfig={loadingRecommendationsConfig}
           savingRecommendationsConfig={savingRecommendationsConfig}

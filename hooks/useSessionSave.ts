@@ -3,13 +3,14 @@ import { useCallback, useState, useEffect } from 'react';
 import { TrainingSession, Player, SessionExercise, SpecificExercise } from '../types/types';
 import { SessionService } from '../services/sessionService';
 import { useNavigate } from 'react-router-dom';
+import { useNotification } from './useNotification'; // ✅ NUEVO IMPORT
 
 interface UseSessionSaveProps {
   academiaId: string;
   currentUser: any;
   originalSession?: TrainingSession | null;
   isEditMode: boolean;
-  sessionDate?: string;  // ✅ NUEVO PROP
+  sessionDate?: string;
 }
 
 export const useSessionSave = ({
@@ -17,14 +18,14 @@ export const useSessionSave = ({
   currentUser,
   originalSession,
   isEditMode,
-  sessionDate = new Date().toLocaleDateString('en-CA')  // ✅ NUEVO: Con default
+  sessionDate = new Date().toLocaleDateString('en-CA')
 }: UseSessionSaveProps) => {
   const navigate = useNavigate();
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
   const [observaciones, setObservaciones] = useState(originalSession?.observaciones || '');
   const [specificExercises, setSpecificExercises] = useState<SpecificExercise[]>([]);
   const [pendingSessionsToSave, setPendingSessionsToSave] = useState<Omit<TrainingSession, 'id'>[]>([]);
 
-  // Cargar ejercicios específicos del localStorage
   useEffect(() => {
     if (!academiaId) return;
     
@@ -38,14 +39,12 @@ export const useSessionSave = ({
     }
   }, [academiaId]);
 
-  // Guardar ejercicios específicos en localStorage
   useEffect(() => {
     if (specificExercises.length > 0 && academiaId) {
       localStorage.setItem(`specificExercises_${academiaId}`, JSON.stringify(specificExercises));
     }
   }, [specificExercises, academiaId]);
 
-  // Crear sesiones para guardar - ✅ ACTUALIZADO
   const createSessionsToSave = useCallback((
     participants: Player[],
     exercises: SessionExercise[]
@@ -58,12 +57,12 @@ export const useSessionSave = ({
       participants,
       exercises,
       currentUser.uid,
-      sessionDate,      // ✅ NUEVO: Pasar sessionDate
+      sessionDate,
       observaciones
     );
-  }, [currentUser, observaciones, sessionDate]);  // ✅ NUEVO: Agregar sessionDate a dependencias
+  }, [currentUser, observaciones, sessionDate]);
 
-  // Guardar sesiones directamente
+  // ✅ MIGRADO: Guardar sesiones directamente
   const saveSessionsDirectly = useCallback(async (
     sessionsToSave: Omit<TrainingSession, 'id'>[],
     addSessionToContext: (session: Omit<TrainingSession, 'id'>) => Promise<string>,
@@ -72,7 +71,8 @@ export const useSessionSave = ({
     refreshPlayers: () => Promise<void>
   ) => {
     if (!currentUser) {
-      alert('Error: No se puede identificar al entrenador.');
+      // MIGRADO: alert → notification.error
+      notification.error('Error: No se puede identificar al entrenador.');
       return;
     }
 
@@ -100,7 +100,12 @@ export const useSessionSave = ({
       }
     });
     
-    alert(`Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es).`);
+    // MIGRADO: alert → notification.success
+    notification.success(
+      `Entrenamiento finalizado y guardado para ${sessionsToSave.length} jugador(es)`,
+      'Redirigiendo a la lista de jugadores...'
+    );
+    
     endSession();
     navigate('/players');
     
@@ -110,9 +115,9 @@ export const useSessionSave = ({
     }, 100);
     
     return sessionIdsMap;
-  }, [currentUser, navigate]);
+  }, [currentUser, navigate, notification]);
 
-  // Actualizar sesión existente - ✅ ACTUALIZADO
+  // ✅ MIGRADO: Actualizar sesión existente
   const handleUpdateExistingSession = useCallback(async (
     exercises: SessionExercise[],
     updateSessionInContext: (id: string, updates: Partial<TrainingSession>) => Promise<void>,
@@ -120,10 +125,11 @@ export const useSessionSave = ({
     endSession: () => void,
     refreshSessions: () => Promise<void>,
     refreshPlayers: () => Promise<void>,
-    sessionDate?: string  // ✅ NUEVO PARÁMETRO
+    sessionDate?: string
   ) => {
     if (!originalSession || !currentUser) {
-      alert('Error: Faltan datos necesarios para actualizar la sesión.');
+      // MIGRADO: alert → notification.error
+      notification.error('Error: Faltan datos necesarios para actualizar la sesión.');
       return;
     }
 
@@ -137,14 +143,16 @@ export const useSessionSave = ({
         ejercicios: updatedExercises,
         observaciones: observaciones.trim(),
         entrenadorId: currentUser.uid,
-        // ✅ NUEVO: Si se cambió la fecha, actualizarla
         ...(sessionDate && sessionDate !== new Date(originalSession.fecha).toLocaleDateString('en-CA') 
           ? { fecha: new Date(sessionDate + 'T12:00:00').toISOString() }
           : {})
       };
 
       await updateSessionInContext(originalSession.id, updatedSession);
-      alert('Entrenamiento actualizado exitosamente');
+      
+      // MIGRADO: alert → notification.success
+      notification.success('Entrenamiento actualizado exitosamente');
+      
       endSession();
       
       const player = allPlayers.find(p => p.id === originalSession.jugadorId);
@@ -157,11 +165,12 @@ export const useSessionSave = ({
       
     } catch (error) {
       console.error('Error actualizando sesión:', error);
-      alert('Error al actualizar el entrenamiento');
+      // MIGRADO: alert → notification.error
+      notification.error('Error al actualizar el entrenamiento');
     }
-  }, [originalSession, currentUser, observaciones, navigate]);
+  }, [originalSession, currentUser, observaciones, navigate, notification]);
 
-  // Handler principal para finalizar entrenamiento - ✅ ACTUALIZADO
+  // ✅ MIGRADO: Handler principal para finalizar entrenamiento
   const handleFinishTraining = useCallback(async (
     exercises: SessionExercise[],
     participants: Player[],
@@ -172,14 +181,27 @@ export const useSessionSave = ({
     refreshSessions: () => Promise<void>,
     refreshPlayers: () => Promise<void>,
     startSurveyProcess?: (players: Player[]) => boolean,
-    sessionDate?: string  // ✅ NUEVO PARÁMETRO
+    sessionDate?: string
   ) => {
-    if (exercises.length === 0 && !window.confirm("No has registrado ningún ejercicio. ¿Deseas finalizar de todas formas?")) {
-      return;
+    // MIGRADO: window.confirm → notification.confirm
+    if (exercises.length === 0) {
+      const confirmed = await notification.confirm({
+        title: 'Entrenamiento sin ejercicios',
+        message: 'No has registrado ningún ejercicio. ¿Deseas finalizar de todas formas?',
+        type: 'warning',
+        confirmText: 'Sí, finalizar',
+        cancelText: 'Continuar agregando'
+      });
+      
+      if (!confirmed) return;
     }
     
     if (!currentUser) {
-      alert('Error: No se puede identificar al entrenador. Por favor, inicia sesión nuevamente.');
+      // MIGRADO: alert → notification.error
+      notification.error(
+        'Error: No se puede identificar al entrenador',
+        'Por favor, inicia sesión nuevamente.'
+      );
       return;
     }
 
@@ -191,14 +213,13 @@ export const useSessionSave = ({
         endSession,
         refreshSessions,
         refreshPlayers,
-        sessionDate  // ✅ NUEVO: Pasar sessionDate
+        sessionDate
       );
     } else {
       const sessionsToSave = createSessionsToSave(participants, exercises);
       setPendingSessionsToSave(sessionsToSave);
 
       if (sessionsToSave.length > 0) {
-        // Intentar iniciar encuestas si está disponible
         const playersWithSessions = participants.filter(p => 
           sessionsToSave.some(session => session.jugadorId === p.id)
         );
@@ -206,7 +227,6 @@ export const useSessionSave = ({
         const surveysStarted = startSurveyProcess?.(playersWithSessions) || false;
         
         if (!surveysStarted) {
-          // Si no hay encuestas, guardar directamente
           await saveSessionsDirectly(
             sessionsToSave,
             addSessionToContext,
@@ -216,7 +236,8 @@ export const useSessionSave = ({
           );
         }
       } else {
-        alert("Entrenamiento finalizado. No se guardaron datos nuevos.");
+        // MIGRADO: alert → notification.info
+        notification.info("Entrenamiento finalizado", "No se guardaron datos nuevos.");
         navigate('/players');
       }
     }
@@ -227,21 +248,17 @@ export const useSessionSave = ({
     handleUpdateExistingSession,
     createSessionsToSave,
     saveSessionsDirectly,
-    navigate
+    navigate,
+    notification
   ]);
 
   return {
-    // Estados
     observaciones,
     specificExercises,
     pendingSessionsToSave,
-    
-    // Setters
     setObservaciones,
     setSpecificExercises,
     setPendingSessionsToSave,
-    
-    // Handlers
     handleFinishTraining,
     saveSessionsDirectly,
     createSessionsToSave

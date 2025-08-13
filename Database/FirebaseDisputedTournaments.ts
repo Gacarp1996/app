@@ -111,9 +111,7 @@ export const convertToDisputedTournament = async (
   futureTournament: any, // Tournament type from your existing code
   resultData: {
     resultado: string;
-    nivelDificultad: number;
     rendimientoJugador: DisputedTournament['rendimientoJugador'];
-    // ELIMINADO: conformidadGeneral
     observaciones?: string;
   }
 ) => {
@@ -124,6 +122,7 @@ export const convertToDisputedTournament = async (
       fechaInicio: futureTournament.fechaInicio,
       fechaFin: futureTournament.fechaFin,
       torneoFuturoId: futureTournament.id,
+      fechaRegistro: new Date().toISOString(),
       ...resultData
     };
     

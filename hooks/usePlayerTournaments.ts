@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { Tournament, DisputedTournament } from '../types/types';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
-import { useTournament } from '../contexts/TournamentContext'; // ✅ NUEVO IMPORT
+import { useTournament } from '../contexts/TournamentContext';
+import { useNotification } from './useNotification';
 
 interface UsePlayerTournamentsProps {
   playerId: string | undefined;
@@ -14,11 +15,10 @@ export const usePlayerTournaments = ({
   playerId, 
   activeTab
 }: UsePlayerTournamentsProps) => {
-  // ✅ USAR CONTEXTOS
   const { refreshPlayers } = usePlayer();
   const { academiaActual } = useAcademia();
+  const notification = useNotification();
   
-  // ✅ USAR TournamentContext para todas las operaciones
   const {
     getDisputedTournamentsByPlayer,
     addTournament,
@@ -31,18 +31,15 @@ export const usePlayerTournaments = ({
     refreshAllTournaments
   } = useTournament();
   
-  // Estados de torneos
   const [isTournamentModalOpen, setIsTournamentModalOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   
-  // Estados de torneos disputados
   const [playerDisputedTournaments, setPlayerDisputedTournaments] = useState<DisputedTournament[]>([]);
   const [isDisputedTournamentModalOpen, setIsDisputedTournamentModalOpen] = useState(false);
   const [editingDisputedTournament, setEditingDisputedTournament] = useState<DisputedTournament | null>(null);
   const [tournamentToConvert, setTournamentToConvert] = useState<Tournament | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<'future' | 'disputed'>('future');
 
-  // ✅ ACTUALIZADO: Cargar torneos disputados desde el contexto
   useEffect(() => {
     if (activeTab === 'tournaments' && playerId) {
       const disputed = getDisputedTournamentsByPlayer(playerId);
@@ -50,7 +47,6 @@ export const usePlayerTournaments = ({
     }
   }, [activeTab, playerId, getDisputedTournamentsByPlayer]);
 
-  // Handlers para torneos futuros
   const handleOpenAddTournamentModal = () => {
     setEditingTournament(null);
     setIsTournamentModalOpen(true);
@@ -61,7 +57,6 @@ export const usePlayerTournaments = ({
     setIsTournamentModalOpen(true);
   };
 
-  // ✅ ACTUALIZADO: Usar funciones del contexto
   const handleSaveTournament = async (data: Omit<Tournament, 'id' | 'jugadorId'>) => {
     try {
       if (editingTournament) {
@@ -70,7 +65,6 @@ export const usePlayerTournaments = ({
         await addTournament({ ...data, jugadorId: playerId! });
       }
       
-      // Refrescar datos
       await Promise.all([
         refreshAllTournaments(),
         refreshPlayers()
@@ -79,29 +73,36 @@ export const usePlayerTournaments = ({
       setIsTournamentModalOpen(false);
     } catch (error) {
       console.error('Error guardando torneo:', error);
-      alert('Error al guardar el torneo');
+      notification.error('Error al guardar el torneo');
     }
   };
 
-  // ✅ ACTUALIZADO: Usar función del contexto
   const handleDeleteTournament = async (id: string) => {
-    if (window.confirm("¿Seguro que deseas eliminar este torneo?")) {
-      try {
-        await deleteTournament(id);
-        
-        // Refrescar datos
-        await Promise.all([
-          refreshAllTournaments(),
-          refreshPlayers()
-        ]);
-      } catch (error) {
-        console.error('Error eliminando torneo:', error);
-        alert('Error al eliminar el torneo');
-      }
+    const confirmed = await notification.confirm({
+      title: 'Eliminar torneo',
+      message: '¿Seguro que deseas eliminar este torneo?',
+      type: 'danger',
+      confirmText: 'Sí, eliminar',
+      cancelText: 'Cancelar'
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await deleteTournament(id);
+      
+      await Promise.all([
+        refreshAllTournaments(),
+        refreshPlayers()
+      ]);
+      
+      notification.success('Torneo eliminado exitosamente');
+    } catch (error) {
+      console.error('Error eliminando torneo:', error);
+      notification.error('Error al eliminar el torneo');
     }
   };
 
-  // Handlers para torneos disputados
   const handleOpenAddDisputedTournamentModal = () => {
     setEditingDisputedTournament(null);
     setTournamentToConvert(null);
@@ -120,67 +121,67 @@ export const usePlayerTournaments = ({
     setIsDisputedTournamentModalOpen(true);
   };
 
-  // ✅ ACTUALIZADO: Usar funciones del contexto
   const handleSaveDisputedTournament = async (data: Omit<DisputedTournament, 'id' | 'jugadorId' | 'fechaRegistro'>) => {
     try {
       if (editingDisputedTournament) {
-        // Actualizar torneo disputado existente
         await updateDisputedTournament(editingDisputedTournament.id, data);
       } else if (tournamentToConvert) {
-        // Convertir torneo futuro a disputado
+        // Convertir torneo futuro a disputado - SIN nivelDificultad
         await convertToDisputed(tournamentToConvert.id, {
           resultado: data.resultado,
-          nivelDificultad: data.nivelDificultad,
           rendimientoJugador: data.rendimientoJugador,
           observaciones: data.observaciones
         });
       } else {
-        // Crear nuevo torneo disputado
         await addDisputedTournament({ ...data, jugadorId: playerId! });
       }
       
-      // Refrescar datos
       await Promise.all([
         refreshAllTournaments(),
         refreshPlayers()
       ]);
       
-      // Actualizar estado local
       if (playerId) {
         const updatedDisputed = getDisputedTournamentsByPlayer(playerId);
         setPlayerDisputedTournaments(updatedDisputed);
       }
       
       setIsDisputedTournamentModalOpen(false);
+      notification.success('Torneo disputado guardado exitosamente');
     } catch (error) {
       console.error('Error al guardar torneo disputado:', error);
-      alert('Error al guardar el torneo disputado');
+      notification.error('Error al guardar el torneo disputado');
     }
   };
 
-  // ✅ ACTUALIZADO: Usar función del contexto
   const handleDeleteDisputedTournament = async (id: string) => {
-    if (window.confirm("¿Está seguro de eliminar este torneo disputado?")) {
-      try {
-        await deleteDisputedTournament(id);
-        
-        // Refrescar datos
-        await refreshAllTournaments();
-        
-        // Actualizar estado local
-        if (playerId) {
-          const updatedDisputed = getDisputedTournamentsByPlayer(playerId);
-          setPlayerDisputedTournaments(updatedDisputed);
-        }
-      } catch (error) {
-        console.error('Error al eliminar torneo disputado:', error);
-        alert('Error al eliminar el torneo disputado');
+    const confirmed = await notification.confirm({
+      title: 'Eliminar torneo disputado',
+      message: '¿Está seguro de eliminar este torneo disputado?',
+      type: 'danger',
+      confirmText: 'Sí, eliminar',
+      cancelText: 'Cancelar'
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await deleteDisputedTournament(id);
+      await refreshAllTournaments();
+      
+      if (playerId) {
+        const updatedDisputed = getDisputedTournamentsByPlayer(playerId);
+        setPlayerDisputedTournaments(updatedDisputed);
       }
+      
+      notification.success('Torneo disputado eliminado exitosamente');
+    } catch (error) {
+      console.error('Error al eliminar torneo disputado:', error);
+      notification.error('Error al eliminar el torneo disputado');
     }
   };
 
   return {
-    // Estados
     isTournamentModalOpen,
     editingTournament,
     playerDisputedTournaments,
@@ -190,7 +191,6 @@ export const usePlayerTournaments = ({
     activeSubTab,
     setActiveSubTab,
     
-    // Handlers
     futureTournamentHandlers: {
       handleOpenAddTournamentModal,
       handleEditTournamentClick,

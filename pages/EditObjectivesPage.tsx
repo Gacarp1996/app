@@ -5,12 +5,14 @@ import { Player, ObjectiveEstado } from '../types/types';
 import { MAX_ACTIVE_OBJECTIVES, OBJECTIVE_ESTADOS } from '../constants/index';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useObjective } from '../contexts/ObjectiveContext';
+import { useNotification } from '../hooks/useNotification';
 
 const EditObjectivesPage: React.FC = () => {
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
   const { players } = usePlayer();
-  
+  const notification = useNotification();
+
   const {
     objectives,
     loadingObjectives,
@@ -71,15 +73,24 @@ const EditObjectivesPage: React.FC = () => {
     }
   };
   
-  const handleDeleteObjective = async (objectiveId: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este objetivo?')) {
-      try {
-        await deleteObjective(objectiveId);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error al eliminar objetivo');
-      }
+ const handleDeleteObjective = async (objectiveId: string) => {
+  const confirmed = await notification.confirm({
+    title: 'Eliminar Objetivo',
+    message: '¿Estás seguro de que quieres eliminar este objetivo? Esta acción no se puede deshacer.',
+    type: 'danger',
+    confirmText: 'Sí, eliminar',
+    cancelText: 'Cancelar'
+  });
+  
+  if (confirmed) {
+    try {
+      await deleteObjective(objectiveId);
+      notification.success('Objetivo eliminado correctamente');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al eliminar objetivo');
     }
-  };
+  }
+};
 
   const handleChangeEstado = async (objectiveId: string, newEstado: ObjectiveEstado) => {
     setError(null);

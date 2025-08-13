@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
+import { useNotification } from './useNotification'; // ✅ NUEVO IMPORT
 import { 
   getAcademiaUsers, 
   updateUserRole, 
@@ -62,7 +63,6 @@ export const useAcademiaSettings = () => {
     setLoading(true);
     try {
       const academiaUsers = await getAcademiaUsers(academiaActual.id);
-      // ACTUALIZADO: Nuevo orden de roles
       const sortedUsers = academiaUsers.sort((a, b) => {
         const roleOrder: Record<UserRole, number> = { 
           academyDirector: 0, 
@@ -85,7 +85,6 @@ export const useAcademiaSettings = () => {
   };
 
   return {
-    // Estados
     currentUser,
     academiaActual,
     rolActual,
@@ -95,8 +94,6 @@ export const useAcademiaSettings = () => {
     permissionError,
     processingAction,
     setProcessingAction,
-    
-    // Funciones
     loadUsers,
     limpiarAcademiaActual,
     navigate,
@@ -104,7 +101,7 @@ export const useAcademiaSettings = () => {
   };
 };
 
-// Hook para manejo de usuarios
+// ✅ MIGRADO: Hook para manejo de usuarios
 export const useUserManagement = (
   academiaActual: any,
   currentUser: any,
@@ -114,6 +111,7 @@ export const useUserManagement = (
 ) => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
 
   const handleRemoveUser = async (userId: string) => {
     if (!academiaActual || !currentUser) return;
@@ -121,27 +119,41 @@ export const useUserManagement = (
     const userToRemove = users.find(u => u.userId === userId);
     if (!userToRemove) return;
     
-    // ACTUALIZADO: Verificar si es academyDirector
     if (userToRemove.role === 'academyDirector') {
       const directorCount = await countDirectors(academiaActual.id);
       if (directorCount <= 1) {
-        alert('No puedes eliminar al último director de la academia.');
+        // MIGRADO: alert → notification.error
+        notification.error(
+          'No puedes eliminar al último director',
+          'La academia debe tener al menos un director'
+        );
         return;
       }
     }
     
-    if (window.confirm(`¿Estás seguro de eliminar a ${userToRemove.userEmail} de la academia?`)) {
-      setProcessingAction(true);
-      try {
-        await removeUserFromAcademia(academiaActual.id, userId);
-        await loadUsers();
-        alert('Usuario eliminado exitosamente');
-      } catch (error) {
-        console.error('Error eliminando usuario:', error);
-        alert('Error al eliminar el usuario');
-      } finally {
-        setProcessingAction(false);
-      }
+    // MIGRADO: window.confirm → notification.confirm
+    const confirmed = await notification.confirm({
+      title: 'Eliminar usuario',
+      message: `¿Estás seguro de eliminar a ${userToRemove.userEmail} de la academia?`,
+      type: 'danger',
+      confirmText: 'Sí, eliminar',
+      cancelText: 'Cancelar'
+    });
+
+    if (!confirmed) return;
+
+    setProcessingAction(true);
+    try {
+      await removeUserFromAcademia(academiaActual.id, userId);
+      await loadUsers();
+      // MIGRADO: alert → notification.success
+      notification.success('Usuario eliminado exitosamente');
+    } catch (error) {
+      console.error('Error eliminando usuario:', error);
+      // MIGRADO: alert → notification.error
+      notification.error('Error al eliminar el usuario');
+    } finally {
+      setProcessingAction(false);
     }
   };
 
@@ -154,10 +166,12 @@ export const useUserManagement = (
       await loadUsers();
       setIsRoleModalOpen(false);
       setSelectedUserId(null);
-      alert('Rol actualizado exitosamente');
+      // MIGRADO: alert → notification.success
+      notification.success('Rol actualizado exitosamente');
     } catch (error) {
       console.error('Error actualizando rol:', error);
-      alert('Error al actualizar el rol');
+      // MIGRADO: alert → notification.error
+      notification.error('Error al actualizar el rol');
     } finally {
       setProcessingAction(false);
     }
@@ -183,7 +197,7 @@ export const useUserManagement = (
   };
 };
 
-// Hook para eliminar academia
+// ✅ MIGRADO: Hook para eliminar academia - AHORA SÍ ESTÁ EXPORTADO
 export const useDeleteAcademia = (
   academiaActual: any,
   currentUser: any,
@@ -194,6 +208,7 @@ export const useDeleteAcademia = (
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
 
   const handleDeleteAcademia = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,7 +224,8 @@ export const useDeleteAcademia = (
       await deleteAcademia(academiaActual.id);
       await eliminarAcademiaDeMisAcademias(academiaActual.id);
       
-      alert('Academia eliminada exitosamente');
+      // MIGRADO: alert → notification.success
+      notification.success('Academia eliminada exitosamente');
       navigate('/select-academia');
     } catch (error: any) {
       console.error('Error eliminando academia:', error);

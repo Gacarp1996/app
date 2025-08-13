@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
+import { useNotification } from '../hooks/useNotification'; // ✅ NUEVO IMPORT
 import Modal from '../components/shared/Modal';
 import { crearAcademia, obtenerAcademiaPorId, buscarAcademiaPorIdPublico } from '../Database/FirebaseAcademias';
 
@@ -9,6 +10,7 @@ const AcademiaSelectPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { setAcademiaActual, misAcademias, registrarAccesoAcademia } = useAcademia();
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
 
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [isCrearGrupoModalOpen, setIsCrearGrupoModalOpen] = useState(false);
@@ -41,8 +43,11 @@ const AcademiaSelectPage: React.FC = () => {
         await setAcademiaActual(nuevaAcademia);
         await registrarAccesoAcademia(firebaseId, nuevaAcademia.nombre);
         
-        // ✅ MOSTRAR EL ID PÚBLICO AL USUARIO
-        alert(`¡Academia creada exitosamente!\n\nTu código de academia es: ${publicId}\n\nComparte este código de 6 caracteres con otros entrenadores para que puedan unirse.`);
+        // ✅ MIGRADO: alert → notification.success con duración extendida
+        notification.success(
+          '¡Academia creada exitosamente!',
+          `Tu código de academia es: ${publicId}. Comparte este código de 6 caracteres con otros entrenadores para que puedan unirse. Duración: 8 segundos para copiar el código.`
+        );
         
         navigate('/');
       }
@@ -78,8 +83,11 @@ const AcademiaSelectPage: React.FC = () => {
         await setAcademiaActual(nuevoGrupo);
         await registrarAccesoAcademia(firebaseId, nuevoGrupo.nombre);
         
-        // ✅ MOSTRAR EL ID PÚBLICO AL USUARIO
-        alert(`¡Grupo creado exitosamente!\n\nTu código de grupo es: ${publicId}\n\nComparte este código de 6 caracteres con tus jugadores para que puedan unirse.`);
+        // ✅ MIGRADO: alert → notification.success con duración extendida
+        notification.success(
+          '¡Grupo creado exitosamente!',
+          `Tu código de grupo es: ${publicId}. Comparte este código de 6 caracteres con tus jugadores para que puedan unirse. Duración: 8 segundos para copiar el código.`
+        );
         
         navigate('/');
       }
@@ -153,11 +161,13 @@ const AcademiaSelectPage: React.FC = () => {
         await registrarAccesoAcademia(academia.academiaId, academia.nombre);
         navigate('/');
       } else {
-        alert('No se pudo cargar. Intenta de nuevo.');
+        // ✅ MIGRADO: alert → notification.error
+        notification.error('No se pudo cargar la academia', 'Por favor, intenta de nuevo.');
       }
     } catch (error) {
       console.error('Error seleccionando:', error);
-      alert('Error al seleccionar.');
+      // ✅ MIGRADO: alert → notification.error
+      notification.error('Error al seleccionar', 'Ocurrió un error al seleccionar la academia.');
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { Objective } from '../types/types';
 import { useTraining } from '../contexts/TrainingContext';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useObjective } from '../contexts/ObjectiveContext';
+import { useNotification } from '../hooks/useNotification';
 
 // ✅ SIMPLIFICADO: Ya no necesita props obligatorias
 const ObjectiveDetailPage: React.FC<{ onDataChange?: () => void }> = ({ onDataChange }) => {
@@ -26,9 +27,10 @@ const ObjectiveDetailPage: React.FC<{ onDataChange?: () => void }> = ({ onDataCh
   const [editBody, setEditBody] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const notification = useNotification();
   // ✅ DETECTAR SI VENIMOS DESDE UN ENTRENAMIENTO
   const isFromTraining = location.pathname.includes('/training/') || isSessionActive;
+
 
   useEffect(() => {
     if (!objectiveId) {
@@ -88,7 +90,7 @@ const ObjectiveDetailPage: React.FC<{ onDataChange?: () => void }> = ({ onDataCh
         await onDataChange();
       }
       
-      alert('Objetivo actualizado con éxito.');
+      notification.success('Objetivo actualizado', 'Los cambios se han guardado correctamente.');
 
       // ✅ NAVEGACIÓN MEJORADA
       if (isFromTraining) {

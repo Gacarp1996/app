@@ -1,11 +1,10 @@
-// hooks/usePlayerProfile.ts
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Player } from '../types/types';
-import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
-import { useAcademia } from '../contexts/AcademiaContext'; // ✅ NUEVO IMPORT
+import { usePlayer } from '../contexts/PlayerContext';
+import { useAcademia } from '../contexts/AcademiaContext';
+import { useNotification } from './useNotification'; // ✅ NUEVO IMPORT
 
-// ✅ INTERFACE SIMPLIFICADA
 interface UsePlayerProfileProps {
   playerId: string | undefined;
 }
@@ -14,15 +13,13 @@ export const usePlayerProfile = ({
   playerId
 }: UsePlayerProfileProps) => {
   const navigate = useNavigate();
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
   
-  // ✅ USAR CONTEXTOS
   const { players, updatePlayer: updatePlayerContext } = usePlayer();
   const { academiaActual } = useAcademia();
   
-  // Estados del jugador
   const [player, setPlayer] = useState<Player | null>(null);
   
-  // Estados del perfil
   const [edad, setEdad] = useState<number | ''>('');
   const [altura, setAltura] = useState<number | ''>('');
   const [peso, setPeso] = useState<number | ''>('');
@@ -35,7 +32,6 @@ export const usePlayerProfile = ({
   const [lesionesPasadas, setLesionesPasadas] = useState('');
   const [frecuenciaSemanal, setFrecuenciaSemanal] = useState('');
 
-  // Cargar datos del jugador
   useEffect(() => {
     const foundPlayer = players.find(p => p.id === playerId);
     if (foundPlayer) {
@@ -56,15 +52,14 @@ export const usePlayerProfile = ({
     }
   }, [playerId, players, navigate]);
 
-  // Handlers
   const handleArchivePlayer = async () => {
     if (player) {
-      // ✅ USAR updatePlayerContext EN LUGAR DE updatePlayer
       await updatePlayerContext(player.id, { estado: 'archivado' });
       navigate('/players');
     }
   };
 
+  // ✅ MIGRADO: Guardar perfil
   const handleProfileSave = async () => {
     if (!player) return;
     const profileData: Partial<Player> = {
@@ -80,9 +75,11 @@ export const usePlayerProfile = ({
       lesionesPasadas,
       frecuenciaSemanal,
     };
-    // ✅ USAR updatePlayerContext
+    
     await updatePlayerContext(player.id, profileData);
-    alert("Perfil actualizado.");
+    
+    // MIGRADO: alert → notification.success
+    notification.success("Perfil actualizado exitosamente");
   };
 
   return {

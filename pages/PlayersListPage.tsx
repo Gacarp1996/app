@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Academia } from '../types/types';
 import { usePlayer } from '../contexts/PlayerContext'; // ✅ NUEVO IMPORT
-
+import { useNotification } from '../hooks/useNotification';
 
 // ✅ INTERFACE SIMPLIFICADA
 interface PlayersListPageProps {
@@ -22,18 +22,22 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ academiaActual }) => 
   const [searchTerm, setSearchTerm] = useState('');
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const notification = useNotification();
 
   const handleAddPlayer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlayerName.trim()) {
-      alert('El nombre del jugador no puede estar vacío.');
+     notification.warning('Campo requerido', 'El nombre del jugador no puede estar vacío.');
       return;
-    }
+   }
 
     if (academiaActual?.tipo === 'grupo-entrenamiento' && academiaActual.limiteJugadores) {
       const jugadoresActivos = players.filter(p => p.estado === 'activo').length;
       if (jugadoresActivos >= academiaActual.limiteJugadores) {
-        alert(`Este grupo de entrenamiento personal tiene un límite de ${academiaActual.limiteJugadores} jugadores activos. Para agregar un nuevo jugador, primero archiva uno existente.`);
+       notification.warning(
+       'Límite de jugadores alcanzado',
+       `Este grupo de entrenamiento personal tiene un límite de ${academiaActual.limiteJugadores} jugadores activos. Para agregar un nuevo jugador, primero archiva uno existente.`
+       );
         return;
       }
     }
@@ -47,7 +51,7 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ academiaActual }) => 
       setNewPlayerName('');
     } catch (error) {
       console.error('Error agregando jugador:', error);
-      alert('Error al agregar el jugador');
+      notification.error('Error al agregar el jugador', 'Por favor, intenta de nuevo.');
     }
   };
 
@@ -63,9 +67,9 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ academiaActual }) => 
 
   const handleSaveEdit = async (playerId: string) => {
     if (!editingName.trim()) {
-      alert('El nombre no puede estar vacío.');
-      return;
-    }
+     notification.warning('Campo requerido', 'El nombre no puede estar vacío.');
+     return;
+     }
     
     // ✅ USAR FUNCIÓN DEL CONTEXTO
     try {
@@ -74,8 +78,8 @@ const PlayersListPage: React.FC<PlayersListPageProps> = ({ academiaActual }) => 
       setEditingName('');
     } catch (error) {
       console.error('Error actualizando jugador:', error);
-      alert('Error al actualizar el jugador');
-    }
+      notification.error('Error al actualizar el jugador', 'Por favor, intenta de nuevo.');
+     }
   };
 
   const filteredPlayers = useMemo(() => {

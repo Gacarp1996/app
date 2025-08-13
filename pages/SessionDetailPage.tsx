@@ -5,7 +5,8 @@ import { getSurveyBySessionId, addPostTrainingSurvey, updateSurvey } from '../Da
 import { useAcademia } from '../contexts/AcademiaContext';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useTraining } from '../contexts/TrainingContext';
-import { useSession } from '../contexts/SessionContext'; // ✅ NUEVO IMPORT
+import { useSession } from '../contexts/SessionContext';
+import { useNotification } from '../hooks/useNotification'; // ✅ NUEVO IMPORT
 import { UI_LABELS } from '../constants/training';
 import PostTrainingSurveyModal from '@/components/training/PostTrainingSurveyModal';
 
@@ -16,8 +17,9 @@ const SessionDetailPage: React.FC = () => {
   const { academiaActual } = useAcademia();
   const { players } = usePlayer();
   const { loadSessionForEdit } = useTraining();
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
   
-  // ✅ OBTENER SESIÓN DEL CONTEXTO
+  // ✅ USAR SessionContext
   const { getSessionById } = useSession();
   
   const [survey, setSurvey] = useState<PostTrainingSurvey | null>(null);
@@ -95,10 +97,11 @@ const SessionDetailPage: React.FC = () => {
   }) => {
     if (!academiaActual || !sessionId) return;
     
+    // ✅ MIGRADO: alert → notification.warning
     // Validar que todas las respuestas estén presentes
     if (!responses.cansancioFisico || !responses.concentracion || 
         !responses.actitudMental || !responses.sensacionesTenisticas) {
-      alert('Por favor completa todas las preguntas de la encuesta');
+      notification.warning('Encuesta incompleta', 'Por favor completa todas las preguntas de la encuesta');
       return;
     }
     
@@ -111,7 +114,8 @@ const SessionDetailPage: React.FC = () => {
           actitudMental: responses.actitudMental,
           sensacionesTenisticas: responses.sensacionesTenisticas
         });
-        alert('Encuesta actualizada exitosamente');
+        // ✅ MIGRADO: alert → notification.success
+        notification.success('Encuesta actualizada', 'Los cambios se han guardado correctamente');
       } else {
         // Crear nueva encuesta
         await addPostTrainingSurvey(academiaActual.id, {
@@ -123,14 +127,16 @@ const SessionDetailPage: React.FC = () => {
           actitudMental: responses.actitudMental,
           sensacionesTenisticas: responses.sensacionesTenisticas
         });
-        alert('Encuesta guardada exitosamente');
+        // ✅ MIGRADO: alert → notification.success
+        notification.success('Encuesta guardada', 'La encuesta post-entrenamiento se ha registrado correctamente');
       }
       
       setIsSurveyModalOpen(false);
       await loadSurvey();
     } catch (error) {
       console.error('Error guardando encuesta:', error);
-      alert('Error al guardar la encuesta');
+      // ✅ MIGRADO: alert → notification.error
+      notification.error('Error al guardar la encuesta', 'Por favor, intenta de nuevo');
     }
   };
 

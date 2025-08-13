@@ -58,19 +58,19 @@ interface TournamentContextType {
   updateDisputedTournament: (tournamentId: string, updates: Partial<DisputedTournament>) => Promise<void>;
   deleteDisputedTournament: (tournamentId: string) => Promise<void>;
   
-  // Conversión
+  // Conversión - ✅ ACTUALIZADO: Sin nivelDificultad
   convertToDisputed: (
     futureTournamentId: string, 
     resultData: {
       resultado: string;
-      nivelDificultad: number;
+      // nivelDificultad: number; // ❌ ELIMINADO
       rendimientoJugador: DisputedTournament['rendimientoJugador'];
       observaciones?: string;
     }
   ) => Promise<void>;
 }
 
-// Tipo para estadísticas
+// Tipo para estadísticas - ✅ ACTUALIZADO: Sin averageDifficulty
 interface TournamentStats {
   totalTournaments: number;
   totalDisputed: number;
@@ -78,7 +78,7 @@ interface TournamentStats {
   finals: number;
   semifinals: number;
   averagePerformance: number;
-  averageDifficulty: number;
+  // averageDifficulty: number; // ❌ ELIMINADO
 }
 
 // Mapeo de rendimiento a número para cálculos
@@ -282,7 +282,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     });
   }, [getDisputedTournamentsByPlayer]);
   
-  // Obtener estadísticas de torneos de un jugador
+  // ✅ ACTUALIZADO: Obtener estadísticas de torneos de un jugador SIN nivelDificultad
   const getPlayerTournamentStats = useCallback((playerId: string): TournamentStats => {
     const playerTournaments = getTournamentsByPlayer(playerId);
     const playerDisputedTournaments = getDisputedTournamentsByPlayer(playerId);
@@ -292,7 +292,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     let finals = 0;
     let semifinals = 0;
     let totalPerformance = 0;
-    let totalDifficulty = 0;
+    // let totalDifficulty = 0; // ❌ ELIMINADO
     
     playerDisputedTournaments.forEach(t => {
       if (t.resultado === 'Campeón') championships++;
@@ -300,7 +300,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       else if (t.resultado === 'Semifinal') semifinals++;
       
       totalPerformance += RENDIMIENTO_MAP[t.rendimientoJugador];
-      totalDifficulty += t.nivelDificultad;
+      // totalDifficulty += t.nivelDificultad; // ❌ ELIMINADO
     });
     
     return {
@@ -312,9 +312,9 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       averagePerformance: playerDisputedTournaments.length > 0 
         ? totalPerformance / playerDisputedTournaments.length 
         : 0,
-      averageDifficulty: playerDisputedTournaments.length > 0 
-        ? totalDifficulty / playerDisputedTournaments.length 
-        : 0
+      // averageDifficulty: playerDisputedTournaments.length > 0  // ❌ ELIMINADO
+      //   ? totalDifficulty / playerDisputedTournaments.length 
+      //   : 0
     };
   }, [getTournamentsByPlayer, getDisputedTournamentsByPlayer]);
   
@@ -482,12 +482,12 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
   
   // FUNCIÓN DE CONVERSIÓN
   
-  // Convertir torneo futuro a disputado
+  // ✅ ACTUALIZADO: Convertir torneo futuro a disputado SIN nivelDificultad
   const convertToDisputed = useCallback(async (
     futureTournamentId: string,
     resultData: {
       resultado: string;
-      nivelDificultad: number;
+      // nivelDificultad: number; // ❌ ELIMINADO
       rendimientoJugador: DisputedTournament['rendimientoJugador'];
       observaciones?: string;
     }

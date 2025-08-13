@@ -1,10 +1,11 @@
-// hooks/useDeleteAcademia.ts - Versión completamente corregida
+// hooks/useDeleteAcademia.ts - MIGRADO CON SONNER
 import { useState } from 'react';
 import { updateDoc, doc } from 'firebase/firestore';
 import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { db } from '../firebase/firebase-config';
 import { Academia } from '../types/types';
 import { User } from 'firebase/auth';
+import { useNotification } from './useNotification'; // ✅ NUEVO IMPORT
 
 interface UseDeleteAcademiaProps {
   academiaActual: Academia | null;
@@ -25,6 +26,7 @@ export const useDeleteAcademia = ({
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
 
   const openDeleteModal = () => {
     console.log('🗑️ Abriendo modal de eliminación');
@@ -114,7 +116,11 @@ export const useDeleteAcademia = ({
 
       // 6. Mostrar confirmación al usuario
       const entityType = academiaActual.tipo === 'grupo-entrenamiento' ? 'grupo' : 'academia';
-      alert(`${entityType.charAt(0).toUpperCase() + entityType.slice(1)} eliminada exitosamente`);
+      // MIGRADO: alert → notification.success
+      notification.success(
+        `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} eliminada exitosamente`,
+        'Los datos se mantienen para auditoría'
+      );
 
       console.log('🎉 Proceso de eliminación completado exitosamente');
 
@@ -195,7 +201,11 @@ export const useDeleteAcademia = ({
       navigate('/select-academia');
 
       const entityType = academiaActual.tipo === 'grupo-entrenamiento' ? 'grupo' : 'academia';
-      alert(`${entityType.charAt(0).toUpperCase() + entityType.slice(1)} eliminada completamente`);
+      // MIGRADO: alert → notification.success
+      notification.success(
+        `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} eliminada completamente`,
+        'El ID público ha sido liberado para reutilización'
+      );
 
       console.log('🎉 Eliminación completa realizada exitosamente');
 

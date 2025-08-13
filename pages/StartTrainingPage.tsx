@@ -4,8 +4,7 @@ import { Player } from '../types/types';
 import { MAX_PLAYERS_PER_SESSION } from '../constants/index';
 import { useTraining } from '../contexts/TrainingContext';
 import { usePlayer } from '../contexts/PlayerContext';
-
-
+import { useNotification } from '../hooks/useNotification'; // ✅ NUEVO IMPORT
 
 interface StartTrainingPageProps {
   // Sin props necesarias
@@ -15,40 +14,56 @@ const StartTrainingPage: React.FC<StartTrainingPageProps> = () => {
   const { startSession, isSessionActive, endSession, loadSession, participants } = useTraining();
   const { players } = usePlayer();
   const navigate = useNavigate();
+  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
   
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [isStarting, setIsStarting] = useState(false);
   const hasCheckedSession = useRef(false);
 
-  // Verificar si hay una sesión en curso al montar el componente
+  // ✅ MIGRADO: Verificar si hay una sesión en curso al montar el componente
   useEffect(() => {
-    if (!hasCheckedSession.current && isSessionActive && !isStarting) {
-      hasCheckedSession.current = true;
-      
-      // Intentar cargar la sesión primero
-      const sessionLoaded = loadSession();
-      
-      if (sessionLoaded && participants.length > 0) {
-        // Si la sesión se cargó correctamente, preguntar al usuario
-        if (window.confirm("Hemos detectado un entrenamiento en curso. ¿Deseas reanudarlo?")) {
-          // Navegar directamente usando los participantes cargados
-          const playerIds = participants.map(p => p.id).join(',');
-          navigate(`/training/${playerIds}`);
+    const checkExistingSession = async () => {
+      if (!hasCheckedSession.current && isSessionActive && !isStarting) {
+        hasCheckedSession.current = true;
+        
+        // Intentar cargar la sesión primero
+        const sessionLoaded = loadSession();
+        
+        if (sessionLoaded && participants.length > 0) {
+          // MIGRADO: window.confirm → notification.confirm
+          const shouldResume = await notification.confirm({
+            title: 'Entrenamiento en curso detectado',
+            message: 'Hemos detectado un entrenamiento en curso. ¿Deseas reanudarlo?',
+            type: 'info',
+            confirmText: 'Sí, reanudar',
+            cancelText: 'No, iniciar nuevo'
+          });
+
+          if (shouldResume) {
+            // Navegar directamente usando los participantes cargados
+            const playerIds = participants.map(p => p.id).join(',');
+            navigate(`/training/${playerIds}`);
+          } else {
+            // Si el usuario no quiere continuar, limpiar la sesión
+            endSession();
+            notification.info('Sesión anterior descartada', 'Puedes iniciar un nuevo entrenamiento');
+          }
         } else {
-          // Si el usuario no quiere continuar, limpiar la sesión
+          // Si no se pudo cargar la sesión correctamente, limpiar el estado
           endSession();
         }
-      } else {
-        // Si no se pudo cargar la sesión correctamente, limpiar el estado
-        endSession();
       }
-    }
-  }, [isSessionActive, endSession, loadSession, navigate, isStarting, participants]);
+    };
 
+    checkExistingSession();
+  }, [isSessionActive, endSession, loadSession, navigate, isStarting, participants, notification]);
+
+  // ✅ MIGRADO: Handler para iniciar sesión
   const handleStartSession = () => {
     if (selectedPlayerIds.size === 0) {
-      alert('Por favor, selecciona al menos un jugador.');
+      // MIGRADO: alert → notification.warning
+      notification.warning('Por favor, selecciona al menos un jugador');
       return;
     }
     setIsStarting(true);
@@ -56,6 +71,7 @@ const StartTrainingPage: React.FC<StartTrainingPageProps> = () => {
     startSession(selectedPlayers);
   };
   
+  // ✅ MIGRADO: Handler para toggle de jugador
   const handlePlayerToggle = (playerId: string) => {
     const newSelection = new Set(selectedPlayerIds);
     if (newSelection.has(playerId)) {
@@ -63,16 +79,25 @@ const StartTrainingPage: React.FC<StartTrainingPageProps> = () => {
     } else if (newSelection.size < MAX_PLAYERS_PER_SESSION) {
       newSelection.add(playerId);
     } else {
-      alert(`Puedes seleccionar un máximo de ${MAX_PLAYERS_PER_SESSION} jugadores.`);
+      // MIGRADO: alert → notification.warning
+      notification.warning(
+        `Límite de jugadores alcanzado`,
+        `Puedes seleccionar un máximo de ${MAX_PLAYERS_PER_SESSION} jugadores por sesión`
+      );
     }
     setSelectedPlayerIds(newSelection);
   };
 
+  // ✅ MIGRADO: Handler para seleccionar todos
   const handleSelectAll = () => {
     if (filteredPlayers.length <= MAX_PLAYERS_PER_SESSION) {
       setSelectedPlayerIds(new Set(filteredPlayers.map(p => p.id)));
     } else {
-      alert(`Solo puedes seleccionar hasta ${MAX_PLAYERS_PER_SESSION} jugadores.`);
+      // MIGRADO: alert → notification.warning
+      notification.warning(
+        'Demasiados jugadores',
+        `Solo puedes seleccionar hasta ${MAX_PLAYERS_PER_SESSION} jugadores por sesión`
+      );
     }
   };
 
