@@ -236,7 +236,39 @@ textarea:focus {
   border-color: #10b981 !important;
 }
 
-/* === MEJORAS PARA MÓVIL === */
+/* === FIXES PARA GRÁFICOS RESPONSIVE === */
+
+/* Fix para ResponsiveContainer de Recharts */
+.recharts-responsive-container {
+  min-height: 0 !important;
+}
+
+/* Fix para radar chart en móvil */
+.radar-chart-container {
+  touch-action: pan-y pinch-zoom;
+}
+
+/* Prevenir overflow en gráficos */
+.recharts-wrapper {
+  position: relative !important;
+}
+
+/* Fix para el pie chart */
+.recharts-pie {
+  transform-origin: center;
+}
+
+/* Asegurar que los labels del pie chart no se corten */
+.recharts-pie-label-text {
+  font-size: 12px !important;
+}
+
+/* Fix para surface de recharts */
+.recharts-surface {
+  overflow: visible !important;
+}
+
+/* === MEJORAS ESPECÍFICAS PARA MÓVIL === */
 
 @media (max-width: 640px) {
   /* Input pequeño en móvil */
@@ -259,9 +291,66 @@ textarea:focus {
     padding: 0.625rem 1rem;
     font-size: 1.125rem;
   }
+
+  /* === FIXES ESPECÍFICOS PARA GRÁFICOS EN MÓVIL === */
+  
+  /* Ajustar labels del radar chart */
+  .recharts-polar-angle-axis-tick-value {
+    font-size: 10px !important;
+  }
+  
+  .recharts-polar-radius-axis-tick-value {
+    font-size: 10px !important;
+  }
+  
+  /* Ajustar labels del pie chart */
+  .recharts-pie-label-text {
+    font-size: 10px !important;
+    font-weight: 600;
+  }
+  
+  /* Mejorar tooltips en móvil */
+  .recharts-tooltip-wrapper {
+    z-index: 1000 !important;
+  }
+  
+  /* Asegurar que los contenedores de gráficos no excedan el viewport */
+  .recharts-responsive-container {
+    max-width: 100vw !important;
+    overflow: hidden;
+  }
+  
+  /* Fix para el wrapper del pie chart */
+  .recharts-pie-sector {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Mejorar la interacción táctil */
+  .recharts-sector {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
 }
 
-/* ===== ESTILOS ADICIONALES PARA COMPONENTES DE TAILWIND ===== */
+/* === MEJORAS PARA TABLETS === */
+
+@media (min-width: 640px) and (max-width: 1024px) {
+  /* Ajustes para tablets */
+  .recharts-polar-angle-axis-tick-value {
+    font-size: 12px !important;
+  }
+  
+  .recharts-polar-radius-axis-tick-value {
+    font-size: 11px !important;
+  }
+  
+  .recharts-pie-label-text {
+    font-size: 11px !important;
+  }
+}
+
+/* === UTILIDADES ADICIONALES === */
 
 /* Scrollbar personalizado para modales */
 .custom-scrollbar::-webkit-scrollbar {
@@ -299,4 +388,31 @@ textarea:focus {
   backdrop-filter: blur(10px);
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* === FIX PARA CONTENEDORES PADRE === */
+
+/* Asegurar que los contenedores principales no corten el contenido */
+.min-h-screen {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Fix para el padding top del header */
+.pt-\[60px\] {
+  padding-top: 60px;
+}
+
+/* Prevenir scroll horizontal en el body */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* === ANIMACIONES SUAVES === */
+
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    scroll-behavior: smooth;
+  }
 }

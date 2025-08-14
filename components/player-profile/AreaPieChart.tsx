@@ -73,8 +73,6 @@ const ChartViewSelector: React.FC<{
   );
 };
 
-// Componente simple y limpio - Solo Torta y Tabla
-
 const TableView: React.FC<{
   data: ChartDataPoint[];
   onRowClick?: (dataPoint: ChartDataPoint) => void;
@@ -195,11 +193,21 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({
 }) => {
   const [isClient, setIsClient] = useState(false);
   const [activeView, setActiveView] = useState<ChartView>('pie');
+  
+  // Hook para detectar tamaño de pantalla
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 768
+  );
 
   useEffect(() => {
     setIsClient(true);
+    
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const isMobile = windowWidth < 640;
   const isTouchDevice = isClient && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const totalMinutes = data.reduce((sum, item) => sum + (item.value || 0), 0);
 
@@ -210,6 +218,13 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({
       percentage: ((item.value / totalMinutes) * 100).toFixed(1)
     }));
   }, [data, totalMinutes]);
+
+  // Altura adaptativa del contenedor del gráfico
+  const chartHeight = activeView === 'table' 
+    ? 'auto' 
+    : isMobile 
+      ? '350px'  // Altura moderada
+      : '85%';   // Porcentaje para desktop
 
   if (!data || data.length === 0 || totalMinutes === 0) {
     return (
@@ -233,8 +248,6 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({
     );
   }
 
-  const chartHeight = activeView === 'table' ? 'auto' : '85%';
-
   return (
     <div 
       className="bg-gray-900/50 backdrop-blur-sm p-4 lg:p-6 rounded-xl shadow-lg border border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-green-500/5" 
@@ -256,9 +269,9 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({
         {activeView === 'pie' && (
           <div className="w-full h-full flex flex-col">
             {/* Gráfico de torta */}
-            <div className="flex-1">
+            <div className={`${isMobile ? 'h-[280px]' : 'flex-1'}`}>
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+                <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                   <defs>
                     {CHART_COLORS.map((color, index) => (
                       <linearGradient key={`gradient-${index}`} id={`gradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -273,8 +286,13 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={(entry) => parseFloat(entry.percentage) > 5 ? `${entry.percentage}%` : ''}
-                    outerRadius="75%"
+                    label={(entry) => {
+                      // En móvil, mostrar solo porcentajes > 8%
+                      const threshold = isMobile ? 8 : 5;
+                      return parseFloat(entry.percentage) > threshold ? `${entry.percentage}%` : '';
+                    }}
+                    outerRadius={isMobile ? "60%" : "75%"}  // Radio aún más pequeño en móvil
+                    innerRadius={0}
                     fill="#8884d8"
                     dataKey="value"
                     nameKey="name"
@@ -294,21 +312,23 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({
               </ResponsiveContainer>
             </div>
             
-            {/* Legend personalizado */}
+            {/* Legend SIMPLE - solo colores y nombres con porcentaje */}
             <div className="flex-shrink-0 px-4 pb-2">
-              <div className="flex flex-wrap justify-center items-center gap-4">
+              <div className="flex flex-wrap justify-center items-center gap-3">
                 {processedData.map((item, index) => (
                   <div 
                     key={item.name}
                     className="flex items-center gap-2 text-sm"
                   >
                     <div 
-                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
                     />
-                    <span className="text-gray-300 font-medium">{item.name}</span>
-                    <span className="text-gray-500">
-                      {item.value}min ({item.percentage}%)
+                    <span className="text-gray-300">
+                      {item.name} 
+                      <span className="text-gray-500 ml-1">
+                        {isMobile ? `${item.percentage}%` : `${item.value}min (${item.percentage}%)`}
+                      </span>
                     </span>
                   </div>
                 ))}
@@ -325,7 +345,7 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({
         )}
       </div>
       
-      {/* Footer con totales y ayuda */}
+      {/* Footer con totales */}
       <div className="mt-4 pt-4 border-t border-gray-800">
         <div className="flex justify-between items-center px-2">
           <span className="text-sm lg:text-base text-gray-400">Total registrado:</span>
