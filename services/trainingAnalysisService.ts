@@ -1,6 +1,6 @@
 // services/trainingAnalysisService.ts
 import { TrainingPlan } from '../Database/FirebaseTrainingPlans';
-import { TipoType, AreaType } from '../constants/training';
+import { TipoType, AreaType, tipoRequiereEjercicios } from '../constants/training';
 import { TrainingStructureService } from './trainingStructure';
 import { getTrainingPlan } from '../Database/FirebaseTrainingPlans';
 
@@ -69,6 +69,72 @@ export class TrainingAnalysisService {
   }
 
   /**
+   * ✅ NUEVO: Obtiene el porcentaje ideal para un ejercicio dentro de un área
+   * Maneja correctamente el caso de Puntos que no tiene ejercicios
+   */
+  static getIdealPercentageForExerciseInArea(
+    exercise: string,
+    area: string,
+    type: string,
+    trainingPlan?: TrainingPlan
+  ): number {
+    // ✅ IMPORTANTE: Si es tipo Puntos, no hay ejercicios
+    if (!tipoRequiereEjercicios(type as TipoType)) {
+      return 0;
+    }
+
+    const tipoData = trainingPlan?.planificacion?.[type as TipoType];
+    const areaData = tipoData?.areas?.[area as AreaType];
+    const exerciseData = areaData?.ejercicios?.[exercise];
+    
+    if (exerciseData?.porcentajeDelTotal) {
+      return exerciseData.porcentajeDelTotal;
+    }
+    
+    // Valor por defecto si no está definido
+    return 5;
+  }
+
+  /**
+   * ✅ NUEVO: Valida si un plan es válido para recomendaciones
+   * Considera que Puntos no requiere ejercicios
+   */
+  static isPlanValidForRecommendations(plan: TrainingPlan | undefined): boolean {
+    if (!plan || !plan.planificacion) {
+      return false;
+    }
+
+    // Verificar que al menos un tipo tenga configuración
+    const hasValidTypes = Object.entries(plan.planificacion).some(([tipo, tipoData]) => {
+      if (!tipoData || tipoData.porcentajeTotal === 0) {
+        return false;
+      }
+
+      // Verificar que tenga áreas definidas
+      if (!tipoData.areas || Object.keys(tipoData.areas).length === 0) {
+        return false;
+      }
+
+      // ✅ NUEVO: Para Puntos, solo verificar que tenga áreas con porcentajes
+      if (!tipoRequiereEjercicios(tipo as TipoType)) {
+        return Object.values(tipoData.areas).some((area: any) => 
+          area.porcentajeDelTotal > 0
+        );
+      }
+
+      // Para otros tipos, verificar que tenga ejercicios definidos
+      return Object.values(tipoData.areas).some((area: any) => {
+        if (!area.porcentajeDelTotal || area.porcentajeDelTotal === 0) {
+          return false;
+        }
+        return area.ejercicios && Object.keys(area.ejercicios).length > 0;
+      });
+    });
+
+    return hasValidTypes;
+  }
+
+  /**
    * Carga planes de entrenamiento con adaptación para grupos
    * Si un jugador no tiene plan, se adapta el plan de otro jugador del grupo
    */
@@ -81,22 +147,29 @@ export class TrainingAnalysisService {
     for (const participant of participants) {
       try {
         const plan = await getTrainingPlan(academiaId, participant.id);
-        if (plan) {
-          // El plan viene de Firebase sin id ni academiaId
-          // No es necesario agregarlos ya que son opcionales
+        
+        // ✅ NUEVO: Validar que el plan sea válido para recomendaciones
+        if (plan && this.isPlanValidForRecommendations(plan)) {
           plansMap[participant.id] = plan;
         } else if (participants.length > 1) {
           // Adaptar plan de otro jugador si no tiene plan propio
           for (const otherParticipant of participants) {
             if (otherParticipant.id !== participant.id) {
               const otherPlan = await getTrainingPlan(academiaId, otherParticipant.id);
-              if (otherPlan) {
+              
+              // ✅ NUEVO: Solo adaptar si el otro plan es válido
+              if (otherPlan && this.isPlanValidForRecommendations(otherPlan)) {
                 console.log(`Adaptando plan de ${otherParticipant.name} para ${participant.name}`);
                 plansMap[participant.id] = otherPlan;
                 break;
               }
             }
           }
+        }
+        
+        // ✅ NUEVO: Log si no se pudo obtener plan válido
+        if (!plansMap[participant.id]) {
+          console.warn(`⚠️ No se pudo obtener plan válido para ${participant.name}`);
         }
       } catch (error) {
         console.error(`Error cargando plan para ${participant.name}:`, error);
@@ -120,7 +193,10 @@ export class TrainingAnalysisService {
   ): DataPreview {
     const participantsPreviews = participants.map(participant => {
       const playerData = sessionData.find(d => d.playerId === participant.id);
-      const hasPlan = !!plans[participant.id];
+      
+      // ✅ NUEVO: Usar validación mejorada para planes
+      const hasPlan = !!plans[participant.id] && 
+                      this.isPlanValidForRecommendations(plans[participant.id]);
       
       return {
         playerId: participant.id,
@@ -146,6 +222,93 @@ export class TrainingAnalysisService {
       participantsPreviews,
       canGenerateRecommendations: playersWithData.length > 0
     };
+  }
+
+  /**
+   * ✅ NUEVO: Analiza la distribución de ejercicios considerando tipos sin ejercicios
+   */
+  static analyzeExerciseDistribution(
+    exercises: any[],
+    plan?: TrainingPlan
+  ): any {
+    const distribution: any = {};
+    
+    if (!plan?.planificacion) {
+      return distribution;
+    }
+
+    // Inicializar estructura para cada tipo en el plan
+    Object.entries(plan.planificacion).forEach(([tipo, tipoData]) => {
+      if (!tipoData || tipoData.porcentajeTotal === 0) return;
+      
+      distribution[tipo] = {
+        planned: tipoData.porcentajeTotal,
+        actual: 0,
+        areas: {}
+      };
+
+      // ✅ IMPORTANTE: Determinar si este tipo requiere ejercicios
+      const requiresExercises = tipoRequiereEjercicios(tipo as TipoType);
+
+      // Inicializar áreas
+      Object.entries(tipoData.areas || {}).forEach(([area, areaData]: [string, any]) => {
+        if (areaData.porcentajeDelTotal === 0) return;
+        
+        distribution[tipo].areas[area] = {
+          planned: areaData.porcentajeDelTotal,
+          actual: 0,
+          exercises: requiresExercises ? {} : null // null para Puntos
+        };
+
+        // Solo inicializar ejercicios si el tipo los requiere
+        if (requiresExercises && areaData.ejercicios) {
+          Object.entries(areaData.ejercicios).forEach(([ejercicio, ejercicioData]: [string, any]) => {
+            if (ejercicioData.porcentajeDelTotal > 0) {
+              distribution[tipo].areas[area].exercises[ejercicio] = {
+                planned: ejercicioData.porcentajeDelTotal,
+                actual: 0
+              };
+            }
+          });
+        }
+      });
+    });
+
+    // Calcular distribución actual de ejercicios
+    const totalMinutes = exercises.reduce((sum, ex) => sum + (ex.tiempoCantidad || 0), 0);
+    
+    if (totalMinutes > 0) {
+      exercises.forEach(exercise => {
+        const tipo = exercise.tipo;
+        const area = exercise.area;
+        const ejercicio = exercise.ejercicio;
+        const minutes = exercise.tiempoCantidad || 0;
+        const percentage = (minutes / totalMinutes) * 100;
+
+        if (distribution[tipo]) {
+          distribution[tipo].actual += percentage;
+          
+          if (distribution[tipo].areas[area]) {
+            distribution[tipo].areas[area].actual += percentage;
+            
+            // ✅ Solo procesar ejercicios si el tipo los requiere
+            if (tipoRequiereEjercicios(tipo as TipoType) && 
+                distribution[tipo].areas[area].exercises && 
+                ejercicio) {
+              if (!distribution[tipo].areas[area].exercises[ejercicio]) {
+                distribution[tipo].areas[area].exercises[ejercicio] = {
+                  planned: 0,
+                  actual: 0
+                };
+              }
+              distribution[tipo].areas[area].exercises[ejercicio].actual += percentage;
+            }
+          }
+        }
+      });
+    }
+
+    return distribution;
   }
 
   /**

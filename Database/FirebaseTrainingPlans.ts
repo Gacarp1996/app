@@ -1,16 +1,17 @@
 import { db } from "../firebase/firebase-config";
 import { doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
+import { TipoType, getAreasForTipo, getEjerciciosForTipoArea, tipoRequiereEjercicios } from "../constants/training";
 
 export interface TrainingPlan {
   jugadorId: string;
   fechaCreacion: string;
   fechaActualizacion: string;
-  rangoAnalisis: number; // días hacia atrás para analizar (default: 30)
+  rangoAnalisis: number;
   planificacion: {
-    [tipoKey: string]: {  // "Canasto" o "Peloteo"
+    [tipoKey: string]: {
       porcentajeTotal: number;
       areas: {
-        [areaKey: string]: {  // "Juego de base", etc.
+        [areaKey: string]: {
           porcentajeDelTotal: number;
           ejercicios?: {
             [ejercicioName: string]: {
@@ -21,14 +22,12 @@ export interface TrainingPlan {
       }
     }
   };
-  // ✅ NUEVOS CAMPOS para validación estricta
   version?: number;
   isComplete?: boolean;
   granularityLevel?: 'TIPO' | 'AREA' | 'EJERCICIO';
   validationErrors?: string[];
 }
 
-// ✅ NUEVA: Interface para resultado de validación estricta
 export interface StrictValidationResult {
   isValid: boolean;
   isComplete: boolean;
@@ -55,36 +54,27 @@ export const getTrainingPlan = async (academiaId: string, playerId: string): Pro
   }
 };
 
-// ✅ ACTUALIZADO: saveTrainingPlan con validación estricta obligatoria
 export const saveTrainingPlan = async (
   academiaId: string, 
   playerId: string, 
   planData: Omit<TrainingPlan, 'fechaCreacion'>
 ): Promise<void> => {
   try {
-    // Validar datos básicos
     if (!academiaId || !playerId) {
       throw new Error('Academia ID y Player ID son requeridos');
     }
     
-    // ✅ VALIDACIÓN ESTRICTA OBLIGATORIA antes de guardar
     const validation = validateStrictPlan(planData);
     
     if (!validation.isValid) {
       throw new Error(`❌ Plan inválido:\n${validation.errors.join('\n')}`);
     }
     
-    if (!validation.isComplete) {
-      throw new Error(`❌ Plan incompleto - Complete todos los campos obligatorios:\n${validation.errors.join('\n')}`);
-    }
-    
-    // Preparar plan para guardar
     const planToSave = {
       ...planData,
       planificacion: planData.planificacion || {},
       rangoAnalisis: planData.rangoAnalisis || 30,
-      // ✅ AGREGAR metadatos de validación
-      version: 2, // Versión estricta
+      version: 2,
       isComplete: validation.isComplete,
       granularityLevel: validation.granularityLevel,
       validationErrors: validation.errors
@@ -94,14 +84,12 @@ export const saveTrainingPlan = async (
     const existingPlan = await getDoc(planDoc);
     
     if (existingPlan.exists()) {
-      // Actualizar plan existente
       await setDoc(planDoc, {
         ...planToSave,
         fechaCreacion: existingPlan.data().fechaCreacion,
         fechaActualizacion: new Date().toISOString()
       });
     } else {
-      // Crear nuevo plan
       await setDoc(planDoc, {
         ...planToSave,
         fechaCreacion: new Date().toISOString(),
@@ -109,7 +97,7 @@ export const saveTrainingPlan = async (
       });
     }
     
-    console.log("✅ Plan de entrenamiento VÁLIDO guardado exitosamente");
+    console.log("✅ Plan de entrenamiento guardado exitosamente");
   } catch (error) {
     console.error("❌ Error al guardar plan de entrenamiento:", error);
     throw error;
@@ -127,10 +115,14 @@ export const deleteTrainingPlan = async (academiaId: string, playerId: string): 
   }
 };
 
-// ✅ CORREGIDA: Validación estricta con soporte para granularidad flexible
+// ✅ ACTUALIZADA: Validación que reconoce que Puntos no requiere ejercicios
 export const validateStrictPlan = (plan: Partial<TrainingPlan>): StrictValidationResult => {
   const errors: string[] = [];
   const warnings: string[] = [];
+  let totalSum = 0;
+  let granularityLevel: 'TIPO' | 'AREA' | 'EJERCICIO' = 'TIPO';
+  let hasAreaDetail = false;
+  let hasEjercicioDetail = false;
   
   if (!plan.planificacion) {
     return {
@@ -144,151 +136,114 @@ export const validateStrictPlan = (plan: Partial<TrainingPlan>): StrictValidatio
     };
   }
   
-  try {
-    // ✅ NUEVO: Detectar granularidad ANTES de validar
-    const granularityLevel = determineGranularityLevel(plan.planificacion);
+  // Validar cada tipo
+  for (const tipo of Object.values(TipoType)) {
+    const tipoPlan = plan.planificacion[tipo];
+    const tipoPorcentaje = tipoPlan?.porcentajeTotal || 0;
     
-    // 1. VALIDAR TOTAL GENERAL = 100%
-    const totalGeneral = Object.values(plan.planificacion).reduce((sum, tipo) => {
-      if (!tipo || typeof tipo.porcentajeTotal !== 'number') return sum;
-      return sum + tipo.porcentajeTotal;
-    }, 0);
+    // ✅ IMPORTANTE: Determinar si este tipo requiere ejercicios
+    const requiresExercises = tipoRequiereEjercicios(tipo as TipoType);
     
-    if (Math.abs(totalGeneral - 100) > 0.5) {
-      errors.push(`❌ El total debe ser 100%. Actual: ${totalGeneral.toFixed(1)}%`);
+    if (tipoPorcentaje === undefined || tipoPorcentaje === null) {
+      errors.push(`Tipo ${tipo}: porcentaje total no definido`);
+      continue;
     }
     
-    // 2. VALIDAR CADA TIPO
-    Object.entries(plan.planificacion).forEach(([tipoNombre, tipo]) => {
-      if (!tipo || typeof tipo.porcentajeTotal !== 'number') {
-        errors.push(`❌ Tipo ${tipoNombre}: porcentaje total no definido`);
-        return;
+    totalSum += tipoPorcentaje;
+    
+    if (tipoPorcentaje > 0) {
+      const areas = getAreasForTipo(tipo as TipoType);
+      let areaSum = 0;
+      let allAreasHaveValues = true;
+      
+      for (const area of areas) {
+        const areaPlan = tipoPlan?.areas?.[area];
+        const areaPorcentaje = areaPlan?.porcentajeDelTotal || 0;
+        
+        if (areaPorcentaje === undefined || areaPorcentaje === null) {
+          errors.push(`Tipo ${tipo}, área ${area}: porcentaje no definido`);
+          allAreasHaveValues = false;
+          continue;
+        }
+        
+        areaSum += areaPorcentaje;
+        
+        if (areaPorcentaje > 0) {
+          hasAreaDetail = true;
+          
+          // ✅ CLAVE: Solo validar ejercicios si el tipo los requiere
+          if (requiresExercises) {
+            const ejercicios = getEjerciciosForTipoArea(tipo as TipoType, area as any);
+            
+            if (ejercicios.length > 0) {
+              let ejercicioSum = 0;
+              let allEjerciciosHaveValues = true;
+              
+              for (const ejercicio of ejercicios) {
+                const ejercicioPorcentaje = areaPlan?.ejercicios?.[ejercicio]?.porcentajeDelTotal || 0;
+                
+                if (ejercicioPorcentaje === undefined || ejercicioPorcentaje === null) {
+                  errors.push(`Tipo ${tipo}, área ${area}, ejercicio ${ejercicio}: porcentaje no definido`);
+                  allEjerciciosHaveValues = false;
+                  continue;
+                }
+                
+                ejercicioSum += ejercicioPorcentaje;
+                if (ejercicioPorcentaje > 0) {
+                  hasEjercicioDetail = true;
+                }
+              }
+              
+              if (allEjerciciosHaveValues && ejercicios.length > 0) {
+                const diff = Math.abs(ejercicioSum - areaPorcentaje);
+                if (diff > 0.5) {
+                  errors.push(`Tipo ${tipo}, área ${area}: ejercicios suman ${ejercicioSum.toFixed(1)}% pero el área indica ${areaPorcentaje.toFixed(1)}% (diferencia debe ser ≤0.5%)`);
+                }
+              }
+            }
+          } else {
+            // ✅ Para Puntos: considerarlo completo sin necesidad de ejercicios
+            // No agregar errores por falta de ejercicios
+            hasEjercicioDetail = true; // Marcar como completo a este nivel
+          }
+        }
       }
       
-      if (tipo.porcentajeTotal > 0) {
-        // SI HAY PORCENTAJE EN TIPO, DEBE TENER ÁREAS DEFINIDAS
-        if (!tipo.areas || Object.keys(tipo.areas).length === 0) {
-          errors.push(`❌ ${tipoNombre}: ${tipo.porcentajeTotal}% requiere definir áreas`);
-          return;
+      if (allAreasHaveValues) {
+        const diff = Math.abs(areaSum - tipoPorcentaje);
+        if (diff > 0.5) {
+          errors.push(`Tipo ${tipo}: áreas suman ${areaSum.toFixed(1)}% pero el tipo indica ${tipoPorcentaje.toFixed(1)}% (diferencia debe ser ≤0.5%)`);
         }
-        
-        // VALIDAR SUMA DE ÁREAS = PORCENTAJE DEL TIPO
-        const totalAreas = Object.values(tipo.areas).reduce((sum, area) => {
-          if (!area || typeof area.porcentajeDelTotal !== 'number') return sum;
-          return sum + area.porcentajeDelTotal;
-        }, 0);
-        
-        if (Math.abs(totalAreas - tipo.porcentajeTotal) > 0.5) {
-          errors.push(`❌ ${tipoNombre}: Las áreas (${totalAreas.toFixed(1)}%) deben sumar exactamente ${tipo.porcentajeTotal}%`);
-        }
-        
-        // 3. VALIDAR CADA ÁREA
-        Object.entries(tipo.areas).forEach(([areaNombre, area]) => {
-          if (!area || typeof area.porcentajeDelTotal !== 'number') {
-            errors.push(`❌ Tipo ${tipoNombre}, área ${areaNombre}: porcentaje no definido`);
-            return;
-          }
-          
-          if (area.porcentajeDelTotal > 0) {
-            // ✅ CAMBIO CLAVE: Solo exigir ejercicios si el plan usa granularidad EJERCICIO
-            if (granularityLevel === 'EJERCICIO') {
-              // El plan tiene ejercicios en alguna parte, entonces TODAS las áreas con % deben tenerlos
-              if (!area.ejercicios || Object.keys(area.ejercicios).length === 0) {
-                errors.push(`❌ ${tipoNombre} > ${areaNombre}: ${area.porcentajeDelTotal}% requiere definir ejercicios (plan usa granularidad de ejercicio)`);
-                return;
-              }
-              
-              // VALIDAR SUMA DE EJERCICIOS = PORCENTAJE DEL ÁREA
-              const totalEjercicios = Object.values(area.ejercicios).reduce(
-                (sum, ej) => {
-                  if (!ej || typeof ej.porcentajeDelTotal !== 'number') return sum;
-                  return sum + ej.porcentajeDelTotal;
-                }, 0
-              );
-              
-              if (Math.abs(totalEjercicios - area.porcentajeDelTotal) > 0.5) {
-                errors.push(`❌ ${tipoNombre} > ${areaNombre}: Los ejercicios (${totalEjercicios.toFixed(1)}%) deben sumar exactamente ${area.porcentajeDelTotal}%`);
-              }
-              
-              // VALIDAR QUE CADA EJERCICIO TENGA PORCENTAJE DEFINIDO
-              Object.entries(area.ejercicios).forEach(([ejercicioNombre, ejercicio]) => {
-                if (!ejercicio || typeof ejercicio.porcentajeDelTotal !== 'number') {
-                  errors.push(`❌ ${tipoNombre} > ${areaNombre} > ${ejercicioNombre}: porcentaje no definido`);
-                }
-              });
-            } else if (granularityLevel === 'AREA') {
-              // ✅ NUEVO: Nivel ÁREA es válido sin ejercicios
-              // Si hay ejercicios parciales definidos (no debería en nivel ÁREA puro), validarlos
-              if (area.ejercicios && Object.keys(area.ejercicios).length > 0) {
-                const totalEjercicios = Object.values(area.ejercicios).reduce(
-                  (sum, ej) => {
-                    if (!ej || typeof ej.porcentajeDelTotal !== 'number') return sum;
-                    return sum + ej.porcentajeDelTotal;
-                  }, 0
-                );
-                
-                if (Math.abs(totalEjercicios - area.porcentajeDelTotal) > 0.5) {
-                  errors.push(`❌ ${tipoNombre} > ${areaNombre}: Los ejercicios (${totalEjercicios.toFixed(1)}%) deben sumar exactamente ${area.porcentajeDelTotal}%`);
-                }
-              }
-              // NO exigir ejercicios si no existen
-            }
-            // Para nivel TIPO, no validar ejercicios en absoluto
-          }
-        });
       }
-    });
-    
-    // 5. RESULTADO FINAL
-    const isValid = errors.length === 0;
-    const isComplete = isValid && totalGeneral === 100;
-    
-    return {
-      isValid,
-      isComplete,
-      errors,
-      warnings,
-      totalPercentage: totalGeneral,
-      granularityLevel, // Ya calculado al inicio
-      canGenerateRecommendations: isComplete
-    };
-    
-  } catch (error) {
-    console.error('Error en validateStrictPlan:', error);
-    return {
-      isValid: false,
-      isComplete: false,
-      errors: ['Error interno al validar el plan'],
-      warnings: [],
-      totalPercentage: 0,
-      granularityLevel: 'TIPO',
-      canGenerateRecommendations: false
-    };
-  }
-};
-
-// ✅ HELPER: Determinar nivel de granularidad
-const determineGranularityLevel = (planificacion: TrainingPlan['planificacion']): 'TIPO' | 'AREA' | 'EJERCICIO' => {
-  let hasAreas = false;
-  let hasEjercicios = false;
-  
-  Object.values(planificacion).forEach(tipo => {
-    if (tipo?.areas && Object.keys(tipo.areas).length > 0) {
-      hasAreas = true;
-      Object.values(tipo.areas).forEach(area => {
-        if (area?.ejercicios && Object.keys(area.ejercicios).length > 0) {
-          hasEjercicios = true;
-        }
-      });
     }
-  });
+  }
   
-  if (hasEjercicios) return 'EJERCICIO';
-  if (hasAreas) return 'AREA';
-  return 'TIPO';
+  // Validar total general
+  const totalDiff = Math.abs(totalSum - 100);
+  if (totalDiff > 0.5) {
+    errors.push(`Total general suma ${totalSum.toFixed(1)}% pero debe ser 100% (diferencia debe ser ≤0.5%)`);
+  }
+  
+  const isComplete = errors.length === 0 && totalDiff <= 0.5;
+  
+  // Determinar nivel de granularidad
+  if (hasEjercicioDetail) {
+    granularityLevel = 'EJERCICIO';
+  } else if (hasAreaDetail) {
+    granularityLevel = 'AREA';
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    isComplete,
+    errors,
+    warnings,
+    totalPercentage: totalSum,
+    granularityLevel,
+    canGenerateRecommendations: isComplete
+  };
 };
 
-// ✅ HELPER: Verificar si se pueden generar recomendaciones
 export const canGenerateRecommendations = (plan: TrainingPlan): { canGenerate: boolean; reason?: string } => {
   const validation = validateStrictPlan(plan);
   
@@ -303,7 +258,6 @@ export const canGenerateRecommendations = (plan: TrainingPlan): { canGenerate: b
   return { canGenerate: true };
 };
 
-// ✅ HELPER: Obtener estado del plan
 export const getPlanStatus = (plan: TrainingPlan): {
   status: 'COMPLETE' | 'INCOMPLETE' | 'INVALID' | 'EMPTY';
   message: string;

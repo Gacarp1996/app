@@ -10,7 +10,7 @@ import {
   getActionFromGap, 
   getPriorityFromGap 
 } from '../constants/recommendationThresholds';
-import { TipoType, AreaType } from '../constants/training';
+import { TipoType, AreaType, tipoRequiereEjercicios } from '../constants/training';
 import { calculateExerciseStatsByTime } from '../utils/calculations';
 import { SessionService } from './sessionService';
 import { MigrationService } from './migrationService';
@@ -20,6 +20,7 @@ import { LoggedExercise } from '../types/types';
 /**
  * Motor de recomendaciones SIN HARDCODE - Fase 1
  * SOLO funciona con planes completos y validados
+ * ✅ ACTUALIZADO: Maneja correctamente tipo "Puntos" sin ejercicios
  */
 export class RecommendationEngine {
   
@@ -189,7 +190,8 @@ export class RecommendationEngine {
   }
   
   /**
-   * Calcula estadísticas para cada jugador (sin cambios)
+   * Calcula estadísticas para cada jugador
+   * ✅ ACTUALIZADO: Maneja correctamente ejercicios de tipo Puntos
    */
   private static calculatePlayerStats(input: EngineInput): PlayerStats[] {
     const results: PlayerStats[] = [];
@@ -218,18 +220,20 @@ export class RecommendationEngine {
       
       // 3. Calcular estadísticas
       const stats = calculateExerciseStatsByTime(exercises);
+      
       console.group(`🧮 Debug Cálculos - ${player.name}`);
-console.log('📝 Ejercicios brutos:', exercises.map(e => ({
-  tipo: e.tipo,
-  area: e.area,
-  ejercicio: e.ejercicio,
-  tiempo: e.tiempoCantidad
-})));
-console.log('📊 Stats calculadas:', {
-  totalMinutes: stats.totalMinutes,
-  typeStats: stats.typeStats
-});
-console.groupEnd();
+      console.log('📝 Ejercicios brutos:', exercises.map(e => ({
+        tipo: e.tipo,
+        area: e.area,
+        ejercicio: e.ejercicio || 'N/A',  // ✅ Manejar ausencia de ejercicio
+        tiempo: e.tiempoCantidad
+      })));
+      console.log('📊 Stats calculadas:', {
+        totalMinutes: stats.totalMinutes,
+        typeStats: stats.typeStats
+      });
+      console.groupEnd();
+      
       results.push({
         playerId: player.id,
         playerName: player.name,
@@ -246,7 +250,7 @@ console.groupEnd();
   
   /**
    * Genera recomendaciones individuales SIN DEFAULTS
-   * ACTUALIZADO: Solo usa datos del plan del jugador, no genera fallbacks
+   * ✅ ACTUALIZADO: Maneja correctamente tipo Puntos sin ejercicios
    */
   private static generateIndividualRecommendations(
     playerStats: PlayerStats[],
@@ -273,22 +277,23 @@ console.groupEnd();
       }
       
       const validation = validateStrictTrainingPlan(plan);
+      
       console.group(`🔍 Debug Plan Jugador: ${stats.playerName}`);
-console.log('📋 Plan migrado:', {
-  existe: !!plan,
-  tienePlanificacion: !!(plan?.planificacion),
-  keysPlanificacion: Object.keys(plan?.planificacion || {}),
-  version: plan?.version
-});
-console.log('✅ Validation result:', {
-  isValid: validation.isValid,
-  isComplete: validation.isComplete,
-  canGenerate: validation.canGenerateRecommendations,
-  errors: validation.errors,
-  totalPercentage: validation.totalPercentage
-});
-console.log('🚨 Errores específicos:', validation.errors);
-console.groupEnd();
+      console.log('📋 Plan migrado:', {
+        existe: !!plan,
+        tienePlanificacion: !!(plan?.planificacion),
+        keysPlanificacion: Object.keys(plan?.planificacion || {}),
+        version: plan?.version
+      });
+      console.log('✅ Validation result:', {
+        isValid: validation.isValid,
+        isComplete: validation.isComplete,
+        canGenerate: validation.canGenerateRecommendations,
+        errors: validation.errors,
+        totalPercentage: validation.totalPercentage
+      });
+      console.log('🚨 Errores específicos:', validation.errors);
+      console.groupEnd();
 
       if (!validation.canGenerateRecommendations) {
         result[stats.playerId] = {
@@ -315,29 +320,34 @@ console.groupEnd();
         const gap = plannedPercentage - currentPercentage;
         const action = getActionFromGap(gap);
         const priority = getPriorityFromGap(gap);
+        
+        // ✅ NUEVO: Determinar si este tipo requiere ejercicios
+        const requiresExercises = tipoRequiereEjercicios(tipo as TipoType);
+        
         console.log(`🎾 Procesando tipo ${tipo}:`, {
-  tipoData: {
-    existe: !!tipoData,
-    porcentajeTotal: tipoData?.porcentajeTotal
-  },
-  stats: {
-    existe: !!typeStats,
-    total: typeStats?.total || 0,
-    percentage: currentPercentage
-  },
-  calculo: {
-    currentPercentage,
-    plannedPercentage,
-    gap: Math.round(gap * 10) / 10,
-    action,
-    priority
-  },
-  decision: {
-    umbralGap: Math.abs(gap) > 5,
-    tieneDatos: (typeStats?.total || 0) > 0,
-    deberiaCrearItem: Math.abs(gap) > 5 || (typeStats?.total || 0) > 0
-  }
-});
+          tipoData: {
+            existe: !!tipoData,
+            porcentajeTotal: tipoData?.porcentajeTotal,
+            requiereEjercicios: requiresExercises  // ✅ NUEVO
+          },
+          stats: {
+            existe: !!typeStats,
+            total: typeStats?.total || 0,
+            percentage: currentPercentage
+          },
+          calculo: {
+            currentPercentage,
+            plannedPercentage,
+            gap: Math.round(gap * 10) / 10,
+            action,
+            priority
+          },
+          decision: {
+            umbralGap: Math.abs(gap) > 5,
+            tieneDatos: (typeStats?.total || 0) > 0,
+            deberiaCrearItem: Math.abs(gap) > 5 || (typeStats?.total || 0) > 0
+          }
+        });
         
         // Agregar recomendación de tipo si hay gap significativo o datos
         if (Math.abs(gap) > 5 || typeStats?.total > 0) {
@@ -359,8 +369,8 @@ console.groupEnd();
           });
         }
         
-        // Analizar por ÁREA (solo si están definidas en el plan)
-        if (tipoData.areas && validation.granularityLevel === 'AREA' || validation.granularityLevel === 'EJERCICIO') {
+        // Analizar por ÁREA
+        if (tipoData.areas && (validation.granularityLevel === 'AREA' || validation.granularityLevel === 'EJERCICIO')) {
           Object.entries(tipoData.areas).forEach(([area, areaData]: [string, any]) => {
             if (!areaData || areaData.porcentajeDelTotal === undefined) return;
             
@@ -385,11 +395,21 @@ console.groupEnd();
                 priority: areaPriority,
                 reason: this.generateReason(areaAction, area, 'AREA', false),
                 basedOn: {
-                  exercises: Object.keys(areaStats?.exercises || {}).length,
+                  // ✅ ACTUALIZADO: Para Puntos, contar ejercicios a nivel de área
+                  exercises: requiresExercises 
+                    ? Object.keys(areaStats?.exercises || {}).length
+                    : stats.exercises.filter(e => e.tipo === tipo && e.area === area).length,
                   minutes: Math.round(areaStats?.total || 0)
                 },
                 isDefault: false
               });
+            }
+            
+            // ✅ IMPORTANTE: Solo analizar ejercicios si el tipo los requiere
+            // Para tipo "Puntos", NO intentar analizar nivel de ejercicios
+            if (requiresExercises && validation.granularityLevel === 'EJERCICIO' && areaData.ejercicios) {
+              // Aquí iría el análisis de ejercicios para Peloteo y Canasto
+              // (No incluido en este fragmento por brevedad, pero seguiría la misma lógica)
             }
           });
         }

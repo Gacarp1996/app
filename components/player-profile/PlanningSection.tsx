@@ -266,6 +266,7 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                   <li><strong>Suma exacta:</strong> El total debe sumar 100% (±0.5% tolerancia)</li>
                   <li><strong>Coherencia jerárquica:</strong> Las subcategorías deben sumar al padre</li>
                   <li><strong>0% permitido:</strong> Significa exclusión explícita de esa categoría</li>
+                  <li><strong>Puntos sin ejercicios:</strong> El tipo "Puntos" no requiere desglose por ejercicios</li>
                   <li><strong>Sin recomendaciones sin plan completo:</strong> Datos faltantes bloquean el análisis</li>
                 </ul>
               </div>
@@ -380,6 +381,9 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                           ? (areaPorcentaje / tipoPorcentaje) * 100 
                           : 0;
                         
+                        // ✅ NUEVO: Verificar si este tipo tiene ejercicios
+                        const tipoTieneEjercicios = ejercicios.length > 0;
+                        
                         // Estados de error para esta área
                         const areaErrorKey = `area-${tipo}-${area}`;
                         const areaSumErrorKey = `area-sum-${tipo}-${area}`;
@@ -394,7 +398,7 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                             <div className="flex items-center justify-between">
                               <h4 className="font-medium text-gray-300 flex items-center gap-2">
                                 {area}
-                                {areaPorcentaje > 0 && !areaHasDetail && (
+                                {areaPorcentaje > 0 && !areaHasDetail && tipoTieneEjercicios && (
                                   <span className="text-xs bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded">
                                     Sin detallar
                                   </span>
@@ -433,7 +437,8 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
 
                             {areaPorcentaje > 0 && (
                               <div className="ml-4 space-y-1">
-                                {areaHasDetail && (
+                                {/* ✅ MODIFICADO: Solo mostrar validación de ejercicios si aplica */}
+                                {areaHasDetail && tipoTieneEjercicios && (
                                   <div className={`text-xs font-medium p-1 rounded ${
                                     isEjerciciosExceeded
                                       ? 'bg-red-900/20 text-red-400'
@@ -454,7 +459,9 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                                     )}
                                   </div>
                                 )}
-                                {ejercicios.map(ejercicio => {
+                                
+                                {/* ✅ MODIFICADO: Solo renderizar ejercicios si existen */}
+                                {tipoTieneEjercicios && ejercicios.map(ejercicio => {
                                   const ejercicioPorcentaje = planificacion[tipo]?.areas[area]?.ejercicios?.[ejercicio]?.porcentajeDelTotal || 0;
                                   const ejercicioValorRelativo = areaPorcentaje > 0
                                     ? (ejercicioPorcentaje / areaPorcentaje) * 100
@@ -481,6 +488,13 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
                                     </div>
                                   );
                                 })}
+                                
+                                {/* ✅ NUEVO: Mensaje informativo para Puntos */}
+                                {!tipoTieneEjercicios && (
+                                  <div className="text-xs text-gray-500 italic p-2 bg-gray-800/50 rounded">
+                                    ℹ️ Este tipo no requiere desglose por ejercicios
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

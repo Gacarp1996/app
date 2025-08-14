@@ -39,8 +39,6 @@ export enum EjercicioPrimerasPelotas {
   DEVOLUCION_MAS_UNO = 'Devolución + 1'
 }
 
-
-
 // Estructura jerárquica completa con tipos fuertes
 export type ExerciseHierarchy = {
   [TipoType.CANASTO]: {
@@ -74,6 +72,11 @@ export const getAreasForTipo = (tipo: TipoType): AreaType[] => {
 
 // Helper para obtener ejercicios disponibles según tipo y área
 export const getEjerciciosForTipoArea = (tipo: TipoType, area: AreaType): string[] => {
+  // ✅ IMPORTANTE: Puntos no tiene ejercicios
+  if (tipo === TipoType.PUNTOS) {
+    return [];
+  }
+  
   if (tipo === TipoType.CANASTO) {
     switch (area) {
       case AreaType.JUEGO_DE_BASE:
@@ -101,11 +104,13 @@ export const getEjerciciosForTipoArea = (tipo: TipoType, area: AreaType): string
       default:
         return [];
     }
-  } else if (tipo === TipoType.PUNTOS) {  // NUEVO
-    // PUNTOS no tiene ejercicios específicos
-    return [];
   }
   return [];
+};
+
+// ✅ NUEVO: Helper para verificar si un tipo requiere ejercicios
+export const tipoRequiereEjercicios = (tipo: TipoType): boolean => {
+  return tipo !== TipoType.PUNTOS;
 };
 
 // Validador para verificar si una combinación tipo/área/ejercicio es válida

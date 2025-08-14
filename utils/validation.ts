@@ -1,5 +1,5 @@
 // utils/validation.ts - ARCHIVO COMPLETO CON VALIDACIONES ESTRICTAS
-import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea } from '../constants/training';
+import { TipoType, AreaType, getAreasForTipo, getEjerciciosForTipoArea, tipoRequiereEjercicios } from '../constants/training';
 import { 
   TrainingSession, 
   LoggedExercise, 
@@ -194,7 +194,7 @@ export const hasPlayerSufficientData = (
 
 /**
  * PRINCIPAL: Validación estricta para Fase 1 - Plan 100% completo obligatorio
- * NO genera defaults, NO permite campos vacíos
+ * ✅ ACTUALIZADO: Reconoce que tipo PUNTOS no requiere ejercicios
  */
 export const validateStrictTrainingPlan = (plan: TrainingPlan): StrictValidationResult => {
   const errors: string[] = [];
@@ -217,17 +217,22 @@ export const validateStrictTrainingPlan = (plan: TrainingPlan): StrictValidation
   }
   
   // 2. Detectar nivel de granularidad utilizado
+  // ✅ IMPORTANTE: Solo considerar tipos que requieren ejercicios para determinar granularidad
   let hasAreaLevel = false;
   let hasEjercicioLevel = false;
   
-  Object.values(plan.planificacion).forEach(tipoData => {
+  Object.entries(plan.planificacion).forEach(([tipo, tipoData]) => {
     if (tipoData?.areas && Object.keys(tipoData.areas).length > 0) {
       hasAreaLevel = true;
-      Object.values(tipoData.areas).forEach(areaData => {
-        if (areaData?.ejercicios && Object.keys(areaData.ejercicios).length > 0) {
-          hasEjercicioLevel = true;
-        }
-      });
+      
+      // ✅ Solo buscar ejercicios en tipos que los requieren
+      if (tipoRequiereEjercicios(tipo as TipoType)) {
+        Object.values(tipoData.areas).forEach((areaData: any) => {
+          if (areaData?.ejercicios && Object.keys(areaData.ejercicios).length > 0) {
+            hasEjercicioLevel = true;
+          }
+        });
+      }
     }
   });
   
@@ -300,12 +305,15 @@ export const validateStrictTrainingPlan = (plan: TrainingPlan): StrictValidation
         
         areaTotalSum += areaData.porcentajeDelTotal;
         
-        // Si hay nivel de ejercicio, validar ejercicios
-        if (granularityLevel === 'EJERCICIO') {
+        // ✅ CLAVE: Solo validar ejercicios si el tipo los requiere
+        const requiresExercises = tipoRequiereEjercicios(tipo as TipoType);
+        
+        // Si hay nivel de ejercicio Y este tipo requiere ejercicios, validarlos
+        if (granularityLevel === 'EJERCICIO' && requiresExercises) {
           if (!areaData.ejercicios || Object.keys(areaData.ejercicios).length === 0) {
             // Solo requerir ejercicios si el área tiene porcentaje > 0
             if (areaData.porcentajeDelTotal > 0) {
-              errors.push(`Tipo ${tipo}, área ${area}: debe definir ejercicios ya que el plan usa granularidad de ejercicios y el área tiene ${areaData.porcentajeDelTotal}%`);
+              errors.push(`Tipo ${tipo}, área ${area}: debe definir ejercicios ya que el tipo requiere ejercicios y el área tiene ${areaData.porcentajeDelTotal}%`);
             }
             return;
           }
@@ -334,6 +342,14 @@ export const validateStrictTrainingPlan = (plan: TrainingPlan): StrictValidation
           const ejercicioDiff = Math.abs(ejercicioTotalSum - areaData.porcentajeDelTotal);
           if (ejercicioDiff > VALIDATION_CONSTANTS.TOLERANCE_PERCENTAGE) {
             errors.push(`Tipo ${tipo}, área ${area}: los ejercicios suman ${ejercicioTotalSum.toFixed(1)}% pero el área tiene ${areaData.porcentajeDelTotal}%. La diferencia debe ser ≤ ${VALIDATION_CONSTANTS.TOLERANCE_PERCENTAGE}%`);
+          }
+        }
+        // ✅ IMPORTANTE: Para tipo PUNTOS, no validar ejercicios aunque el plan tenga granularidad EJERCICIO
+        else if (granularityLevel === 'EJERCICIO' && !requiresExercises) {
+          // No hacer nada - Puntos no requiere ejercicios
+          // Podríamos agregar un warning opcional
+          if (areaData.ejercicios && Object.keys(areaData.ejercicios).length > 0) {
+            warnings.push(`Tipo ${tipo}, área ${area}: tiene ejercicios definidos pero este tipo no los requiere`);
           }
         }
       });
@@ -450,8 +466,8 @@ export const validatePlanHierarchy = (planificacion: any): {
           return;
         }
         
-        // Validar ejercicios si existen
-        if (areaData?.ejercicios) {
+        // ✅ Solo validar ejercicios si el tipo los requiere
+        if (areaData?.ejercicios && tipoRequiereEjercicios(tipo as TipoType)) {
           const validEjercicios = getEjerciciosForTipoArea(tipo as TipoType, area as AreaType);
           
           Object.keys(areaData.ejercicios).forEach(ejercicio => {
@@ -473,19 +489,24 @@ export const validatePlanHierarchy = (planificacion: any): {
 
 /**
  * Detecta el nivel de granularidad de un plan
+ * ✅ ACTUALIZADO: Solo considera tipos que requieren ejercicios para determinar granularidad
  */
 export const detectPlanGranularityLevel = (planificacion: any): 'TIPO' | 'AREA' | 'EJERCICIO' => {
   let hasAreas = false;
   let hasEjercicios = false;
   
-  Object.values(planificacion).forEach((tipoData: any) => {
+  Object.entries(planificacion).forEach(([tipo, tipoData]: [string, any]) => {
     if (tipoData?.areas && Object.keys(tipoData.areas).length > 0) {
       hasAreas = true;
-      Object.values(tipoData.areas).forEach((areaData: any) => {
-        if (areaData?.ejercicios && Object.keys(areaData.ejercicios).length > 0) {
-          hasEjercicios = true;
-        }
-      });
+      
+      // ✅ Solo buscar ejercicios en tipos que los requieren
+      if (tipoRequiereEjercicios(tipo as TipoType)) {
+        Object.values(tipoData.areas).forEach((areaData: any) => {
+          if (areaData?.ejercicios && Object.keys(areaData.ejercicios).length > 0) {
+            hasEjercicios = true;
+          }
+        });
+      }
     }
   });
   
@@ -493,6 +514,8 @@ export const detectPlanGranularityLevel = (planificacion: any): 'TIPO' | 'AREA' 
   if (hasAreas) return 'AREA';
   return 'TIPO';
 };
+
+// ... resto del archivo sin cambios ...
 
 /**
  * Valida porcentajes numéricos básicos

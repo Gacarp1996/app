@@ -1,6 +1,6 @@
 import React from 'react';
 import { SpecificExercise } from '@/types/types';
-import { TipoType, AreaType, UI_LABELS } from '@/constants/training';
+import { TipoType, AreaType, UI_LABELS, tipoRequiereEjercicios } from '@/constants/training';
 
 interface ExerciseFormProps {
   currentTipo: TipoType | '';
@@ -43,12 +43,26 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
   onSubmit,
   onAddSpecificExercise
 }) => {
-  // NUEVO: Determinar si se deben mostrar ejercicios
-  const shouldShowExercises = currentTipo !== TipoType.PUNTOS;
-  const isExerciseDisabled = !currentArea || !shouldShowExercises;
+  // ✅ NUEVO: Determinar si el tipo actual requiere ejercicios
+  const requiresExercises = currentTipo ? tipoRequiereEjercicios(currentTipo as TipoType) : true;
+  const isExerciseDisabled = !currentArea || !requiresExercises || availableEjercicios.length === 0;
+  
+  // ✅ NUEVO: Validación del formulario considerando si requiere ejercicios
+  const canSubmit = currentTipo && currentArea && 
+    (requiresExercises ? currentEjercicio : true) && // Solo requerir ejercicio si aplica
+    tiempoCantidad && Number(tiempoCantidad) > 0 && 
+    intensidad > 0;
+
+  // ✅ Handler personalizado para submit
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (canSubmit) {
+      onSubmit(e);
+    }
+  };
 
   return (
-    <form onSubmit={onSubmit} className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg space-y-6">
+    <form onSubmit={handleSubmit} className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg space-y-6">
       <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">Registrar Ejercicio</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
@@ -86,28 +100,35 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
         <div>
           <label className="block text-sm lg:text-base font-medium text-gray-400 mb-2">
             Ejercicio
-            {currentTipo === TipoType.PUNTOS && (
-              <span className="text-xs text-gray-500 ml-2">(No aplica para Puntos)</span>
+            {!requiresExercises && (
+              <span className="text-xs text-yellow-400 ml-2">(No aplica para Puntos)</span>
             )}
           </label>
           <select 
             value={currentEjercicio} 
             onChange={e => onEjercicioChange(e.target.value)} 
-            disabled={isExerciseDisabled}  // MODIFICADO: Deshabilitado para PUNTOS
+            disabled={isExerciseDisabled}
             className="w-full p-3 lg:p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <option value="">
-              {currentTipo === TipoType.PUNTOS ? "No disponible" : "Selecciona ejercicio"}
+              {!requiresExercises ? "No requiere ejercicio" : 
+               availableEjercicios.length === 0 ? "No hay ejercicios disponibles" :
+               "Selecciona ejercicio"}
             </option>
-            {availableEjercicios.map(ejercicio => (
+            {requiresExercises && availableEjercicios.map(ejercicio => (
               <option key={ejercicio} value={ejercicio}>{ejercicio}</option>
             ))}
           </select>
+          {!requiresExercises && currentArea && (
+            <p className="text-xs text-yellow-400/80 italic mt-1">
+              El tipo "Puntos" se trabaja directamente sin ejercicios específicos
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Sección de ejercicios específicos - MODIFICADO: Solo mostrar si hay ejercicio y no es PUNTOS */}
-      {currentEjercicio && shouldShowExercises && (
+      {/* Sección de ejercicios específicos - Solo mostrar si hay ejercicio y requiere ejercicios */}
+      {currentEjercicio && requiresExercises && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <label className="block text-sm lg:text-base font-medium text-gray-400">Ejercicio Específico (Opcional)</label>
@@ -177,8 +198,13 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
       </div>
       
       <button 
-        type="submit" 
-        className="w-full px-6 py-3 lg:py-4 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black font-bold text-base lg:text-lg rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-green-500/25"
+        type="submit"
+        disabled={!canSubmit}
+        className={`w-full px-6 py-3 lg:py-4 font-bold text-base lg:text-lg rounded-lg transition-all duration-200 transform shadow-lg ${
+          canSubmit 
+            ? 'bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-black hover:scale-[1.02] active:scale-[0.98] shadow-green-500/25'
+            : 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-50'
+        }`}
       >
         <span className="flex items-center justify-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 lg:w-6 lg:h-6">
