@@ -235,21 +235,23 @@ const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
   }, [localDrillDownPath, enableSpecificLevel, handlePieSliceClickExtended]);
 
   return (
-    <div className="border-t border-gray-800 pt-8 lg:pt-12">
-      {/* Header con toggle */}
-      <div className="flex items-center justify-between mb-6 lg:mb-8">
-        <h2 className="text-2xl lg:text-3xl font-semibold text-green-400">
-          Análisis de Ejercicios
+    <div className="border-t border-gray-800 pt-8 lg:pt-10 px-2 sm:px-4 lg:px-0">
+      {/* Header responsivo compacto */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6 sm:mb-8">
+        <h2 className="text-lg sm:text-xl lg:text-2xl font-semibold text-green-400">
+          <span className="hidden sm:inline">Análisis de Ejercicios</span>
+          <span className="sm:hidden">Análisis</span>
         </h2>
         
-        {/* Toggle para habilitar 4to nivel */}
+        {/* Toggle ultracompacto para móvil */}
         {dateFilteredSessions.length > 0 && (
-          <div className="flex items-center gap-3 bg-gray-800/50 px-4 py-2 rounded-lg border border-gray-700">
+          <div className="flex items-center gap-2 bg-gray-800/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-700 self-start sm:self-auto">
             <label 
-              className="text-sm text-gray-300 cursor-pointer select-none"
+              className="text-xs text-gray-300 cursor-pointer select-none"
               htmlFor="specific-toggle"
             >
-              Ver ejercicios específicos
+              <span className="hidden sm:inline">Ver ejercicios específicos</span>
+              <span className="sm:hidden">Específicos</span>
             </label>
             <button
               id="specific-toggle"
@@ -266,18 +268,18 @@ const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
               }}
               className={`${
                 enableSpecificLevel ? 'bg-green-500' : 'bg-gray-600'
-              } relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900`}
+              } relative inline-flex h-4 w-7 sm:h-5 sm:w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-1 focus:ring-green-500 focus:ring-offset-1 focus:ring-offset-gray-900`}
             >
               <span className="sr-only">Habilitar ejercicios específicos</span>
               <span
                 className={`${
-                  enableSpecificLevel ? 'translate-x-6' : 'translate-x-1'
-                } inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200`}
+                  enableSpecificLevel ? 'translate-x-3.5 sm:translate-x-5' : 'translate-x-0.5'
+                } inline-block h-3 w-3 sm:h-4 sm:w-4 transform rounded-full bg-white transition-transform duration-200`}
               />
             </button>
             {enableSpecificLevel && localDrillDownPath.length === 2 && (
-              <span className="text-xs text-green-400 ml-2 animate-pulse">
-                Click en ejercicios para ver detalles
+              <span className="hidden lg:inline text-xs text-green-400 ml-1 animate-pulse">
+                Click en ejercicios
               </span>
             )}
           </div>
@@ -287,92 +289,108 @@ const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
       {dateFilteredSessions.length === 0 ? (
         <p className="text-center p-4 text-gray-400">No hay sesiones de entrenamiento en el período seleccionado</p>
       ) : (
-        <div className="space-y-6 lg:space-y-8">
-          {/* Main Charts Section */}
-          <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-            <div>
-              {/* Breadcrumb mejorado para soportar 4 niveles - Usando localDrillDownPath */}
-              {localDrillDownPath.length > 0 && (
-                <nav className="mb-2 text-sm lg:text-base flex items-center flex-wrap gap-1">
+        <div className="space-y-3 sm:space-y-4 lg:space-y-6">
+          {/* Breadcrumb mejorado para móvil */}
+          {localDrillDownPath.length > 0 && (
+            <nav className="mb-3 text-xs sm:text-sm flex items-center flex-wrap gap-1">
+              <button 
+                onClick={() => handleBreadcrumbClickExtended(0)} 
+                className="text-gray-400 hover:text-green-400 transition-colors px-1 py-1 rounded"
+              >
+                Inicio
+              </button>
+              {localDrillDownPath.map((item, i) => (
+                <React.Fragment key={i}>
+                  <span className="text-gray-500 text-xs"> › </span>
                   <button 
-                    onClick={() => handleBreadcrumbClickExtended(0)} 
-                    className="text-gray-400 hover:text-green-400 transition-colors"
+                    onClick={() => handleBreadcrumbClickExtended(i + 1)} 
+                    className="text-gray-400 hover:text-green-400 transition-colors truncate max-w-16 sm:max-w-24 lg:max-w-none px-1 py-1 rounded text-xs sm:text-sm"
+                    title={item}
                   >
-                    Inicio
+                    {item}
                   </button>
-                  {localDrillDownPath.map((item, i) => (
-                    <React.Fragment key={i}>
-                      <span className="text-gray-500"> &gt; </span>
-                      <button 
-                        onClick={() => handleBreadcrumbClickExtended(i + 1)} 
-                        className="text-gray-400 hover:text-green-400 transition-colors"
-                      >
-                        {item}
-                      </button>
-                    </React.Fragment>
-                  ))}
-                  {localDrillDownPath.length === 3 && enableSpecificLevel && (
-                    <span className="text-xs text-gray-500 ml-2 bg-gray-800 px-2 py-1 rounded">
-                      Nivel específico
-                    </span>
-                  )}
-                </nav>
+                </React.Fragment>
+              ))}
+              {localDrillDownPath.length === 3 && enableSpecificLevel && (
+                <span className="text-xs text-gray-500 ml-1 bg-gray-800 px-1.5 py-0.5 rounded">
+                  <span className="hidden sm:inline">Específicos</span>
+                  <span className="sm:hidden">Esp</span>
+                </span>
               )}
-              
-              {/* Indicador cuando no hay específicos */}
-              {localDrillDownPath.length === 3 && specificLevelData && specificLevelData.length === 1 && 
-               specificLevelData[0].name === 'Sin especificar' && (
-                <div className="mb-2 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
-                  <p className="text-xs text-yellow-400">
-                    No hay ejercicios específicos registrados para "{localDrillDownPath[2]}"
-                  </p>
-                </div>
-              )}
-              
-              <AreaPieChart 
-                data={chartData} 
-                chartTitle={chartTitle} 
-                onSliceClick={allowChartClick} 
-                height={384}
-              />
+            </nav>
+          )}
+
+          {/* Indicador compacto cuando no hay específicos */}
+          {localDrillDownPath.length === 3 && specificLevelData && specificLevelData.length === 1 && 
+           specificLevelData[0].name === 'Sin especificar' && (
+            <div className="mb-3 p-2 sm:p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+              <p className="text-xs text-yellow-400">
+                <span className="hidden sm:inline">No hay ejercicios específicos registrados para "{localDrillDownPath[2]}"</span>
+                <span className="sm:hidden">Sin ejercicios específicos</span>
+              </p>
             </div>
-            <IntensityLineChart data={intensityChartData} chartTitle={intensityChartTitle} />
+          )}
+
+          {/* Sección de gráficos principales responsiva */}
+          <div className="space-y-6 sm:space-y-8 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-6">
+            {/* Gráfico de área - móvil primero */}
+            <div className="w-full overflow-hidden">
+              <div className="h-[380px] sm:h-[420px] lg:h-[450px]">
+                <AreaPieChart 
+                  data={chartData} 
+                  chartTitle={chartTitle} 
+                  onSliceClick={allowChartClick} 
+                  height="100%"
+                />
+              </div>
+            </div>
+            
+            {/* Gráfico de intensidad */}
+            <div className="w-full overflow-hidden">
+              <div className="h-[380px] sm:h-[420px] lg:h-[450px]">
+                <IntensityLineChart data={intensityChartData} chartTitle={intensityChartTitle} />
+              </div>
+            </div>
           </div>
 
-          {/* 7-Day Training Session Analysis */}
+          {/* Análisis de entrenamientos móvil-optimizado */}
           {sessionAnalysisData && consolidatedStats && (
-            <div className="border-t border-gray-800 pt-6 lg:pt-8">
-              <h3 className="text-xl lg:text-2xl font-semibold text-blue-400 mb-4 lg:mb-6">
-                Análisis de Entrenamientos (Últimos 7 días)
+            <div className="border-t border-gray-800 pt-6 sm:pt-8 mt-6 sm:mt-8">
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-blue-400 mb-4 sm:mb-6">
+                <span className="hidden sm:inline">Análisis de Entrenamientos (Últimos 7 días)</span>
+                <span className="sm:hidden">Últimos 7 días</span>
               </h3>
               
-              <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* General Summary */}
-                <div className="bg-gray-800/50 rounded-lg p-4 lg:p-6">
-                  <h4 className="text-lg font-medium text-white mb-4">Resumen General</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-400">{consolidatedStats.totalSessions}</div>
-                      <div className="text-sm text-gray-400">Sesiones</div>
+              <div className="space-y-6 sm:space-y-8">
+                {/* Resumen general en cards móvil */}
+                <div className="bg-gray-800/50 rounded-lg p-3 sm:p-4">
+                  <h4 className="text-base sm:text-lg font-medium text-white mb-3">Resumen General</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="text-center bg-gray-700/50 rounded-lg p-2 sm:p-3">
+                      <div className="text-lg sm:text-2xl font-bold text-green-400">{consolidatedStats.totalSessions}</div>
+                      <div className="text-xs sm:text-sm text-gray-400">Sesiones</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-400">{consolidatedStats.totalMinutes}</div>
-                      <div className="text-sm text-gray-400">Minutos totales</div>
+                    <div className="text-center bg-gray-700/50 rounded-lg p-2 sm:p-3">
+                      <div className="text-lg sm:text-2xl font-bold text-blue-400">{consolidatedStats.totalMinutes}</div>
+                      <div className="text-xs sm:text-sm text-gray-400">Min. totales</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-400">{consolidatedStats.averageSessionLength}</div>
-                      <div className="text-sm text-gray-400">Promedio/sesión</div>
+                    <div className="text-center bg-gray-700/50 rounded-lg p-2 sm:p-3">
+                      <div className="text-lg sm:text-2xl font-bold text-purple-400">{consolidatedStats.averageSessionLength}</div>
+                      <div className="text-xs sm:text-sm text-gray-400">Promedio</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-400">{consolidatedStats.areaStats.length}</div>
-                      <div className="text-sm text-gray-400">Áreas trabajadas</div>
+                    <div className="text-center bg-gray-700/50 rounded-lg p-2 sm:p-3">
+                      <div className="text-lg sm:text-2xl font-bold text-orange-400">{consolidatedStats.areaStats.length}</div>
+                      <div className="text-xs sm:text-sm text-gray-400">Áreas</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Area Distribution */}
-                <div className="bg-gray-800/50 rounded-lg p-4 lg:p-6">
-                  <h4 className="text-lg font-medium text-white mb-4">Distribución por Tipo y Área</h4>
+                {/* Distribución por área optimizada para móvil */}
+                <div className="bg-gray-800/50 rounded-lg p-3 sm:p-4">
+                  <h4 className="text-base sm:text-lg font-medium text-white mb-3 sm:mb-4">
+                    <span className="hidden sm:inline">Distribución por Tipo y Área</span>
+                    <span className="sm:hidden">Distribución</span>
+                  </h4>
                   <div className="space-y-3">
                     {consolidatedStats.areaStats.map((area, index) => {
                       // Separar el tipo del área para mejor visualización
@@ -381,95 +399,98 @@ const ExerciseAnalysis: React.FC<ExerciseAnalysisProps> = ({
                       const isPelotaViva = tipo.toLowerCase().includes('pelota viva');
                       
                       return (
-                        <div key={area.area} className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  isCanasto ? 'bg-orange-500/20 text-orange-400' :
-                                  isPelotaViva ? 'bg-green-500/20 text-green-400' :
-                                  'bg-gray-500/20 text-gray-400'
-                                }`}>
-                                  {tipo}
-                                </span>
-                                <span className="text-gray-300 font-medium">{areaName}</span>
-                              </div>
-                              <span className="text-gray-400 font-bold">{area.percentage}%</span>
+                        <div key={area.area} className="bg-gray-700/30 rounded-lg p-2 sm:p-3">
+                          <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
+                            <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
+                              <span className={`px-1.5 sm:px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${
+                                isCanasto ? 'bg-orange-500/20 text-orange-400' :
+                                isPelotaViva ? 'bg-green-500/20 text-green-400' :
+                                'bg-gray-500/20 text-gray-400'
+                              }`}>
+                                <span className="hidden sm:inline">{tipo}</span>
+                                <span className="sm:hidden">{tipo.slice(0, 4)}</span>
+                              </span>
+                              <span className="text-gray-300 font-medium truncate">{areaName}</span>
                             </div>
-                            <div className="mt-2 bg-gray-700 rounded-full h-3">
-                              <div 
-                                className={`h-3 rounded-full transition-all duration-300 ${
-                                  isCanasto ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
-                                  isPelotaViva ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                                  'bg-gradient-to-r from-gray-500 to-gray-400'
-                                }`}
-                                style={{ width: `${area.percentage}%` }}
-                              />
-                            </div>
-                            <div className="mt-2 text-xs text-gray-500">
-                              {area.totalMinutes} min • {area.sessionsWithArea} sesiones • {area.averagePerSession} min/sesión
-                            </div>
+                            <span className="text-gray-400 font-bold">{area.percentage}%</span>
+                          </div>
+                          <div className="bg-gray-700 rounded-full h-2 sm:h-3">
+                            <div 
+                              className={`h-2 sm:h-3 rounded-full transition-all duration-300 ${
+                                isCanasto ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
+                                isPelotaViva ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                                'bg-gradient-to-r from-gray-500 to-gray-400'
+                              }`}
+                              style={{ width: `${area.percentage}%` }}
+                            />
+                          </div>
+                          <div className="mt-1 sm:mt-2 text-xs text-gray-500">
+                            {area.totalMinutes} min • {area.sessionsWithArea} sesiones • {area.averagePerSession} min/sesión
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-              </div>
 
-              {/* Session Details */}
-              <div className="mt-6 bg-gray-800/50 rounded-lg p-4 lg:p-6">
-                <h4 className="text-lg font-medium text-white mb-4">Detalle de Sesiones</h4>
-                <div className="grid gap-4">
-                  {sessionAnalysisData.map((session, index) => (
-                    <div key={session.id} className="bg-gray-700/50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm font-medium text-white">
-                          Sesión #{sessionAnalysisData.length - index} - {new Date(session.date).toLocaleDateString('es-ES')}
+                {/* Detalle de sesiones móvil-optimizado */}
+                <div className="bg-gray-800/50 rounded-lg p-3 sm:p-4">
+                  <h4 className="text-base sm:text-lg font-medium text-white mb-3 sm:mb-4">Detalle de Sesiones</h4>
+                  <div className="space-y-3 sm:space-y-4">
+                    {sessionAnalysisData.map((session, index) => (
+                      <div key={session.id} className="bg-gray-700/50 rounded-lg p-3 sm:p-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                          <div className="text-sm font-medium text-white">
+                            Sesión #{sessionAnalysisData.length - index}
+                            <span className="block sm:inline sm:ml-2 text-xs text-gray-400">
+                              {new Date(session.date).toLocaleDateString('es-ES')}
+                            </span>
+                          </div>
+                          <div className="text-xs sm:text-sm text-gray-400">
+                            {session.sessionLength} min • {session.exerciseCount} ejercicios
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-400">
-                          {session.sessionLength} minutos • {session.exerciseCount} ejercicios
-                        </div>
+                        
+                        {Object.keys(session.areaPercentages).length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                            {Object.entries(session.areaPercentages).map(([combinedKey, percentage]) => {
+                              const [tipo, areaName] = combinedKey.split(' - ');
+                              const isCanasto = tipo.toLowerCase().includes('canasto');
+                              const isPelotaViva = tipo.toLowerCase().includes('Peloteo');
+                              
+                              return (
+                                <div key={combinedKey} className={`text-center rounded-lg p-2 sm:p-3 ${
+                                  isCanasto ? 'bg-orange-500/10 border border-orange-500/20' :
+                                  isPelotaViva ? 'bg-green-500/10 border border-green-500/20' :
+                                  'bg-gray-500/10 border border-gray-500/20'
+                                }`}>
+                                  <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1 sm:mb-2">
+                                    <span className={`px-1.5 sm:px-2 py-1 rounded text-xs font-medium ${
+                                      isCanasto ? 'bg-orange-500/20 text-orange-400' :
+                                      isPelotaViva ? 'bg-green-500/20 text-green-400' :
+                                      'bg-gray-500/20 text-gray-400'
+                                    }`}>
+                                      <span className="hidden sm:inline">{tipo}</span>
+                                      <span className="sm:hidden">{tipo.slice(0, 4)}</span>
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-gray-400 mb-1 font-medium truncate">{areaName}</div>
+                                  <div className="text-base sm:text-lg font-bold text-white">{percentage}%</div>
+                                  <div className="text-xs text-gray-500">
+                                    {Math.round(session.areas[combinedKey])} min
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-400 text-xs sm:text-sm py-3 sm:py-4">
+                            Sin áreas registradas en esta sesión
+                          </div>
+                        )}
                       </div>
-                      
-                      {Object.keys(session.areaPercentages).length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {Object.entries(session.areaPercentages).map(([combinedKey, percentage]) => {
-                            const [tipo, areaName] = combinedKey.split(' - ');
-                            const isCanasto = tipo.toLowerCase().includes('canasto');
-                            const isPelotaViva = tipo.toLowerCase().includes('Peloteo');
-                            
-                            return (
-                              <div key={combinedKey} className={`text-center rounded-lg p-3 ${
-                                isCanasto ? 'bg-orange-500/10 border border-orange-500/20' :
-                                isPelotaViva ? 'bg-green-500/10 border border-green-500/20' :
-                                'bg-gray-500/10 border border-gray-500/20'
-                              }`}>
-                                <div className="flex items-center justify-center gap-2 mb-2">
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                    isCanasto ? 'bg-orange-500/20 text-orange-400' :
-                                    isPelotaViva ? 'bg-green-500/20 text-green-400' :
-                                    'bg-gray-500/20 text-gray-400'
-                                  }`}>
-                                    {tipo}
-                                  </span>
-                                </div>
-                                <div className="text-xs text-gray-400 mb-1 font-medium">{areaName}</div>
-                                <div className="text-lg font-bold text-white">{percentage}%</div>
-                                <div className="text-xs text-gray-500">
-                                  {Math.round(session.areas[combinedKey])} min
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="text-center text-gray-400 text-sm py-4">
-                          Sin áreas registradas en esta sesión
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

@@ -37,18 +37,18 @@ const DashboardWidgets: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header de métricas */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h2 className="text-xl font-bold text-white mb-1">Métricas en Tiempo Real</h2>
-          <p className="text-gray-400 text-sm">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-1">Métricas en Tiempo Real</h2>
+          <p className="text-gray-400 text-xs sm:text-sm">
             Última actualización: {new Date().toLocaleTimeString()}
           </p>
         </div>
         <button 
           onClick={refreshData}
-          className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+          className="p-2 sm:p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors border border-gray-700 hover:border-gray-600 self-start sm:self-auto"
           title="Actualizar métricas"
         >
           <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,35 +58,35 @@ const DashboardWidgets: React.FC = () => {
       </div>
 
       {/* Grid principal - Primera fila */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Widget 1: Entrenadores Activos */}
-        <div className="bg-gray-900/50 backdrop-blur-sm p-6 rounded-xl border border-gray-800">
+        <div className="bg-gray-900/50 backdrop-blur-sm p-4 sm:p-6 rounded-xl border border-gray-800">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-blue-500/20 rounded-lg">
-              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m3 5.197H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-white">Entrenadores Activos</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-white">Entrenadores Activos</h3>
           </div>
           
           {activeTrainers.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-400">No hay entrenadores activos hoy</p>
+            <div className="text-center py-6 sm:py-8">
+              <p className="text-gray-400 text-sm sm:text-base">No hay entrenadores activos hoy</p>
             </div>
           ) : (
             <div className="space-y-3">
               {activeTrainers.slice(0, 5).map((trainer) => (
                 <div key={trainer.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-green-400"></div>
-                    <div>
-                      <p className="text-white font-medium">{trainer.name}</p>
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-400 flex-shrink-0"></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white font-medium text-sm sm:text-base truncate">{trainer.name}</p>
                       <p className="text-xs text-gray-400">{trainer.sessionsToday} sesiones hoy</p>
                     </div>
                   </div>
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
@@ -101,52 +101,52 @@ const DashboardWidgets: React.FC = () => {
         </div>
 
         {/* Widget 2: Jugadores Activos */}
-        <div className="bg-gray-900/50 backdrop-blur-sm p-6 rounded-xl border border-gray-800">
+        <div className="bg-gray-900/50 backdrop-blur-sm p-4 sm:p-6 rounded-xl border border-gray-800">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-purple-500/20 rounded-lg">
-              <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-white">Estado de Jugadores</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-white">Estado de Jugadores</h3>
           </div>
           
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
             <div className="text-center">
-              <p className="text-gray-400 text-sm">Activos hoy</p>
-              <p className="text-green-400 text-lg font-semibold">{playerStatus.active.length}</p>
+              <p className="text-gray-400 text-xs sm:text-sm">Activos hoy</p>
+              <p className="text-green-400 text-base sm:text-lg font-semibold">{playerStatus.active.length}</p>
             </div>
             <div className="text-center">
-              <p className="text-gray-400 text-sm">Inactivos hoy</p>
-              <p className="text-yellow-400 text-lg font-semibold">{playerStatus.inactive.length}</p>
+              <p className="text-gray-400 text-xs sm:text-sm">Inactivos hoy</p>
+              <p className="text-yellow-400 text-base sm:text-lg font-semibold">{playerStatus.inactive.length}</p>
             </div>
             <div className="text-center">
-              <p className="text-gray-400 text-sm">Sin planificación</p>
-              <p className="text-red-400 text-lg font-semibold">{playerStatus.withoutPlan.length}</p>
+              <p className="text-gray-400 text-xs sm:text-sm">Sin planificación</p>
+              <p className="text-red-400 text-base sm:text-lg font-semibold">{playerStatus.withoutPlan.length}</p>
             </div>
           </div>
           
           <div className="text-center">
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 text-xs sm:text-sm">
               Total: {playerStatus.active.length + playerStatus.inactive.length} jugadores
             </p>
           </div>
         </div>
 
         {/* Widget 3: Entrenamientos Hoy */}
-        <div className="bg-gray-900/50 backdrop-blur-sm p-6 rounded-xl border border-gray-800">
+        <div className="bg-gray-900/50 backdrop-blur-sm p-4 sm:p-6 rounded-xl border border-gray-800 sm:col-span-2 lg:col-span-1">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-green-500/20 rounded-lg">
-              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-white">Entrenamientos Hoy</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-white">Entrenamientos Hoy</h3>
           </div>
           
           <div className="text-center">
-            <p className="text-5xl font-bold text-green-400 mb-2">{todayTrainings}</p>
-            <p className="text-gray-400 text-sm">
+            <p className="text-3xl sm:text-4xl lg:text-5xl font-bold text-green-400 mb-2">{todayTrainings}</p>
+            <p className="text-gray-400 text-xs sm:text-sm">
               {todayTrainings === 1 ? 'Sesión registrada' : 'Sesiones registradas'}
             </p>
             <div className="mt-4">

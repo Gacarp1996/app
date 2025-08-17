@@ -34,16 +34,25 @@ export const adjustDateWithTimezone = (dateString: string, endOfDay: boolean = f
 };
 
 /**
- * Obtiene el rango de fechas por defecto (últimos 30 días)
+ * Obtiene el rango de fechas por defecto (últimos N días) usando fecha LOCAL
  */
 export const getDefaultDateRange = (days: number = 30): { start: string; end: string } => {
   const today = new Date();
   const startDate = new Date();
   startDate.setDate(today.getDate() - days);
   
+  // ✅ CORREGIDO: Usar fecha local en lugar de UTC
+  const todayLocal = today.getFullYear() + '-' + 
+    String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+    String(today.getDate()).padStart(2, '0');
+    
+  const startLocal = startDate.getFullYear() + '-' + 
+    String(startDate.getMonth() + 1).padStart(2, '0') + '-' + 
+    String(startDate.getDate()).padStart(2, '0');
+  
   return {
-    start: startDate.toISOString().split('T')[0],
-    end: today.toISOString().split('T')[0]
+    start: startLocal,
+    end: todayLocal
   };
 };
 
@@ -73,8 +82,14 @@ export const formatDateFull = (date: Date, timeZone?: string): string => {
 /**
  * Convierte fecha a string YYYY-MM-DD en hora LOCAL del usuario
  * NO hardcodea ninguna timezone específica
+ * ✅ CORREGIDO: Maneja correctamente strings YYYY-MM-DD
  */
 export const toLocalDateString = (date: Date | string): string => {
+  // Si ya es un string en formato YYYY-MM-DD, devolverlo directamente
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date;
+  }
+  
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleDateString('en-CA'); // formato YYYY-MM-DD en TZ local
 };

@@ -37,7 +37,7 @@ export const useActiveSessionRecommendations = ({
   currentSessionExercises = []  
 }: UseActiveSessionRecommendationsProps) => {
   const { academiaActual } = useAcademia();
-  const { getSessionsByPlayer, refreshSessions: refreshSessionsFromContext } = useSession();
+  const { getSessionsByPlayer, refreshSessions: refreshSessionsFromContext, sessions } = useSession();
   
   const academiaId = academiaActual?.id || '';
   
@@ -73,8 +73,7 @@ export const useActiveSessionRecommendations = ({
         
         console.log('📊 Configuración de análisis cargada:', {
           academia: academiaId,
-          dias: configuredDays,
-          anteriorDefault: analysisWindowDays
+          dias: configuredDays
         });
       } catch (error) {
         console.error('❌ Error cargando configuración de análisis:', error);
@@ -88,51 +87,12 @@ export const useActiveSessionRecommendations = ({
     loadAnalysisWindow();
   }, [academiaId]); // Re-cargar si cambia la academia
 
-  // FASE 3: Logger para debugging
-  const logEngineOutput = (output: EngineOutput, input: EngineInput) => {
-    const debugInfo = {
-      timestamp: new Date().toISOString(),
-      input: {
-        totalPlayers: input.players.length,
-        playerNames: input.players.map(p => p.name),
-        hasCurrentExercises: input.currentSessionExercises && input.currentSessionExercises.length > 0,
-        configDays: input.config.rangeDays, // ✅ ACTUALIZADO: Ahora viene de configuración
-        analysisWindow: analysisWindowDays // ✅ NUEVO: Mostrar ventana configurada
-      },
-      output: {
-        analyzedPlayers: output.group.analyzedPlayers,
-        totalPlayers: output.group.totalPlayers,
-        blockedCount: output.group.blocked?.length || 0,
-        warnings: output.group.warnings || [],
-        recommendation: output.group.recommendation,
-        individualCount: Object.keys(output.individual).length
-      },
-      blocked: output.group.blocked || []
-    };
-    
-    console.group('🔍 Motor de Recomendaciones - Debug Output');
-    console.log('📊 Resumen:', {
-      procesados: `${debugInfo.output.analyzedPlayers}/${debugInfo.output.totalPlayers}`,
-      bloqueados: debugInfo.output.blockedCount,
-      advertencias: debugInfo.output.warnings.length,
-      ventanaAnalisis: `${debugInfo.input.analysisWindow} días` // ✅ NUEVO
-    });
-    
-    if (debugInfo.output.blockedCount > 0) {
-      console.warn('⚠️ Jugadores bloqueados:', debugInfo.blocked);
-    }
-    
-    console.log('📋 Detalles completos:', debugInfo);
-    console.groupEnd();
-    
-    return debugInfo;
-  };
+
 
   // ✅ ACTUALIZADO: Generar recomendaciones usando configuración dinámica
   const generateRecommendations = async () => {
     // ✅ NUEVO: Esperar a que se cargue la configuración
     if (loadingAnalysisConfig) {
-      console.log('⏳ Esperando configuración de análisis...');
       return;
     }
 
@@ -147,42 +107,26 @@ export const useActiveSessionRecommendations = ({
     
     try {
       // 1. Cargar planes de entrenamiento
-      console.log('🔄 Cargando planes de entrenamiento...');
       const plans = await TrainingAnalysisService.loadTrainingPlansWithAdaptation(
         academiaId,
         participants
       );
       setTrainingPlans(plans);
       
-      // FASE 3: Log planes cargados
-      console.log('📚 Planes cargados:', {
-        total: Object.keys(plans).length,
-        jugadores: Object.entries(plans).map(([id, plan]) => ({
-          id,
-          tienePlan: !!plan,
-          tienesPlanificacion: !!(plan?.planificacion && Object.keys(plan.planificacion).length > 0)
-        }))
-      });
-      
       // ✅ ACTUALIZADO: Usar ventana de análisis configurada
       const dateRange = getDefaultDateRange(analysisWindowDays);
-      const historicalSessions = participants.map(p => ({
-        playerId: p.id,
-        sessions: getSessionsByPlayer(p.id, {
-          start: new Date(dateRange.start),
-          end: new Date(dateRange.end)
-        })
-      }));
       
-      // ✅ ACTUALIZADO: Log sesiones históricas con ventana configurada
-      console.log('📅 Sesiones históricas:', {
-        ventanaAnalisis: `${analysisWindowDays} días`,
-        fechaDesde: dateRange.start,
-        fechaHasta: dateRange.end,
-        jugadores: historicalSessions.map(h => ({
-          jugador: participants.find(p => p.id === h.playerId)?.name,
-          sesiones: h.sessions.length
-        }))
+      // Obtener sesiones históricas para cada participante
+      const historicalSessions = participants.map(p => {
+        const sessions = getSessionsByPlayer(p.id, {
+          start: new Date(dateRange.start + 'T00:00:00'),
+          end: new Date(dateRange.end + 'T23:59:59')
+        });
+        
+        return {
+          playerId: p.id,
+          sessions
+        };
       });
       
       // 3. Preparar input para el motor
@@ -199,11 +143,7 @@ export const useActiveSessionRecommendations = ({
       };
       
       // 4. Ejecutar motor de recomendaciones
-      console.log('⚙️ Ejecutando motor de recomendaciones...');
       const output = RecommendationEngine.buildRecommendations(engineInput);
-      
-      // FASE 3: Log detallado del output
-      const debugInfo = logEngineOutput(output, engineInput);
       
       // FASE 3: Actualizar estado de bloqueados
       if (output.group.blocked && output.group.blocked.length > 0) {
@@ -212,38 +152,13 @@ export const useActiveSessionRecommendations = ({
           players: output.group.blocked,
           hasBlockedPlayers: true
         });
-        
-        // Log específico para bloqueados
-        console.warn('⚠️ Jugadores sin plan válido:', 
-          output.group.blocked.map(b => ({
-            nombre: b.playerName,
-            razones: b.reasons
-          }))
-        );
       }
       
       setEngineOutput(output);
       setRecommendationsGenerated(true);
       
-      // FASE 3: Notificación si hay jugadores bloqueados
-      if (output.group.blocked && output.group.blocked.length > 0) {
-        const blockedNames = output.group.blocked.map(b => b.playerName).join(', ');
-        console.info(`ℹ️ Recomendaciones generadas con ventana de ${analysisWindowDays} días. ${output.group.blocked.length} jugador(es) excluido(s): ${blockedNames}`);
-      } else {
-        console.info(`✅ Recomendaciones generadas exitosamente con ventana de ${analysisWindowDays} días para ${output.group.analyzedPlayers} jugadores`);
-      }
-      
     } catch (error) {
       console.error('❌ Error generando recomendaciones:', error);
-      
-      // FASE 3: Log detallado del error
-      console.error('Detalles del error:', {
-        mensaje: error instanceof Error ? error.message : 'Error desconocido',
-        stack: error instanceof Error ? error.stack : undefined,
-        participantes: participants.map(p => p.name),
-        academiaId,
-        ventanaAnalisis: analysisWindowDays // ✅ NUEVO
-      });
     } finally {
       setRecommendationsLoading(false);
     }
@@ -251,12 +166,16 @@ export const useActiveSessionRecommendations = ({
 
   // Refrescar recomendaciones
   const refreshRecommendations = async () => {
-    console.log('🔄 Refrescando recomendaciones...');
     setRecommendationsGenerated(false);
     setRecommendationsLoading(true);
 
     try {
-      await refreshSessionsFromContext();
+      // ✅ NUEVO: Forzar recarga de sesiones para evitar problemas de cache
+      await refreshSessionsFromContext(true); // Force refresh
+      
+      // Esperar un poco para que se actualice el estado
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       await generateRecommendations();
     } catch (error) {
       console.error('❌ Error recargando:', error);
@@ -284,7 +203,6 @@ export const useActiveSessionRecommendations = ({
   // Actualizar recomendaciones individuales cuando cambia el jugador seleccionado
   const updateIndividualRecommendations = useCallback((playerId: string) => {
     if (!engineOutput || !playerId) {
-      console.log(`📊 Sin datos para jugador ${playerId}`);
       return null;
     }
     
@@ -322,9 +240,6 @@ export const useActiveSessionRecommendations = ({
     // FASE 3: Check si está bloqueado
     if (!playerData) {
       const blocked = engineOutput.group.blocked?.find(b => b.playerId === playerId);
-      if (blocked) {
-        console.log(`ℹ️ Jugador ${blocked.playerName} no tiene análisis (bloqueado)`);
-      }
       
       return { 
         recommendations: [], 
@@ -374,8 +289,8 @@ export const useActiveSessionRecommendations = ({
   const analyzePlayerSessions = useCallback((playerId: string) => {
     const dateRange = getDefaultDateRange(analysisWindowDays); // ✅ Usar configuración
     const playerSessions = getSessionsByPlayer(playerId, { 
-      start: new Date(dateRange.start), 
-      end: new Date(dateRange.end) 
+      start: new Date(dateRange.start + 'T00:00:00'), 
+      end: new Date(dateRange.end + 'T23:59:59') 
     });
 
     if (playerSessions.length === 0) {
@@ -399,11 +314,13 @@ export const useActiveSessionRecommendations = ({
   // ✅ ACTUALIZADO: Generar preview con ventana configurada
   const updateDataPreview = useCallback(() => {
     const dateRange = getDefaultDateRange(analysisWindowDays); // ✅ Usar configuración
+    
     const sessionData = participants.map(p => {
       const sessions = getSessionsByPlayer(p.id, {
-        start: new Date(dateRange.start),
-        end: new Date(dateRange.end)
+        start: new Date(dateRange.start + 'T00:00:00'),
+        end: new Date(dateRange.end + 'T23:59:59')
       });
+      
       return SessionService.countPlayerSessions(sessions, p.id);
     });
 
@@ -419,7 +336,6 @@ export const useActiveSessionRecommendations = ({
   // Cargar planes cuando cambien participantes
   useEffect(() => {
     if (academiaId && participants.length > 0) {
-      console.log('📋 Cargando planes para participantes:', participants.map(p => p.name));
       TrainingAnalysisService.loadTrainingPlansWithAdaptation(academiaId, participants)
         .then(plans => {
           setTrainingPlans(plans);
@@ -438,7 +354,6 @@ export const useActiveSessionRecommendations = ({
   // Re-generar cuando cambien los ejercicios de sesión actual
   useEffect(() => {
     if (recommendationsGenerated && currentSessionExercises.length > 0) {
-      console.log('📝 Ejercicios de sesión actual cambiaron, regenerando...');
       generateRecommendations();
     }
   }, [currentSessionExercises]);
@@ -446,7 +361,6 @@ export const useActiveSessionRecommendations = ({
   // ✅ NUEVO: Re-generar cuando cambie la configuración de ventana de análisis
   useEffect(() => {
     if (recommendationsGenerated && !loadingAnalysisConfig) {
-      console.log(`📊 Ventana de análisis cambió a ${analysisWindowDays} días, regenerando recomendaciones...`);
       generateRecommendations();
     }
   }, [analysisWindowDays]); // Re-generar si cambia la ventana configurada
@@ -454,14 +368,7 @@ export const useActiveSessionRecommendations = ({
   // FASE 3: Log cuando cambien los jugadores bloqueados
   useEffect(() => {
     if (blockedPlayers.hasBlockedPlayers) {
-      console.group('⚠️ Estado de Jugadores Bloqueados');
-      console.log('Total bloqueados:', blockedPlayers.count);
-      console.table(blockedPlayers.players.map(p => ({
-        Jugador: p.playerName,
-        'Razón principal': p.reasons[0],
-        'Total razones': p.reasons.length
-      })));
-      console.groupEnd();
+      console.warn('⚠️ Jugadores bloqueados:', blockedPlayers.players.map(p => p.playerName));
     }
   }, [blockedPlayers]);
 

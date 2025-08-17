@@ -166,24 +166,44 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
       return;
     }
     
+    console.log('🔄 SESSION CONTEXT: Iniciando carga de sesiones para academia:', academiaActual.id);
+    
     setLoadingSessions(true);
     setSessionsError(null);
     
     try {
       const loadedSessions = await getSessionsFromDB(academiaActual.id);
       
+      console.log('🔄 SESSION CONTEXT: Sesiones recibidas de Firebase:', {
+        total: loadedSessions.length,
+        jugadoresUnicos: [...new Set(loadedSessions.map(s => s.jugadorId))],
+        fechaMasReciente: loadedSessions.length > 0 ? 
+          loadedSessions.reduce((latest, current) => 
+            new Date(current.fecha) > new Date(latest.fecha) ? current : latest
+          ).fecha : null
+      });
+      
       // Limitar sesiones en memoria (mantener las más recientes)
       const sortedSessions = loadedSessions
         .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
         .slice(0, MAX_SESSIONS_IN_MEMORY);
+      
+      console.log('🔄 SESSION CONTEXT: Sesiones después de ordenar y limitar:', {
+        mantenidas: sortedSessions.length,
+        descartadas: loadedSessions.length - sortedSessions.length,
+        limitePorMemoria: MAX_SESSIONS_IN_MEMORY
+      });
       
       setSessions(sortedSessions);
       setLastRefresh(new Date());
       
       // Limpiar cache al cargar datos frescos
       clearCache();
+      
+      console.log('✅ SESSION CONTEXT: Sesiones cargadas exitosamente en estado');
+      
     } catch (error) {
-      console.error('Error cargando sesiones:', error);
+      console.error('❌ SESSION CONTEXT: Error cargando sesiones:', error);
       setSessionsError('Error al cargar las sesiones');
       setSessions([]);
     } finally {
@@ -313,7 +333,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
   
   // Obtener sesiones de hoy
   const getTodaySessions = useCallback((): TrainingSession[] => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA'); // Usar fecha local en formato YYYY-MM-DD
     return getSessionsByDate(today);
   }, [getSessionsByDate]);
   

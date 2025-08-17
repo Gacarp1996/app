@@ -86,10 +86,14 @@ export class SessionService {
     // Usar función centralizada
     const playerExercises = this.sessionExercisesToLogged(exercises, player.id);
     
+    // ✅ MEJORADO: Usar hora actual en lugar de 12:00 hardcodeado
+    const now = new Date();
+    const sessionDateTime = sessionDate + 'T' + now.toTimeString().substring(0, 8); // YYYY-MM-DDTHH:MM:SS
+    
     return {
       jugadorId: player.id,
       entrenadorId,
-      fecha: new Date(sessionDate + 'T12:00:00').toISOString(), // ✅ Usar mediodía para evitar problemas de TZ
+      fecha: new Date(sessionDateTime).toISOString(),
       ejercicios: playerExercises,
       observaciones: observaciones?.trim() || ''
     };

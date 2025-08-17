@@ -245,99 +245,75 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           currentPlayerName={pendingSurveyPlayers[currentSurveyPlayerIndex]?.name}
         />
 
-        {/* Header mejorado con navegación */}
-        <div className="mb-6 lg:mb-10">
-          <div className="bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-xl shadow-2xl shadow-green-500/10">
-            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-4 sm:p-6 lg:p-8">
-              {/* Breadcrumb y botón volver */}
-              <div className="flex items-center gap-3 mb-4">
-                <button
-                  onClick={handleGoBack}
-                  className="flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all duration-200 group"
-                  title={isEditMode ? "Volver al perfil" : "Volver a inicio"}
-                >
-                  <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                  </svg>
-                  <span className="hidden sm:inline">
-                    {isEditMode ? "Volver al Perfil" : "Volver"}
-                  </span>
-                </button>
-                
-                {/* Breadcrumb */}
-                <nav className="flex items-center gap-2 text-sm text-gray-400">
-                  <span>Entrenamientos</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                  <span className="text-green-400">
-                    {isEditMode ? "Editando Sesión" : "Nueva Sesión"}
-                  </span>
-                </nav>
-                
-                {/* ✅ NUEVO: Selector de fecha de la sesión */}
-                <div className="flex items-center gap-3 ml-auto">
-                  <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-700">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <input
-                      type="date"
-                      value={sessionDate}
-                      onChange={(e) => setSessionDate(e.target.value)}
-                      max={new Date().toLocaleDateString('en-CA')}
-                      className="bg-transparent text-sm font-medium text-gray-300 focus:outline-none 
-                                 focus:ring-2 focus:ring-green-500/50 rounded px-2 py-1 cursor-pointer
-                                 hover:text-white transition-colors"
-                      title="Fecha del entrenamiento"
-                    />
-                    {sessionDate !== new Date().toLocaleDateString('en-CA') && (
-                      <span className="text-xs text-yellow-400 font-medium animate-pulse">
-                        ⚠️ Fecha manual
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
+        {/* Header limpio y responsive */}
+        <div className="mb-4 sm:mb-6">
+          <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-gray-800">
+            {/* Navegación superior simplificada */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={handleGoBack}
+                className="flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all duration-200 group"
+                title={isEditMode ? "Volver al perfil" : "Volver a inicio"}
+              >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+                <span className="text-sm sm:text-base">
+                  {isEditMode ? "Volver" : "Volver"}
+                </span>
+              </button>
 
-              {/* Título e información */}
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+              {/* Selector de fecha móvil optimizado */}
+              <div className="flex items-center gap-2 bg-gray-800/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-700">
+                <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <input
+                  type="date"
+                  value={sessionDate}
+                  onChange={(e) => setSessionDate(e.target.value)}
+                  max={new Date().toLocaleDateString('en-CA')}
+                  className="bg-transparent text-xs sm:text-sm font-medium text-gray-300 focus:outline-none 
+                             focus:ring-1 focus:ring-green-500/50 rounded px-1 sm:px-2 py-1 cursor-pointer
+                             hover:text-white transition-colors w-24 sm:w-auto"
+                  title="Fecha del entrenamiento"
+                />
+              </div>
+            </div>
+
+            {/* Título simplificado */}
+            <div className="text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
-                      {isEditMode ? "Editando Entrenamiento" : "Entrenamiento en Curso"}
-                    </h1>
-                    {isEditMode && (
-                      <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full border border-blue-500/30">
-                        Modo Edición
-                      </span>
-                    )}
-                  </div>
-                  
-                  <p className="text-sm sm:text-base lg:text-lg text-gray-400 truncate" title={playerNamesDisplay}>
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1">
+                    {isEditMode ? "Editando Entrenamiento" : "Entrenamiento Activo"}
+                  </h1>
+                  <p className="text-sm text-gray-400 truncate">
                     {playerNamesDisplay}
-                    {isEditMode && originalSession && (
-                      <span className="ml-2 text-yellow-400">
-                        • {new Date(originalSession.fecha).toLocaleDateString('es-ES')}
-                      </span>
-                    )}
                   </p>
+                  {isEditMode && (
+                    <span className="inline-block mt-1 px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-medium rounded border border-blue-500/30">
+                      Modo Edición
+                    </span>
+                  )}
                 </div>
                 
-                {/* Botones de acción */}
-                <div className="flex gap-2 lg:gap-3 flex-shrink-0">
+                {/* Botones compactos */}
+                <div className="flex gap-2 justify-center sm:justify-end">
                   <button 
                     onClick={() => setIsParticipantModalOpen(true)} 
-                    className="px-4 py-2 lg:px-6 lg:py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30 text-purple-400 font-semibold rounded-lg transition-all duration-200 border border-purple-500/30 hover:border-purple-500/50 text-sm lg:text-base"
+                    className="px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 font-medium rounded-lg transition-all duration-200 border border-purple-500/30 text-sm"
                   >
-                    Participantes
+                    <span className="hidden sm:inline">Participantes</span>
+                    <span className="sm:hidden">👥</span>
                   </button>
                   <button 
                     onClick={() => setIsObjectiveModalOpen(true)} 
-                    className="px-4 py-2 lg:px-6 lg:py-3 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 hover:from-blue-500/30 hover:to-indigo-500/30 text-blue-400 font-semibold rounded-lg transition-all duration-200 border border-blue-500/30 hover:border-blue-500/50 text-sm lg:text-base"
+                    className="px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-medium rounded-lg transition-all duration-200 border border-blue-500/30 text-sm"
                   >
-                    Ver Info
+                    <span className="hidden sm:inline">Ver Info</span>
+                    <span className="sm:hidden">ℹ️</span>
                   </button>
                 </div>
               </div>
@@ -345,28 +321,26 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           </div>
         </div>
 
-        {/* Advertencia en modo edición */}
+        {/* Advertencia compacta en modo edición */}
         {isEditMode && (
-          <div className="mb-6 bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mb-4 bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <div>
-                <p className="text-blue-300 font-medium">Modo Edición Activado</p>
-                <p className="text-blue-400 text-sm mt-1">
-                  Estás modificando un entrenamiento existente. Los cambios sobrescribirán la sesión original y se mantendrá la encuesta post-entrenamiento si existe.
-                </p>
-              </div>
+              <p className="text-blue-300 text-sm">
+                <span className="font-medium">Editando sesión existente.</span>
+                <span className="hidden sm:inline"> Los cambios sobrescribirán la sesión original.</span>
+              </p>
             </div>
           </div>
         )}
 
-        {/* Grid principal para desktop */}
-        <div className="lg:grid lg:grid-cols-12 lg:gap-8">
+        {/* Layout principal responsive */}
+        <div className="space-y-4 sm:space-y-6 lg:grid lg:grid-cols-12 lg:gap-6 lg:space-y-0">
           {/* Columna principal */}
-          <div className="lg:col-span-8 space-y-6">
-            {/* Selector de jugadores mejorado */}
+          <div className="lg:col-span-8 space-y-4 sm:space-y-6">
+            {/* Selector de jugadores compacto */}
             <PlayerSelector
               participants={participants}
               activePlayerIds={activePlayerIds}
@@ -374,22 +348,27 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
               onToggleSelectAll={toggleSelectAllPlayers}
             />
 
-            {/* Panel de recomendaciones de entrenamiento */}
-            <ActiveSessionRecommendations
-              participants={participants}
-              currentSessionExercises={exercises} 
-            />
+            {/* Panel de recomendaciones colapsible en móvil */}
+            <div className="lg:block">
+              <ActiveSessionRecommendations
+                participants={participants}
+                currentSessionExercises={exercises} 
+              />
+            </div>
             
-            {/* Mostrar objetivos cuando hay un solo jugador seleccionado */}
+            {/* Objetivos compactos para un solo jugador */}
             {singleActivePlayer && objectivesForSingleActivePlayer.length > 0 && (
-              <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg">
-                <p className="text-gray-400 text-sm lg:text-base">
-                  <span className="text-green-400 font-semibold">Objetivos de {singleActivePlayer.name}:</span> {objectivesForSingleActivePlayer.map(o => o.textoObjetivo).join(', ')}
+              <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg p-3 sm:p-4 border border-gray-800">
+                <p className="text-sm text-gray-400">
+                  <span className="text-green-400 font-medium">Objetivos de {singleActivePlayer.name}:</span>
+                  <span className="block sm:inline sm:ml-1 mt-1 sm:mt-0">
+                    {objectivesForSingleActivePlayer.map(o => o.textoObjetivo).join(', ')}
+                  </span>
                 </p>
               </div>
             )}
 
-            {/* Formulario de ejercicio mejorado para desktop */}
+            {/* Formulario de ejercicio mejorado */}
             <ExerciseForm
               currentTipo={currentTipo}
               currentArea={currentArea}
@@ -411,15 +390,15 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
               onAddSpecificExercise={handleAddSpecificExercise}
             />
 
-            {/* Observaciones de la sesión */}
-            <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg">
-                <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">Observaciones de la Sesión</h2>
+            {/* Observaciones compactas */}
+            <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg p-3 sm:p-4 border border-gray-800">
+                <h2 className="text-lg font-semibold text-white mb-3">Observaciones</h2>
                 <textarea
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
-                  rows={4}
-                  className="w-full p-3 lg:p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 resize-none"
-                  placeholder="Añade aquí notas sobre la actitud del jugador, condiciones climáticas, sensaciones, etc."
+                  rows={3}
+                  className="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-all duration-200 resize-none text-sm"
+                  placeholder="Notas sobre actitud, condiciones, sensaciones..."
                 />
             </div>
 
@@ -439,13 +418,13 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           />
         </div>
 
-        {/* Botón de finalizar con navegación mejorada */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-black/80 backdrop-blur-lg border-t border-gray-800 lg:relative lg:mt-8 lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:border-0">
-          <div className="flex gap-3">
-            {/* Botón cancelar para móvil */}
+        {/* Botón de finalizar optimizado para móvil */}
+        <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 bg-black/90 backdrop-blur-lg border-t border-gray-800 lg:relative lg:mt-6 lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:border-0 z-40">
+          <div className="flex gap-2 sm:gap-3 max-w-4xl mx-auto">
+            {/* Botón cancelar compacto */}
             <button 
               onClick={handleGoBack}
-              className="lg:hidden px-4 py-4 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-all duration-200 flex-shrink-0"
+              className="lg:hidden px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all duration-200 flex-shrink-0 text-sm"
             >
               Cancelar
             </button>
@@ -453,20 +432,25 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
             {/* Botón finalizar */}
             <button 
               onClick={handleFinishTraining} 
-              className="flex-1 px-6 py-4 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold text-lg lg:text-xl rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-red-500/25"
+              className="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold text-sm sm:text-base lg:text-lg rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-red-500/25"
             >
               <span className="flex items-center justify-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z" />
                 </svg>
-                {isEditMode ? "Guardar Cambios" : "Finalizar y Guardar"}
+                <span className="hidden sm:inline">
+                  {isEditMode ? "Guardar Cambios" : "Finalizar y Guardar"}
+                </span>
+                <span className="sm:hidden">
+                  {isEditMode ? "Guardar" : "Finalizar"}
+                </span>
               </span>
             </button>
           </div>
         </div>
         
-        {/* Espaciado extra en móvil para el botón fijo */}
-        <div className="h-20 lg:hidden"></div>
+        {/* Espaciado para botón fijo en móvil */}
+        <div className="h-16 sm:h-20 lg:hidden"></div>
       </div>
     </div>
   );

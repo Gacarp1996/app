@@ -92,16 +92,48 @@ export const addSessionsBatch = async (
 
 export const getSessions = async (academiaId: string): Promise<TrainingSession[]> => {
   try {
+    console.log('🔍 FIREBASE: Consultando sesiones para academia:', academiaId);
+    
     const sessionsCollection = collection(db, "academias", academiaId, "sessions");
     const querySnapshot = await getDocs(sessionsCollection);
+    
+    console.log('🔍 FIREBASE: Documentos encontrados en Firestore:', querySnapshot.docs.length);
+    
     const sessions: TrainingSession[] = querySnapshot.docs.map((doc) => {
       const data = doc.data() as Omit<TrainingSession, "id">;
-      return {
+      const session = {
         id: doc.id,
         ...data,
       };
+      
+      // Log detallado de cada sesión
+      const minutosAtras = Math.round((Date.now() - new Date(session.fecha).getTime()) / (1000 * 60));
+      console.log(`🔍 FIREBASE: Sesión ${doc.id}:`, {
+        jugadorId: session.jugadorId,
+        entrenadorId: session.entrenadorId,
+        fecha: session.fecha,
+        minutosAtras: minutosAtras,
+        esReciente: minutosAtras < 30
+      });
+      
+      return session;
     });
-    console.log("📊 Sesiones obtenidas:", sessions.length);
+    
+    // Resumen por jugador
+    const jugadoresUnicos = [...new Set(sessions.map(s => s.jugadorId))];
+    console.log('🔍 FIREBASE: Resumen por jugador:', 
+      jugadoresUnicos.map(jugadorId => ({
+        jugadorId,
+        sesiones: sessions.filter(s => s.jugadorId === jugadorId).length,
+        fechaMasReciente: sessions
+          .filter(s => s.jugadorId === jugadorId)
+          .map(s => s.fecha)
+          .sort()
+          .slice(-1)[0]
+      }))
+    );
+    
+    console.log("📊 FIREBASE: Total sesiones obtenidas:", sessions.length);
     return sessions;
   } catch (error) {
     console.error("❌ Error al obtener sesiones:", error);
