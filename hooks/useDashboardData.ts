@@ -67,7 +67,16 @@ export const useDashboardData = () => {
   }, [academiaActual, allPlayers, loadingPlayers, loadingSessions]);
 
   const loadDashboardData = async () => {
-    if (!academiaActual) return;
+    console.log('🚀 INICIANDO CARGA DE DASHBOARD:', {
+      academiaActual: academiaActual?.id,
+      loadingPlayers,
+      loadingSessions
+    });
+
+    if (!academiaActual) {
+      console.log('⏸️ DASHBOARD PAUSADO - Sin academia');
+      return;
+    }
     
     setLoading(true);
     setError(null);
@@ -76,6 +85,12 @@ export const useDashboardData = () => {
       // ✅ USAR FUNCIONES DEL CONTEXTO
       const todaySessions = getTodaySessions();
       const users = await getAcademiaUsers(academiaActual.id);
+
+      console.log('📊 DATOS OBTENIDOS PARA DASHBOARD:', {
+        sesionesHoy: todaySessions.length,
+        usuarios: users.length,
+        academia: academiaActual.id
+      });
 
       // Usar allPlayers del contexto
       const activePlayers = allPlayers.filter(p => p.estado === 'activo');
@@ -98,6 +113,27 @@ export const useDashboardData = () => {
 
   // Widget 1: Entrenadores Activos - ACTUALIZADO
   const processActiveTrainers = async (todaySessions: TrainingSession[], users: AcademiaUser[]) => {
+    // 🚨 DEBUG: Ver qué sesiones llegan
+    console.log('🔍 DEBUG - Sesiones de hoy para dashboard:', {
+      total: todaySessions.length,
+      sesiones: todaySessions.map(s => ({
+        id: s.id,
+        fecha: s.fecha,
+        jugadorId: s.jugadorId,
+        entrenadorId: s.entrenadorId
+      }))
+    });
+
+    // 🚨 DEBUG: Ver qué usuarios llegan
+    console.log('🔍 DEBUG - Usuarios de academia:', {
+      total: users.length,
+      usuarios: users.map(u => ({
+        userId: u.userId,
+        userName: u.userName,
+        userEmail: u.userEmail
+      }))
+    });
+
     // Contar entrenamientos por entrenador
     const trainerSessionsCount: { [key: string]: number } = {};
     todaySessions.forEach(session => {
@@ -106,19 +142,37 @@ export const useDashboardData = () => {
       }
     });
 
+    // 🚨 DEBUG: Ver conteo de sesiones por entrenador
+    console.log('🔍 DEBUG - Conteo por entrenador:', trainerSessionsCount);
+
     // Crear lista de entrenadores activos con sus datos
     const trainers: ActiveTrainer[] = Object.entries(trainerSessionsCount).map(([trainerId, count]) => {
       const user = users.find(u => u.userId === trainerId);
-      return {
+      const trainer = {
         id: trainerId,
         name: user?.userName || user?.userEmail.split('@')[0] || 'Usuario desconocido',
         email: user?.userEmail || '',
         sessionsToday: count
       };
+      
+      // 🚨 DEBUG: Ver cada entrenador procesado
+      console.log('🔍 DEBUG - Entrenador procesado:', {
+        trainerId,
+        user: user ? {
+          userId: user.userId,
+          userName: user.userName,
+          userEmail: user.userEmail
+        } : 'No encontrado',
+        trainerResult: trainer
+      });
+      
+      return trainer;
     });
 
     // Ordenar por número de sesiones (descendente)
     trainers.sort((a, b) => b.sessionsToday - a.sessionsToday);
+    
+    console.log('🔍 DEBUG - Entrenadores finales:', trainers);
     
     setActiveTrainers(trainers);
   };

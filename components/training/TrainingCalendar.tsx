@@ -70,20 +70,33 @@ const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ playerId, onDateCli
         /* Navegación del calendario */
         .training-calendar-wrapper .react-calendar__navigation {
           display: flex;
+          align-items: center;
+          justify-content: space-between;
           height: 3rem;
           margin-bottom: 1rem;
           background: transparent;
+          gap: 0.5rem;
         }
 
         .training-calendar-wrapper .react-calendar__navigation button {
           color: #e5e7eb;
           background: transparent;
           border: none;
-          font-size: 1.1rem;
+          font-size: 1rem;
           font-weight: 600;
           transition: all 0.2s ease;
           border-radius: 0.5rem;
           padding: 0.5rem;
+          min-width: 2.5rem;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 640px) {
+          .training-calendar-wrapper .react-calendar__navigation button {
+            font-size: 0.9rem;
+            padding: 0.375rem;
+            min-width: 2rem;
+          }
         }
 
         .training-calendar-wrapper .react-calendar__navigation button:hover {
@@ -102,6 +115,20 @@ const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ playerId, onDateCli
           font-weight: 700;
           font-size: 1.2rem;
           color: #00E87A;
+          text-align: center;
+          flex: 1;
+          padding: 0 0.5rem;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        @media (max-width: 640px) {
+          .training-calendar-wrapper .react-calendar__navigation__label {
+            font-size: 1rem;
+            padding: 0 0.25rem;
+          }
         }
 
         /* Días de la semana */
@@ -268,6 +295,10 @@ const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ playerId, onDateCli
             showNeighboringMonth={true}
             minDetail="month"
             maxDetail="month"
+            navigationLabel={({ date }) => 
+              date.toLocaleDateString('es-ES', { month: 'long' }).charAt(0).toUpperCase() + 
+              date.toLocaleDateString('es-ES', { month: 'long' }).slice(1)
+            }
           />
         </div>
       </div>

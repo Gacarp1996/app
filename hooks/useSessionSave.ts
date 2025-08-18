@@ -144,7 +144,14 @@ export const useSessionSave = ({
         observaciones: observaciones.trim(),
         entrenadorId: currentUser.uid,
         ...(sessionDate && sessionDate !== new Date(originalSession.fecha).toLocaleDateString('en-CA') 
-          ? { fecha: new Date(sessionDate + 'T12:00:00').toISOString() }
+          ? { 
+              // ✅ MEJORADO: Usar hora actual en lugar de 12:00 hardcodeado
+              fecha: (() => {
+                const now = new Date();
+                const sessionDateTime = sessionDate + 'T' + now.toTimeString().substring(0, 8);
+                return new Date(sessionDateTime).toISOString();
+              })()
+            }
           : {})
       };
 

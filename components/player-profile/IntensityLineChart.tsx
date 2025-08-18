@@ -24,16 +24,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 const IntensityLineChart: React.FC<IntensityLineChartProps> = ({ data, chartTitle }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="bg-gray-900/50 backdrop-blur-sm p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800 h-full">
-        <h3 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4 text-center">
-          {chartTitle}
+      <div className="bg-gray-900/50 backdrop-blur-sm p-3 sm:p-4 lg:p-6 rounded-xl shadow-lg border border-gray-800 h-full flex flex-col overflow-hidden">
+        <h3 className="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-3 sm:mb-4 text-center flex-shrink-0">
+          <span className="hidden sm:inline">{chartTitle}</span>
+          <span className="sm:hidden">{chartTitle.length > 20 ? chartTitle.substring(0, 20) + '...' : chartTitle}</span>
         </h3>
-        <div className="text-center py-8 lg:py-12">
-          <svg className="w-16 h-16 lg:w-20 lg:h-20 mx-auto text-gray-700 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <div className="text-center py-6 sm:py-8 lg:py-12 flex-1 flex flex-col justify-center">
+          <svg className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 mx-auto text-gray-700 mb-3 sm:mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
           </svg>
-          <p className="text-gray-400 text-base lg:text-lg">
-            No hay datos de intensidad para mostrar.
+          <p className="text-gray-400 text-sm sm:text-base lg:text-lg">
+            <span className="hidden sm:inline">No hay datos de intensidad para mostrar.</span>
+            <span className="sm:hidden">Sin datos de intensidad</span>
           </p>
         </div>
       </div>
@@ -41,13 +43,15 @@ const IntensityLineChart: React.FC<IntensityLineChartProps> = ({ data, chartTitl
   }
 
   return (
-    <div className="bg-gray-900/50 backdrop-blur-sm p-4 lg:p-6 rounded-xl shadow-lg border border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/5 h-full">
-      <h3 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4 lg:mb-6 text-center">
-        {chartTitle}
+    <div className="bg-gray-900/50 backdrop-blur-sm p-3 sm:p-4 lg:p-6 rounded-xl shadow-lg border border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/5 h-full flex flex-col overflow-hidden">
+      <h3 className="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-3 sm:mb-4 lg:mb-6 text-center flex-shrink-0">
+        <span className="hidden sm:inline">{chartTitle}</span>
+        <span className="sm:hidden">{chartTitle.length > 20 ? chartTitle.substring(0, 20) + '...' : chartTitle}</span>
       </h3>
       
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 40 }}>
+      <div className="flex-1 min-h-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 15, left: 5, bottom: 30 }}>
           <defs>
             <linearGradient id="intensityGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#00D9E8" stopOpacity={0.8}/>
@@ -71,17 +75,19 @@ const IntensityLineChart: React.FC<IntensityLineChartProps> = ({ data, chartTitl
           <XAxis 
             dataKey="fecha" 
             stroke="#9CA3AF"
-            tick={{ fill: '#9CA3AF', fontSize: 12 }}
+            tick={{ fill: '#9CA3AF', fontSize: 10 }}
             angle={-45}
             textAnchor="end"
-            height={60}
+            height={50}
+            interval="preserveStartEnd"
           />
           
           <YAxis 
             domain={[0, 10]}
             ticks={[0, 2, 4, 6, 8, 10]}
             stroke="#9CA3AF"
-            tick={{ fill: '#9CA3AF', fontSize: 12 }}
+            tick={{ fill: '#9CA3AF', fontSize: 10 }}
+            width={25}
           />
           
           <Tooltip content={<CustomTooltip />} />
@@ -90,11 +96,11 @@ const IntensityLineChart: React.FC<IntensityLineChartProps> = ({ data, chartTitl
             type="monotone" 
             dataKey="intensidad" 
             stroke="#00D9E8"
-            strokeWidth={3}
+            strokeWidth={2}
             dot={{ 
               fill: '#00E87A', 
               strokeWidth: 2, 
-              r: 5,
+              r: 4,
               filter: 'url(#glow)'
             }}
             activeDot={{ 
@@ -115,8 +121,9 @@ const IntensityLineChart: React.FC<IntensityLineChartProps> = ({ data, chartTitl
           </defs>
         </LineChart>
       </ResponsiveContainer>
+      </div>
       
-      <div className="mt-4 pt-4 border-t border-gray-800">
+      <div className="mt-4 pt-4 border-t border-gray-800 flex-shrink-0">
         <div className="grid grid-cols-2 gap-4 px-2">
           <div>
             <p className="text-xs lg:text-sm text-gray-500">Promedio</p>

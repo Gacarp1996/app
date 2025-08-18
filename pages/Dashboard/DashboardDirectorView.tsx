@@ -81,7 +81,9 @@ const useDirectorDashboardData = () => {
   }, [academiaActual, allPlayersFromContext]);
 
   const loadDashboardData = async () => {
-    if (!academiaActual) return;
+    if (!academiaActual) {
+      return;
+    }
     
     setLoading(true);
     setError(null);

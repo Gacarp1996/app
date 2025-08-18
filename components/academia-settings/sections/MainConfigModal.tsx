@@ -223,37 +223,38 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
       <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100]" onClick={onClose} />
       
       {/* Modal */}
-      <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[101] flex items-center justify-center p-2 sm:p-4">
         <div
-          className="relative bg-gray-900/95 backdrop-blur-xl rounded-xl w-full max-w-4xl max-h-[90vh] shadow-2xl shadow-green-500/20 border border-gray-800 overflow-hidden"
+          className="relative bg-gray-900/95 backdrop-blur-xl rounded-xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] shadow-2xl shadow-green-500/20 border border-gray-800 overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/20 rounded-lg">
-                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-800">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-green-500/20 rounded-lg">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
-                {configTitle}
+              <h3 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+                <span className="hidden sm:inline">{configTitle}</span>
+                <span className="sm:hidden">Configuración</span>
               </h3>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-green-400 transition-all duration-200 hover:rotate-90 transform"
+              className="text-gray-400 hover:text-green-400 transition-all duration-200 hover:rotate-90 transform p-1"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
           
           {/* Contenido del Modal */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] scrollbar-thin scrollbar-track-gray-800/30 scrollbar-thumb-gray-600/60 hover:scrollbar-thumb-gray-500/80">
-            <div className="space-y-6">
+          <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)] scrollbar-thin scrollbar-track-gray-800/30 scrollbar-thumb-gray-600/60 hover:scrollbar-thumb-gray-500/80">
+            <div className="space-y-4 sm:space-y-6">
               
               {/* SECCIÓN 1: Gestión de usuarios - Solo para academyDirector (academia) y groupCoach (grupo) */}
               {showUserManagement && (
@@ -291,21 +292,45 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
 
               {/* SECCIÓN 4: Configuración Avanzada - Solo academyDirector, academySubdirector y groupCoach */}
               {showAdvancedConfig && (
-                <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-500/20 rounded-lg">
-                        <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white leading-none">Configuración Avanzada</h3>
-                        <p className="text-gray-400 text-sm">
-                          {isAcademia ? 'Estructura de ejercicios y encuestas de la academia' : 'Estructura de ejercicios y encuestas del grupo'}
-                        </p>
-                      </div>
+                <div className="bg-gray-800/50 p-3 sm:p-6 rounded-xl border border-gray-700">
+                  {/* Header con título e icono */}
+                  <div className="flex items-center gap-2 sm:gap-3 mb-3">
+                    <div className="p-1.5 sm:p-2 bg-purple-500/20 rounded-lg">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                      </svg>
                     </div>
+                    <div className="flex-1">
+                      <h3 className="text-base sm:text-lg font-semibold text-white leading-none">Configuración Avanzada</h3>
+                      <p className="text-gray-400 text-xs sm:text-sm mt-1">
+                        {isAcademia ? 'Estructura de ejercicios y encuestas de la academia' : 'Estructura de ejercicios y encuestas del grupo'}
+                      </p>
+                    </div>
+                    {/* Botón en desktop - oculto en móvil */}
+                    <div className="hidden sm:block">
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (typeof onOpenAdvancedConfig === 'function') {
+                            onOpenAdvancedConfig();
+                          }
+                        }}
+                        type="button"
+                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105"
+                      >
+                        <span className="flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          Configurar
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Botón en móvil - debajo del título */}
+                  <div className="block sm:hidden">
                     <button 
                       onClick={(e) => {
                         e.preventDefault();
@@ -315,9 +340,9 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                         }
                       }}
                       type="button"
-                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105"
+                      className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all duration-200 text-sm"
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center justify-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
@@ -330,32 +355,37 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
 
               {/* SECCIÓN 5: Zona de Peligro - Solo academyDirector (academia) y groupCoach (grupo) */}
               {showDeleteOption && (
-                <div className="bg-gradient-to-br from-red-500/10 to-red-600/10 p-6 rounded-xl border border-red-500/30 shadow-lg">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-red-500/20 rounded-lg">
-                      <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-gradient-to-br from-red-500/10 to-red-600/10 p-3 sm:p-6 rounded-xl border border-red-500/30 shadow-lg">
+                  {/* Header con título e icono */}
+                  <div className="flex items-center gap-2 sm:gap-3 mb-3">
+                    <div className="p-1.5 sm:p-2 bg-red-500/20 rounded-lg">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                       </svg>
                     </div>
-                    <h2 className="text-xl font-bold text-red-400 leading-none">Zona de Peligro</h2>
+                    <div className="flex-1">
+                      <h2 className="text-base sm:text-xl font-bold text-red-400 leading-none">Zona de Peligro</h2>
+                    </div>
                   </div>
                   
-                  <p className="text-gray-300 mb-4 leading-relaxed">
+                  <p className="text-gray-300 mb-3 text-sm sm:text-base leading-relaxed">
                     {deleteWarningText} No se puede deshacer esta operación.
                   </p>
                   
-                  <button
-                    onClick={onDeleteEntity}
-                    disabled={typeof processingAction === 'string' ? false : processingAction}
-                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:transform-none shadow-lg shadow-red-500/25"
-                  >
+                  {/* Botón debajo del texto en móvil y desktop */}
+                  <div className="flex justify-center sm:justify-end">
+                    <button
+                      onClick={onDeleteEntity}
+                      disabled={typeof processingAction === 'string' ? false : processingAction}
+                      className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:transform-none shadow-lg shadow-red-500/25 text-sm sm:text-base"
+                    >
                     {typeof processingAction === 'boolean' && processingAction ? (
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center justify-center gap-2">
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         Eliminando...
                       </span>
                     ) : (
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center justify-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -363,6 +393,7 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                       </span>
                     )}
                   </button>
+                  </div>
                 </div>
               )}
 

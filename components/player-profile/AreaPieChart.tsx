@@ -51,13 +51,13 @@ const ChartViewSelector: React.FC<{
   ];
 
   return (
-    <div className="flex bg-gray-800/50 rounded-lg p-1 gap-1">
+    <div className="flex bg-gray-800/50 rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1">
       {views.map((view) => (
         <button
           key={view.id}
           onClick={() => onViewChange(view.id)}
           className={`
-            flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200
+            flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200
             ${activeView === view.id 
               ? 'bg-green-500/20 text-green-400 shadow-sm' 
               : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
@@ -65,7 +65,7 @@ const ChartViewSelector: React.FC<{
           `}
           title={view.tooltip}
         >
-          <span className="text-base">{view.icon}</span>
+          <span className="text-sm sm:text-base">{view.icon}</span>
           <span className="hidden sm:inline">{view.label}</span>
         </button>
       ))}
@@ -123,31 +123,38 @@ const TableView: React.FC<{
         <thead className="bg-gray-800/50">
           <tr>
             <th 
-              className="px-4 py-3 text-left text-sm font-medium text-gray-300 cursor-pointer hover:text-green-400 transition-colors"
+              className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-300 cursor-pointer hover:text-green-400 transition-colors"
               onClick={() => handleSort('name')}
             >
-              <div className="flex items-center gap-2">
-                Categoría <SortIcon field="name" />
+              <div className="flex items-center gap-1 sm:gap-2">
+                <span className="hidden sm:inline">Categoría</span>
+                <span className="sm:hidden">Cat.</span>
+                <SortIcon field="name" />
               </div>
             </th>
             <th 
-              className="px-4 py-3 text-center text-sm font-medium text-gray-300 cursor-pointer hover:text-green-400 transition-colors"
+              className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs sm:text-sm font-medium text-gray-300 cursor-pointer hover:text-green-400 transition-colors"
               onClick={() => handleSort('value')}
             >
-              <div className="flex items-center justify-center gap-2">
-                Minutos <SortIcon field="value" />
+              <div className="flex items-center justify-center gap-1 sm:gap-2">
+                <span className="hidden sm:inline">Minutos</span>
+                <span className="sm:hidden">Min</span>
+                <SortIcon field="value" />
               </div>
             </th>
             <th 
-              className="px-4 py-3 text-center text-sm font-medium text-gray-300 cursor-pointer hover:text-green-400 transition-colors"
+              className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs sm:text-sm font-medium text-gray-300 cursor-pointer hover:text-green-400 transition-colors"
               onClick={() => handleSort('percentage')}
             >
-              <div className="flex items-center justify-center gap-2">
-                Porcentaje <SortIcon field="percentage" />
+              <div className="flex items-center justify-center gap-1 sm:gap-2">
+                <span className="hidden sm:inline">Porcentaje</span>
+                <span className="sm:hidden">%</span>
+                <SortIcon field="percentage" />
               </div>
             </th>
-            <th className="px-4 py-3 text-center text-sm font-medium text-gray-300">
-              Visual
+            <th className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs sm:text-sm font-medium text-gray-300">
+              <span className="hidden sm:inline">Visual</span>
+              <span className="sm:hidden">V</span>
             </th>
           </tr>
         </thead>
@@ -161,19 +168,21 @@ const TableView: React.FC<{
               `}
               onClick={() => onRowClick?.(item)}
             >
-              <td className="px-4 py-3 text-sm text-gray-200 font-medium">
-                {item.name}
+              <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-200 font-medium">
+                <span className="truncate block max-w-24 sm:max-w-none" title={item.name}>
+                  {item.name}
+                </span>
               </td>
-              <td className="px-4 py-3 text-sm text-center">
+              <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-center">
                 <span className="text-green-400 font-bold">{item.value}</span>
-                <span className="text-gray-500 ml-1">min</span>
+                <span className="text-gray-500 ml-1 hidden sm:inline">min</span>
               </td>
-              <td className="px-4 py-3 text-sm text-center">
+              <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-center">
                 <span className="text-cyan-400 font-bold">{item.percentage}%</span>
               </td>
-              <td className="px-4 py-3 text-center">
+              <td className="px-2 sm:px-4 py-2 sm:py-3 text-center">
                 <div 
-                  className="w-4 h-4 rounded-full mx-auto"
+                  className="w-3 h-3 sm:w-4 sm:h-4 rounded-full mx-auto"
                   style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
                 />
               </td>
@@ -250,13 +259,13 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({
 
   return (
     <div 
-      className="bg-gray-900/50 backdrop-blur-sm p-4 lg:p-6 rounded-xl shadow-lg border border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-green-500/5" 
-      style={{ height: height }}
+      className="bg-gray-900/50 backdrop-blur-sm p-3 sm:p-4 lg:p-6 rounded-xl shadow-lg border border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-green-500/5 h-full flex flex-col overflow-hidden"
     >
-      {/* Header con título y selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 lg:mb-6">
-        <h3 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
-          {chartTitle}
+      {/* Header compacto para móvil */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-3 sm:mb-4 lg:mb-6 flex-shrink-0">
+        <h3 className="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+          <span className="hidden sm:inline">{chartTitle}</span>
+          <span className="sm:hidden">{chartTitle.length > 25 ? chartTitle.substring(0, 25) + '...' : chartTitle}</span>
         </h3>
         <ChartViewSelector 
           activeView={activeView} 
@@ -265,13 +274,13 @@ const AreaPieChart: React.FC<AreaPieChartProps> = ({
       </div>
       
       {/* Contenido del gráfico */}
-      <div style={{ height: chartHeight }}>
+      <div className="flex-1 min-h-0">
         {activeView === 'pie' && (
           <div className="w-full h-full flex flex-col">
             {/* Gráfico de torta */}
-            <div className={`${isMobile ? 'h-[280px]' : 'flex-1'}`}>
+            <div className="flex-1 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                <PieChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
                   <defs>
                     {CHART_COLORS.map((color, index) => (
                       <linearGradient key={`gradient-${index}`} id={`gradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
