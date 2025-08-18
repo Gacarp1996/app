@@ -2,13 +2,15 @@ import { useAcademia } from "@/contexts/AcademiaContext";
 import { db } from "@/firebase/firebase-config";
 import { collection, getDocs, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-
+import { Link, useNavigate } from "react-router-dom";
+import { useNotification } from "@/hooks/useNotification"; // ✅ AGREGAR IMPORT
 
 const HomePage: React.FC = () => {
   const { academiaActual } = useAcademia();
   const [hasPlayers, setHasPlayers] = useState(false);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate(); // ✅ AGREGAR HOOK
+  const notification = useNotification(); // ✅ AGREGAR HOOK
 
   useEffect(() => {
     const checkPlayers = async () => {
@@ -39,6 +41,27 @@ const HomePage: React.FC = () => {
     checkPlayers();
   }, [academiaActual]);
 
+  // ✅ NUEVA FUNCIÓN: Validar antes de iniciar entrenamiento
+  const handleStartTraining = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    if (!hasPlayers) {
+      const confirmed = await notification.confirm({
+        title: 'Sin jugadores registrados',
+        message: 'Para comenzar un entrenamiento debes tener al menos un jugador creado. ¿Deseas ir a crear jugadores ahora?',
+        type: 'info',
+        confirmText: 'Ir a crear jugadores',
+        cancelText: 'Cancelar'
+      });
+
+      if (confirmed) {
+        navigate('/players');
+      }
+    } else {
+      navigate('/start-training');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -60,24 +83,24 @@ const HomePage: React.FC = () => {
       <div className="absolute bottom-1/4 right-1/4 w-32 h-32 sm:w-64 sm:h-64 lg:w-96 lg:h-96 xl:w-[500px] xl:h-[500px] bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       
       <div className="relative z-10 px-3 sm:px-4 lg:px-8 py-4 sm:py-8 lg:py-12">
-        {/* Header principal con estilo neón - MEJORADO PARA MÓVIL */}
+        {/* Header principal con estilo neón - PADDING AUMENTADO */}
         <header className="pt-16 sm:pt-20 lg:pt-24 pb-4 sm:pb-8 lg:pb-16 text-center">
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-5xl mx-auto px-2">
             {hasPlayers ? (
               <>
-                <h1 className="text-2xl sm:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-2 sm:mb-4 lg:mb-6 px-2">
+                <h1 className="text-2xl sm:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-2 sm:mb-4 lg:mb-6 px-6 sm:px-4">
                   Continúa el gran trabajo
                 </h1>
-                <p className="text-sm sm:text-base lg:text-lg xl:text-xl 2xl:text-2xl text-gray-400 max-w-xl sm:max-w-2xl lg:max-w-3xl mx-auto px-4">
+                <p className="text-sm sm:text-base lg:text-lg xl:text-xl 2xl:text-2xl text-gray-400 max-w-xl sm:max-w-2xl lg:max-w-3xl mx-auto px-6 sm:px-4">
                   Revisa el progreso de tus jugadores o inicia un nuevo entrenamiento.
                 </p>
               </>
             ) : (
               <>
-                <h1 className="text-2xl sm:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-2 sm:mb-4 lg:mb-6 px-2">
+                <h1 className="text-2xl sm:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-black bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-2 sm:mb-4 lg:mb-6 px-6 sm:px-4">
                   ¿Listo para empezar?
                 </h1>
-                <p className="text-sm sm:text-base lg:text-lg xl:text-xl 2xl:text-2xl text-gray-400 max-w-xl sm:max-w-2xl lg:max-w-3xl mx-auto px-4">
+                <p className="text-sm sm:text-base lg:text-lg xl:text-xl 2xl:text-2xl text-gray-400 max-w-xl sm:max-w-2xl lg:max-w-3xl mx-auto px-6 sm:px-4">
                   Comienza a cargar jugadores y llevar el registro de tus entrenamientos.
                 </p>
               </>
@@ -85,11 +108,11 @@ const HomePage: React.FC = () => {
           </div>
         </header>
 
-        {/* Acciones Principales con diseño mejorado - RESPONSIVE MEJORADO */}
+        {/* Acciones Principales con diseño mejorado - CON VALIDACIÓN */}
         <section className="mt-4 sm:mt-8 lg:mt-16 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 max-w-5xl mx-auto px-3 sm:px-6 lg:px-8">
-          <Link
-            to="/start-training"
-            className="group relative overflow-hidden bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-xl sm:rounded-2xl shadow-2xl shadow-green-500/10 transition-all duration-300 hover:shadow-green-500/20 transform hover:-translate-y-1"
+          <button
+            onClick={handleStartTraining}
+            className="group relative overflow-hidden bg-gradient-to-br from-green-500/10 to-cyan-500/10 p-[1px] rounded-xl sm:rounded-2xl shadow-2xl shadow-green-500/10 transition-all duration-300 hover:shadow-green-500/20 transform hover:-translate-y-1 text-left w-full"
           >
             <div className="relative bg-gray-900/95 backdrop-blur-xl rounded-xl sm:rounded-2xl p-6 sm:p-8 lg:p-10 xl:p-12 flex flex-col items-center justify-center min-h-[140px] sm:min-h-[180px] lg:min-h-[200px]">
               <div className={newLocal}></div>
@@ -103,7 +126,7 @@ const HomePage: React.FC = () => {
                 Registra ejercicios y monitorea el progreso
               </span>
             </div>
-          </Link>
+          </button>
 
           <Link
             to="/players"
@@ -124,13 +147,13 @@ const HomePage: React.FC = () => {
           </Link>
         </section>
 
-        {/* Guía Rápida con diseño mejorado - RESPONSIVE MEJORADO */}
+        {/* Guía Rápida con diseño mejorado - MANTENIDO COMPLETO */}
         <section className="mt-8 sm:mt-16 lg:mt-24 px-3 sm:px-6 lg:px-8">
           <h2 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl 2xl:text-5xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-6 sm:mb-8 lg:mb-12 text-center">
             Guía Rápida
           </h2>
           <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-            {/* Paso 1 - MEJORADO PARA MÓVIL */}
+            {/* Paso 1 */}
             <div className="group relative overflow-hidden bg-gray-900/50 backdrop-blur-sm p-[1px] rounded-lg sm:rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:shadow-green-500/10">
               <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 via-transparent to-transparent group-hover:from-green-500/10 transition-all duration-300"></div>
               <div className="relative bg-gray-900/95 rounded-lg sm:rounded-xl p-4 sm:p-6 lg:p-8 h-full">
@@ -147,7 +170,7 @@ const HomePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Paso 2 - MEJORADO PARA MÓVIL */}
+            {/* Paso 2 */}
             <div className="group relative overflow-hidden bg-gray-900/50 backdrop-blur-sm p-[1px] rounded-lg sm:rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10">
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 via-transparent to-transparent group-hover:from-cyan-500/10 transition-all duration-300"></div>
               <div className="relative bg-gray-900/95 rounded-lg sm:rounded-xl p-4 sm:p-6 lg:p-8 h-full">
@@ -164,7 +187,7 @@ const HomePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Paso 3 - MEJORADO PARA MÓVIL */}
+            {/* Paso 3 */}
             <div className="group relative overflow-hidden bg-gray-900/50 backdrop-blur-sm p-[1px] rounded-lg sm:rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10 sm:col-span-2 lg:col-span-1">
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 via-transparent to-transparent group-hover:from-purple-500/10 transition-all duration-300"></div>
               <div className="relative bg-gray-900/95 rounded-lg sm:rounded-xl p-4 sm:p-6 lg:p-8 h-full">
@@ -185,4 +208,6 @@ const HomePage: React.FC = () => {
       </div>
     </div>
   );
-};export default HomePage;
+};
+
+export default HomePage;
