@@ -28,10 +28,6 @@ const TrainedPlayersWidget: React.FC<TrainedPlayersWidgetProps> = ({
   coachName,
   loading = false
 }) => {
- 
-
-  
-
   // Función para formatear el rango de fechas
   const formatDateRange = (): string => {
     const start = dateRange.start.toLocaleDateString('es-ES', {
@@ -46,9 +42,16 @@ const TrainedPlayersWidget: React.FC<TrainedPlayersWidgetProps> = ({
     return `${start} - ${end}`;
   };
 
-  // Calcular totales
-  const totalSessions = trainedPlayersData.reduce((sum, player) => sum + player.sessionCount, 0);
-  const totalPlayers = trainedPlayersData.length;
+  // FILTRAR solo jugadores que existen actualmente
+  const validTrainedPlayersData = trainedPlayersData.filter(playerData => {
+    // Verificar si el jugador existe en la lista actual de jugadores
+    const playerExists = players.some(p => p.id === playerData.playerId);
+    return playerExists;
+  });
+
+  // Calcular totales con datos filtrados
+  const totalSessions = validTrainedPlayersData.reduce((sum, player) => sum + player.sessionCount, 0);
+  const totalPlayers = validTrainedPlayersData.length;
 
   if (loading) {
     return (
@@ -99,15 +102,16 @@ const TrainedPlayersWidget: React.FC<TrainedPlayersWidgetProps> = ({
       </div>
 
       {/* Lista de jugadores */}
-      {trainedPlayersData.length === 0 ? (
+      {validTrainedPlayersData.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-gray-400">No hay jugadores entrenados en este período</p>
         </div>
       ) : (
         <div className="space-y-2 max-h-64 overflow-y-auto">
-          {trainedPlayersData.slice(0, 10).map((playerData, index) => {
-            const playerName = getPlayerName(players, playerData.playerId);
-            const isActive = players.find(p => p.id === playerData.playerId)?.estado === 'activo';
+          {validTrainedPlayersData.slice(0, 10).map((playerData, index) => {
+            const player = players.find(p => p.id === playerData.playerId);
+            const playerName = player?.name || 'Jugador desconocido';
+            const isActive = player?.estado === 'activo';
             
             return (
               <div 
@@ -136,9 +140,9 @@ const TrainedPlayersWidget: React.FC<TrainedPlayersWidgetProps> = ({
             );
           })}
           
-          {trainedPlayersData.length > 10 && (
+          {validTrainedPlayersData.length > 10 && (
             <p className="text-center text-xs text-gray-400 mt-3 pt-3 border-t border-gray-700">
-              +{trainedPlayersData.length - 10} jugadores más
+              +{validTrainedPlayersData.length - 10} jugadores más
             </p>
           )}
         </div>
