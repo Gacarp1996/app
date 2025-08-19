@@ -211,6 +211,82 @@ export const countDirectors = async (academiaId: string): Promise<number> => {
   }
 };
 
+// ✅ NUEVA: Verificar si un director puede abandonar la academia
+export const canDirectorLeaveAcademia = async (
+  academiaId: string,
+  userId: string
+): Promise<{ canLeave: boolean; directorCount: number; message: string }> => {
+  try {
+    // Verificar rol del usuario
+    const userRole = await getUserRoleInAcademia(academiaId, userId);
+    
+    // Si no es director, puede abandonar sin restricciones
+    if (userRole !== 'academyDirector') {
+      return {
+        canLeave: true,
+        directorCount: 0,
+        message: 'Puedes abandonar la academia'
+      };
+    }
+    
+    // Contar directores actuales
+    const directorCount = await countDirectors(academiaId);
+    
+    if (directorCount <= 1) {
+      return {
+        canLeave: false,
+        directorCount,
+        message: 'No puedes abandonar: eres el único director. Debes promover a otro usuario primero.'
+      };
+    }
+    
+    return {
+      canLeave: true,
+      directorCount,
+      message: `Puedes abandonar. Hay ${directorCount - 1} director(es) más en la academia.`
+    };
+  } catch (error) {
+    console.error("Error verificando si director puede abandonar:", error);
+    return {
+      canLeave: false,
+      directorCount: 0,
+      message: 'Error al verificar permisos'
+    };
+  }
+};
+
+// ✅ MEJORAR: Eliminar usuario con validaciones extra
+export const safeRemoveUserFromAcademia = async (
+  academiaId: string,
+  userId: string,
+  isLeavingVoluntarily: boolean = false
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    // Si está abandonando voluntariamente, verificar que puede hacerlo
+    if (isLeavingVoluntarily) {
+      const { canLeave, message } = await canDirectorLeaveAcademia(academiaId, userId);
+      
+      if (!canLeave) {
+        return { success: false, message };
+      }
+    }
+    
+    // Proceder con la eliminación
+    await removeUserFromAcademia(academiaId, userId);
+    
+    return {
+      success: true,
+      message: isLeavingVoluntarily ? 'Has abandonado la academia exitosamente' : 'Usuario eliminado'
+    };
+  } catch (error) {
+    console.error("Error eliminando usuario de forma segura:", error);
+    return {
+      success: false,
+      message: 'Error al procesar la solicitud'
+    };
+  }
+};
+
 // Eliminar una academia completamente
 export const deleteAcademia = async (academiaId: string): Promise<void> => {
   try {

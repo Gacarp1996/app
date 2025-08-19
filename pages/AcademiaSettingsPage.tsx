@@ -1,8 +1,8 @@
-// pages/AcademiaSettingsPage.tsx - VERSIÓN SIMPLIFICADA (sin DashboardRenderer)
+// pages/AcademiaSettingsPage.tsx - VERSIÓN ACTUALIZADA con abandonar academia
 import { FC, useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
-import { getUserRoleInAcademia, UserRole } from '../Database/FirebaseRoles';
+import { getUserRoleInAcademia, UserRole, safeRemoveUserFromAcademia } from '../Database/FirebaseRoles';
 import { 
   getAcademiaConfig, 
   saveAcademiaConfig, 
@@ -14,24 +14,24 @@ import {
 import { LoadingSpinner } from '../components/academia-settings';
 import { MainConfigModal } from '../components/academia-settings/sections/MainConfigModal';
 import { AdvancedConfigModal } from '../components/academia-settings/sections/AdvancedConfigModal';
+import LeaveAcademiaModal from '../components/academia-settings/sections/LeaveAcademiaModal';
 import DashboardDirectorView from './Dashboard/DashboardDirectorView';
 import DashboardAcademyCoachView from './Dashboard/DashboardAcademyCoachView';
 import DashboardSubdirectorView from './Dashboard/DashboardSubDirectorView';
 
-// ✅ IMPORTAR TUS DASHBOARDS EXISTENTES
-
-
-
 const AcademiaSettingsPage: FC = () => {
   const { currentUser } = useAuth();
-  const { academiaActual } = useAcademia();
+  const { academiaActual, eliminarAcademiaDeMisAcademias, limpiarAcademiaActual } = useAcademia();
   
   // Estados principales
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
 
-  // ✅ ESTADOS para configuración de recomendaciones
+  // ✅ Estado para modal de abandonar academia
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+
+  // Estados para configuración de recomendaciones
   const [recommendationsConfig, setRecommendationsConfig] = useState<AcademiaConfig | null>(null);
   const [loadingRecommendationsConfig, setLoadingRecommendationsConfig] = useState(false);
   const [savingRecommendationsConfig, setSavingRecommendationsConfig] = useState(false);
@@ -64,7 +64,7 @@ const AcademiaSettingsPage: FC = () => {
     fetchUserRole();
   }, [currentUser, academiaActual]);
 
-  // ✅ CARGAR CONFIGURACIÓN DE RECOMENDACIONES
+  // Cargar configuración de recomendaciones
   useEffect(() => {
     const loadRecommendationsConfig = async () => {
       if (!academiaActual?.id) return;
@@ -85,7 +85,7 @@ const AcademiaSettingsPage: FC = () => {
     loadRecommendationsConfig();
   }, [academiaActual?.id]);
 
-  // ✅ HANDLERS para configuración de recomendaciones
+  // Handlers para configuración de recomendaciones
   const handleRecommendationsConfigChange = (days: number) => {
     setPendingRecommendationsDays(days);
   };
@@ -142,7 +142,39 @@ const AcademiaSettingsPage: FC = () => {
     }
   };
 
-  // ✅ FUNCIÓN para renderizar dashboard según rol (usando tus componentes existentes)
+  // ✅ NUEVO: Handler para abandonar academia
+  const handleLeaveAcademia = async () => {
+    if (!academiaActual?.id || !currentUser?.uid) return;
+    
+    try {
+      const result = await safeRemoveUserFromAcademia(
+        academiaActual.id,
+        currentUser.uid,
+        true // isLeavingVoluntarily
+      );
+      
+      if (result.success) {
+        // Limpiar contexto
+        await eliminarAcademiaDeMisAcademias(academiaActual.id);
+        limpiarAcademiaActual();
+        
+        // Mostrar mensaje de éxito
+        alert(result.message);
+        
+        // Redirigir a la página principal
+        window.location.href = '/';
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      console.error('Error abandonando academia:', error);
+      alert('Error al abandonar la academia. Por favor, intenta nuevamente.');
+    } finally {
+      setShowLeaveModal(false);
+    }
+  };
+
+  // Función para renderizar dashboard según rol
   const renderDashboardByRole = () => {
     if (showSettings) {
       return (
@@ -220,7 +252,7 @@ const AcademiaSettingsPage: FC = () => {
       );
     }
 
-    // ✅ USAR TUS DASHBOARDS EXISTENTES (sin botones flotantes redundantes)
+    // Usar dashboards existentes (sin botones flotantes redundantes)
     switch (userRole) {
       case 'academyDirector':
         return <DashboardDirectorView />;
@@ -273,7 +305,6 @@ const AcademiaSettingsPage: FC = () => {
           setShowMainModal(false);
           setShowAdvancedModal(true);
         }}
-        // Aquí irían las props necesarias para MainConfigModal
         entityName={academiaActual.nombre}
         entityId={academiaActual.id}
         entityType="academia"
@@ -287,6 +318,7 @@ const AcademiaSettingsPage: FC = () => {
         onChangeRole={() => {}}
         onChangeAcademia={() => {}}
         onDeleteEntity={() => {}}
+        onLeaveAcademia={() => setShowLeaveModal(true)} // ✅ NUEVA PROP
       />
 
       <AdvancedConfigModal
@@ -299,12 +331,23 @@ const AcademiaSettingsPage: FC = () => {
         onToggleSurveys={handleToggleSurveys}
         onSurveyConfigChange={handleSurveyConfigChange}
         onSaveSurveyConfig={handleSaveSurveyConfig}
-        // ✅ NUEVAS PROPS para recomendaciones
+        // Props para recomendaciones
         recommendationsConfig={recommendationsConfig}
         loadingRecommendationsConfig={loadingRecommendationsConfig}
         savingRecommendationsConfig={savingRecommendationsConfig}
         onRecommendationsConfigChange={handleRecommendationsConfigChange}
         onSaveRecommendationsConfig={handleSaveRecommendationsConfig}
+      />
+
+      {/* ✅ NUEVO: Modal para abandonar academia */}
+      <LeaveAcademiaModal
+        isOpen={showLeaveModal}
+        onClose={() => setShowLeaveModal(false)}
+        onConfirm={handleLeaveAcademia}
+        academiaId={academiaActual.id}
+        academiaName={academiaActual.nombre}
+        userId={currentUser?.uid || ''}
+        userRole={userRole}
       />
     </>
   );

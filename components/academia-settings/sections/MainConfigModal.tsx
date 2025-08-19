@@ -160,6 +160,7 @@ const GroupInfoSection: React.FC<{
   );
 };
 
+// ✅ INTERFAZ CON onLeaveAcademia INCLUIDA
 interface MainConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -180,6 +181,7 @@ interface MainConfigModalProps {
   onChangeAcademia: () => void;
   onDeleteEntity: () => void;
   onOpenAdvancedConfig: () => void;
+  onLeaveAcademia?: () => void; // ✅ PROP AGREGADA (opcional por si acaso)
 }
 
 export const MainConfigModal: React.FC<MainConfigModalProps> = ({
@@ -198,10 +200,12 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
   onChangeRole,
   onChangeAcademia,
   onDeleteEntity,
-  onOpenAdvancedConfig
+  onOpenAdvancedConfig,
+  onLeaveAcademia // ✅ RECIBIR LA PROP
 }) => {
   if (!isOpen) return null;
 
+  
   // Determinar qué secciones mostrar según el rol y tipo de entidad
   const showUserManagement = shouldShowUserManagement(currentUserRole, entityType);
   const showEntityInfo = shouldShowEntityInfo(currentUserRole);
@@ -215,7 +219,6 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
     ? 'Esta acción eliminará permanentemente la academia y todos sus datos asociados.'
     : 'Esta acción eliminará permanentemente el grupo de entrenamiento y todos sus datos asociados.';
   const configTitle = isAcademia ? 'Configuración de Academia' : 'Configuración de Grupo';
-  const advancedConfigTitle = isAcademia ? 'Configuración Avanzada de Academia' : 'Configuración Avanzada de Grupo';
 
   return (
     <>
@@ -289,6 +292,42 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                 currentUserEmail={currentUserEmail}
                 currentUserRole={currentUserRole}
               />
+
+              {/* ✅ NUEVA SECCIÓN: Abandonar Academia - Solo para usuarios con rol en academia */}
+              {currentUserRole && isAcademia && onLeaveAcademia && (
+                <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-orange-500/20 rounded-lg">
+                      <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-white">Gestión de Membresía</h2>
+                  </div>
+                  
+                  <p className="text-gray-400 text-sm mb-4">
+                    {currentUserRole === 'academyDirector' 
+                      ? 'Como director, solo puedes abandonar si hay otros directores en la academia.'
+                      : 'Puedes abandonar la academia en cualquier momento. Esta acción es irreversible.'}
+                  </p>
+                  
+                  <button
+                    onClick={() => {
+                      if (onLeaveAcademia) {
+                        onLeaveAcademia();
+                      }
+                    }}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 hover:from-orange-500/30 hover:to-red-500/30 border border-orange-500/30 text-orange-400 font-semibold rounded-lg transition-all duration-200"
+                  >
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Abandonar Academia
+                    </span>
+                  </button>
+                </div>
+              )}
 
               {/* SECCIÓN 4: Configuración Avanzada - Solo academyDirector, academySubdirector y groupCoach */}
               {showAdvancedConfig && (

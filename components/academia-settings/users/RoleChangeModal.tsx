@@ -1,4 +1,4 @@
-// components/modals/RoleChangeModal.tsx
+// components/modals/RoleChangeModal.tsx (o donde lo tengas ubicado)
 import React, { useState } from 'react';
 import { AcademiaUser, UserRole } from '@/Database/FirebaseRoles';
 import { TipoEntidad } from '@/types/types';
@@ -34,16 +34,16 @@ const RoleChangeModal: React.FC<RoleChangeModalProps> = ({
       return [];
     } else {
       // Para academias normales:
-      // - Los directores pueden cambiar roles entre subdirector y entrenador
-      // - Los subdirectores NO pueden cambiar roles
+      // Los directores pueden cambiar roles entre subdirector, entrenador y director
       if (currentUserRole === 'academyDirector') {
         if (user.role === 'academyCoach') {
-          // Puede promover a subdirector
-          return ['academySubdirector'];
+          // ✅ ACTUALIZADO: Puede promover a subdirector O director
+          return ['academySubdirector', 'academyDirector'];
         } else if (user.role === 'academySubdirector') {
-          // Puede degradar a entrenador
-          return ['academyCoach'];
+          // ✅ ACTUALIZADO: Puede promover subdirector a director o degradar a entrenador
+          return ['academyCoach', 'academyDirector'];
         }
+        // ⚠️ Un director NO puede degradar a otro director
       }
       return [];
     }
@@ -103,7 +103,7 @@ const RoleChangeModal: React.FC<RoleChangeModalProps> = ({
                     : user.role === 'academySubdirector'
                     ? 'Los subdirectores no pueden cambiar su propio rol ni el de otros usuarios.'
                     : user.role === 'academyDirector'
-                    ? 'Los directores no pueden cambiar su propio rol.'
+                    ? 'Los directores no pueden cambiar su propio rol ni el de otros directores.'
                     : 'No hay opciones de cambio de rol disponibles para este usuario.'}
                 </p>
               </div>
@@ -130,9 +130,9 @@ const RoleChangeModal: React.FC<RoleChangeModalProps> = ({
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-gray-300">
                     {user.role === 'academyCoach' 
-                      ? 'Puedes promover a este entrenador a subdirector:' 
+                      ? 'Puedes promover a este entrenador a:' 
                       : user.role === 'academySubdirector'
-                      ? 'Puedes cambiar el rol de este subdirector:'
+                      ? 'Puedes cambiar el rol de este subdirector a:'
                       : 'Selecciona el nuevo rol:'}
                   </p>
                   
@@ -188,6 +188,24 @@ const RoleChangeModal: React.FC<RoleChangeModalProps> = ({
                     })
                   )}
                 </div>
+
+                {/* ✅ NUEVA: Advertencia para promoción a director */}
+                {selectedRole === 'academyDirector' && (user.role === 'academyCoach' || user.role === 'academySubdirector') && (
+                  <div className="mt-4 p-3 bg-red-900/20 border border-red-700 rounded-lg">
+                    <p className="text-sm text-red-400">
+                      <strong>⚠️ Importante:</strong> Al promover a director, este usuario tendrá los mismos permisos que tú, incluyendo:
+                    </p>
+                    <ul className="text-sm text-red-400 mt-2 ml-4 list-disc">
+                      <li>Gestionar todos los usuarios y sus roles</li>
+                      <li>Modificar configuración de la academia</li>
+                      <li>Promover a otros usuarios a director</li>
+                      <li>No podrás degradar su rol posteriormente</li>
+                    </ul>
+                    <p className="text-sm text-yellow-400 mt-2">
+                      Esta acción es <strong>irreversible</strong> sin acceso directo a la base de datos.
+                    </p>
+                  </div>
+                )}
 
                 {/* Advertencia para promoción a subdirector */}
                 {selectedRole === 'academySubdirector' && user.role === 'academyCoach' && (
