@@ -1,4 +1,4 @@
-// contexts/TournamentContext.tsx
+// contexts/TournamentContext.tsx - ACTUALIZADO CON AUTO-LIMPIEZA
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useAcademia } from './AcademiaContext';
 import { Tournament, DisputedTournament, TournamentImportance } from '../types/types';
@@ -17,60 +17,52 @@ import {
 } from '../Database/FirebaseDisputedTournaments';
 
 interface TournamentContextType {
-  // Estado - Torneos Futuros
+  // Estados existentes...
   tournaments: Tournament[];
   loadingTournaments: boolean;
   tournamentsError: string | null;
-  
-  // Estado - Torneos Disputados
   disputedTournaments: DisputedTournament[];
   loadingDisputedTournaments: boolean;
   disputedTournamentsError: string | null;
+  isLoading: boolean;
   
-  // Estado general
-  isLoading: boolean; // Loading combinado
+  // ✅ NUEVO: Torneos pendientes de registro
+  endedTournamentsCount: number;
   
-  // Funciones de carga
+  // Funciones existentes...
   loadTournaments: () => Promise<void>;
   loadDisputedTournaments: () => Promise<void>;
   refreshAllTournaments: () => Promise<void>;
-  
-  // Consultas - Torneos Futuros
   getTournamentById: (tournamentId: string) => Tournament | undefined;
   getTournamentsByPlayer: (playerId: string) => Tournament[];
   getFutureTournaments: (playerId?: string) => Tournament[];
   getUpcomingTournaments: (days: number, playerId?: string) => Tournament[];
   getEndedTournaments: (playerId?: string) => Tournament[];
   
-  // Consultas - Torneos Disputados
+  // ✅ NUEVO: Obtener torneos que necesitan registro
+  getEndedTournamentsNeedingRegistration: () => Tournament[];
+  
+  // Resto de funciones...
   getDisputedTournamentById: (tournamentId: string) => DisputedTournament | undefined;
   getDisputedTournamentsByPlayer: (playerId: string) => DisputedTournament[];
   getDisputedTournamentsByDateRange: (playerId: string, startDate: Date, endDate: Date) => DisputedTournament[];
   getPlayerTournamentStats: (playerId: string) => TournamentStats;
-  
-  // CRUD - Torneos Futuros
   addTournament: (tournamentData: Omit<Tournament, 'id'>) => Promise<void>;
   updateTournament: (tournamentId: string, updates: Partial<Tournament>) => Promise<void>;
   deleteTournament: (tournamentId: string) => Promise<void>;
-  
-  // CRUD - Torneos Disputados
   addDisputedTournament: (tournamentData: Omit<DisputedTournament, 'id'>) => Promise<void>;
   updateDisputedTournament: (tournamentId: string, updates: Partial<DisputedTournament>) => Promise<void>;
   deleteDisputedTournament: (tournamentId: string) => Promise<void>;
-  
-  // Conversión - ✅ ACTUALIZADO: Sin nivelDificultad
   convertToDisputed: (
     futureTournamentId: string, 
     resultData: {
       resultado: string;
-      // nivelDificultad: number; // ❌ ELIMINADO
       rendimientoJugador: DisputedTournament['rendimientoJugador'];
       observaciones?: string;
     }
   ) => Promise<void>;
 }
 
-// Tipo para estadísticas - ✅ ACTUALIZADO: Sin averageDifficulty
 interface TournamentStats {
   totalTournaments: number;
   totalDisputed: number;
@@ -78,10 +70,8 @@ interface TournamentStats {
   finals: number;
   semifinals: number;
   averagePerformance: number;
-  // averageDifficulty: number; // ❌ ELIMINADO
 }
 
-// Mapeo de rendimiento a número para cálculos
 const RENDIMIENTO_MAP: Record<DisputedTournament['rendimientoJugador'], number> = {
   'Muy malo': 1,
   'Malo': 2,
@@ -90,22 +80,24 @@ const RENDIMIENTO_MAP: Record<DisputedTournament['rendimientoJugador'], number> 
   'Excelente': 5
 };
 
+// ✅ NUEVA CONSTANTE: Días para auto-eliminar torneos vencidos
+const DAYS_TO_AUTO_DELETE = 7;
+
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
 export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { academiaActual } = useAcademia();
   
-  // Estados - Torneos Futuros
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loadingTournaments, setLoadingTournaments] = useState(false);
   const [tournamentsError, setTournamentsError] = useState<string | null>(null);
-  
-  // Estados - Torneos Disputados
   const [disputedTournaments, setDisputedTournaments] = useState<DisputedTournament[]>([]);
   const [loadingDisputedTournaments, setLoadingDisputedTournaments] = useState(false);
   const [disputedTournamentsError, setDisputedTournamentsError] = useState<string | null>(null);
   
-  // Cache de torneos por jugador para optimización
+  // ✅ NUEVO: Estado para contar torneos vencidos
+  const [endedTournamentsCount, setEndedTournamentsCount] = useState(0);
+  
   const tournamentsByPlayer = useMemo(() => {
     const map = new Map<string, Tournament[]>();
     tournaments.forEach(tournament => {
@@ -126,13 +118,52 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     return map;
   }, [disputedTournaments]);
   
-  // Loading combinado
   const isLoading = loadingTournaments || loadingDisputedTournaments;
   
-  // Función para cargar torneos futuros
+  // ✅ NUEVA FUNCIÓN: Auto-limpieza de torneos vencidos
+  const autoCleanExpiredTournaments = useCallback(async (loadedTournaments: Tournament[]) => {
+    if (!academiaActual) return loadedTournaments;
+    
+    const now = new Date();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - DAYS_TO_AUTO_DELETE);
+    
+    const tournamentsToDelete: Tournament[] = [];
+    const tournamentsToKeep: Tournament[] = [];
+    
+    loadedTournaments.forEach(tournament => {
+      const endDate = new Date(tournament.fechaFin);
+      if (endDate < cutoffDate) {
+        // Torneo vencido hace más de 7 días - eliminar
+        tournamentsToDelete.push(tournament);
+        console.log(`🗑️ Auto-eliminando torneo vencido: ${tournament.nombreTorneo} (${tournament.id})`);
+      } else {
+        tournamentsToKeep.push(tournament);
+      }
+    });
+    
+    // Eliminar torneos vencidos de Firebase
+    if (tournamentsToDelete.length > 0) {
+      console.log(`🧹 Auto-limpieza: Eliminando ${tournamentsToDelete.length} torneos vencidos`);
+      
+      // Eliminar en paralelo pero sin bloquear la UI
+      Promise.all(
+        tournamentsToDelete.map(t => 
+          deleteTournamentFromDB(academiaActual.id, t.id).catch(err => 
+            console.error(`Error eliminando torneo ${t.id}:`, err)
+          )
+        )
+      );
+    }
+    
+    return tournamentsToKeep;
+  }, [academiaActual]);
+  
+  // ✅ ACTUALIZADA: Función para cargar torneos con auto-limpieza
   const loadTournaments = useCallback(async () => {
     if (!academiaActual) {
       setTournaments([]);
+      setEndedTournamentsCount(0);
       return;
     }
     
@@ -142,8 +173,18 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     try {
       const loadedTournaments = await getTournamentsFromDB(academiaActual.id);
       
-      // Ordenar por fecha de inicio (próximos primero)
-      const sortedTournaments = loadedTournaments.sort((a, b) => {
+      // Auto-limpieza de torneos vencidos
+      const cleanedTournaments = await autoCleanExpiredTournaments(loadedTournaments);
+      
+      // Contar torneos que necesitan registro (finalizados pero dentro del plazo)
+      const now = new Date();
+      const needingRegistration = cleanedTournaments.filter(t => 
+        new Date(t.fechaFin) < now
+      ).length;
+      setEndedTournamentsCount(needingRegistration);
+      
+      // Ordenar por fecha de inicio
+      const sortedTournaments = cleanedTournaments.sort((a, b) => {
         return new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime();
       });
       
@@ -152,12 +193,12 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       console.error('Error cargando torneos:', error);
       setTournamentsError('Error al cargar los torneos');
       setTournaments([]);
+      setEndedTournamentsCount(0);
     } finally {
       setLoadingTournaments(false);
     }
-  }, [academiaActual]);
+  }, [academiaActual, autoCleanExpiredTournaments]);
   
-  // Función para cargar torneos disputados
   const loadDisputedTournaments = useCallback(async () => {
     if (!academiaActual) {
       setDisputedTournaments([]);
@@ -169,8 +210,6 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     
     try {
       const loadedTournaments = await getDisputedTournamentsFromDB(academiaActual.id);
-      
-      // Ya vienen ordenados por fechaFin desc desde Firebase
       setDisputedTournaments(loadedTournaments);
     } catch (error) {
       console.error('Error cargando torneos disputados:', error);
@@ -181,7 +220,6 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [academiaActual]);
   
-  // Función para refrescar todos los torneos
   const refreshAllTournaments = useCallback(async () => {
     await Promise.all([
       loadTournaments(),
@@ -189,32 +227,32 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     ]);
   }, [loadTournaments, loadDisputedTournaments]);
   
-  // Cargar torneos cuando cambie la academia
   useEffect(() => {
     if (academiaActual) {
       refreshAllTournaments();
     } else {
-      // Limpiar estado cuando no hay academia
       setTournaments([]);
       setDisputedTournaments([]);
       setTournamentsError(null);
       setDisputedTournamentsError(null);
+      setEndedTournamentsCount(0);
     }
-  }, [academiaActual?.id]); // Solo recargar cuando cambie el ID
+  }, [academiaActual?.id]);
   
-  // FUNCIONES DE CONSULTA - TORNEOS FUTUROS
+  // ✅ NUEVA FUNCIÓN: Obtener torneos que necesitan registro
+  const getEndedTournamentsNeedingRegistration = useCallback((): Tournament[] => {
+    const now = new Date();
+    return tournaments.filter(t => new Date(t.fechaFin) < now);
+  }, [tournaments]);
   
-  // Obtener torneo por ID
   const getTournamentById = useCallback((tournamentId: string): Tournament | undefined => {
     return tournaments.find(t => t.id === tournamentId);
   }, [tournaments]);
   
-  // Obtener torneos por jugador
   const getTournamentsByPlayer = useCallback((playerId: string): Tournament[] => {
     return tournamentsByPlayer.get(playerId) || [];
   }, [tournamentsByPlayer]);
   
-  // Obtener torneos futuros (no finalizados)
   const getFutureTournaments = useCallback((playerId?: string): Tournament[] => {
     const now = new Date();
     let futureTournaments = tournaments.filter(t => new Date(t.fechaFin) >= now);
@@ -226,7 +264,6 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     return futureTournaments;
   }, [tournaments]);
   
-  // Obtener torneos próximos en N días
   const getUpcomingTournaments = useCallback((days: number, playerId?: string): Tournament[] => {
     const now = new Date();
     const maxDate = new Date();
@@ -244,7 +281,6 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     return upcomingTournaments;
   }, [tournaments]);
   
-  // Obtener torneos que ya terminaron pero siguen como futuros
   const getEndedTournaments = useCallback((playerId?: string): Tournament[] => {
     const now = new Date();
     let endedTournaments = tournaments.filter(t => new Date(t.fechaFin) < now);
@@ -256,19 +292,14 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     return endedTournaments;
   }, [tournaments]);
   
-  // FUNCIONES DE CONSULTA - TORNEOS DISPUTADOS
-  
-  // Obtener torneo disputado por ID
   const getDisputedTournamentById = useCallback((tournamentId: string): DisputedTournament | undefined => {
     return disputedTournaments.find(t => t.id === tournamentId);
   }, [disputedTournaments]);
   
-  // Obtener torneos disputados por jugador
   const getDisputedTournamentsByPlayer = useCallback((playerId: string): DisputedTournament[] => {
     return disputedTournamentsByPlayer.get(playerId) || [];
   }, [disputedTournamentsByPlayer]);
   
-  // Obtener torneos disputados por rango de fechas
   const getDisputedTournamentsByDateRange = useCallback((
     playerId: string, 
     startDate: Date, 
@@ -282,17 +313,14 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     });
   }, [getDisputedTournamentsByPlayer]);
   
-  // ✅ ACTUALIZADO: Obtener estadísticas de torneos de un jugador SIN nivelDificultad
   const getPlayerTournamentStats = useCallback((playerId: string): TournamentStats => {
     const playerTournaments = getTournamentsByPlayer(playerId);
     const playerDisputedTournaments = getDisputedTournamentsByPlayer(playerId);
     
-    // Contar logros
     let championships = 0;
     let finals = 0;
     let semifinals = 0;
     let totalPerformance = 0;
-    // let totalDifficulty = 0; // ❌ ELIMINADO
     
     playerDisputedTournaments.forEach(t => {
       if (t.resultado === 'Campeón') championships++;
@@ -300,7 +328,6 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       else if (t.resultado === 'Semifinal') semifinals++;
       
       totalPerformance += RENDIMIENTO_MAP[t.rendimientoJugador];
-      // totalDifficulty += t.nivelDificultad; // ❌ ELIMINADO
     });
     
     return {
@@ -311,16 +338,10 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       semifinals,
       averagePerformance: playerDisputedTournaments.length > 0 
         ? totalPerformance / playerDisputedTournaments.length 
-        : 0,
-      // averageDifficulty: playerDisputedTournaments.length > 0  // ❌ ELIMINADO
-      //   ? totalDifficulty / playerDisputedTournaments.length 
-      //   : 0
+        : 0
     };
   }, [getTournamentsByPlayer, getDisputedTournamentsByPlayer]);
   
-  // FUNCIONES CRUD - TORNEOS FUTUROS
-  
-  // Agregar torneo futuro
   const addTournament = useCallback(async (tournamentData: Omit<Tournament, 'id'>) => {
     if (!academiaActual) {
       throw new Error('No hay academia seleccionada');
@@ -329,7 +350,6 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     try {
       await addTournamentToDB(academiaActual.id, tournamentData);
       
-      // Actualización optimista
       const tempTournament: Tournament = {
         ...tournamentData,
         id: `temp_${Date.now()}`
@@ -338,16 +358,14 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
         new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime()
       ));
       
-      // Recargar para obtener el ID real
       await loadTournaments();
     } catch (error) {
       console.error('Error agregando torneo:', error);
-      await loadTournaments(); // Revertir cambio optimista
+      await loadTournaments();
       throw error;
     }
   }, [academiaActual, loadTournaments]);
   
-  // Actualizar torneo futuro
   const updateTournament = useCallback(async (tournamentId: string, updates: Partial<Tournament>) => {
     if (!academiaActual) {
       throw new Error('No hay academia seleccionada');
@@ -356,23 +374,20 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     try {
       await updateTournamentInDB(academiaActual.id, tournamentId, updates);
       
-      // Actualización optimista
       setTournaments(prev => prev.map(t => 
         t.id === tournamentId ? { ...t, ...updates } : t
       ).sort((a, b) => 
         new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime()
       ));
       
-      // Recargar para asegurar consistencia
       await loadTournaments();
     } catch (error) {
       console.error('Error actualizando torneo:', error);
-      await loadTournaments(); // Revertir cambio optimista
+      await loadTournaments();
       throw error;
     }
   }, [academiaActual, loadTournaments]);
   
-  // Eliminar torneo futuro
   const deleteTournament = useCallback(async (tournamentId: string) => {
     if (!academiaActual) {
       throw new Error('No hay academia seleccionada');
@@ -381,17 +396,14 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     const tournamentToDelete = getTournamentById(tournamentId);
     
     try {
-      // Actualización optimista
       setTournaments(prev => prev.filter(t => t.id !== tournamentId));
       
       await deleteTournamentFromDB(academiaActual.id, tournamentId);
       
-      // Recargar para asegurar consistencia
       await loadTournaments();
     } catch (error) {
       console.error('Error eliminando torneo:', error);
       
-      // Revertir cambio optimista
       if (tournamentToDelete) {
         setTournaments(prev => [...prev, tournamentToDelete].sort((a, b) => 
           new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime()
@@ -402,9 +414,6 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [academiaActual, getTournamentById, loadTournaments]);
   
-  // FUNCIONES CRUD - TORNEOS DISPUTADOS
-  
-  // Agregar torneo disputado
   const addDisputedTournament = useCallback(async (tournamentData: Omit<DisputedTournament, 'id'>) => {
     if (!academiaActual) {
       throw new Error('No hay academia seleccionada');
@@ -413,23 +422,20 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     try {
       await addDisputedTournamentToDB(academiaActual.id, tournamentData);
       
-      // Actualización optimista
       const tempTournament: DisputedTournament = {
         ...tournamentData,
         id: `temp_${Date.now()}`
       };
       setDisputedTournaments(prev => [tempTournament, ...prev]);
       
-      // Recargar para obtener el ID real
       await loadDisputedTournaments();
     } catch (error) {
       console.error('Error agregando torneo disputado:', error);
-      await loadDisputedTournaments(); // Revertir cambio optimista
+      await loadDisputedTournaments();
       throw error;
     }
   }, [academiaActual, loadDisputedTournaments]);
   
-  // Actualizar torneo disputado
   const updateDisputedTournament = useCallback(async (tournamentId: string, updates: Partial<DisputedTournament>) => {
     if (!academiaActual) {
       throw new Error('No hay academia seleccionada');
@@ -438,21 +444,18 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     try {
       await updateDisputedTournamentInDB(academiaActual.id, tournamentId, updates);
       
-      // Actualización optimista
       setDisputedTournaments(prev => prev.map(t => 
         t.id === tournamentId ? { ...t, ...updates } : t
       ));
       
-      // Recargar para asegurar consistencia
       await loadDisputedTournaments();
     } catch (error) {
       console.error('Error actualizando torneo disputado:', error);
-      await loadDisputedTournaments(); // Revertir cambio optimista
+      await loadDisputedTournaments();
       throw error;
     }
   }, [academiaActual, loadDisputedTournaments]);
   
-  // Eliminar torneo disputado
   const deleteDisputedTournament = useCallback(async (tournamentId: string) => {
     if (!academiaActual) {
       throw new Error('No hay academia seleccionada');
@@ -461,17 +464,14 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     const tournamentToDelete = getDisputedTournamentById(tournamentId);
     
     try {
-      // Actualización optimista
       setDisputedTournaments(prev => prev.filter(t => t.id !== tournamentId));
       
       await deleteDisputedTournamentFromDB(academiaActual.id, tournamentId);
       
-      // Recargar para asegurar consistencia
       await loadDisputedTournaments();
     } catch (error) {
       console.error('Error eliminando torneo disputado:', error);
       
-      // Revertir cambio optimista
       if (tournamentToDelete) {
         setDisputedTournaments(prev => [tournamentToDelete, ...prev]);
       }
@@ -480,14 +480,11 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [academiaActual, getDisputedTournamentById, loadDisputedTournaments]);
   
-  // FUNCIÓN DE CONVERSIÓN
-  
-  // ✅ ACTUALIZADO: Convertir torneo futuro a disputado SIN nivelDificultad
+  // ✅ ACTUALIZADA: Conversión mejorada con eliminación garantizada
   const convertToDisputed = useCallback(async (
     futureTournamentId: string,
     resultData: {
       resultado: string;
-      // nivelDificultad: number; // ❌ ELIMINADO
       rendimientoJugador: DisputedTournament['rendimientoJugador'];
       observaciones?: string;
     }
@@ -502,28 +499,33 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     }
     
     try {
-      // Usar la función existente de Firebase
+      console.log('🔄 Convirtiendo torneo a disputado:', futureTournamentId);
+      
+      // 1. Crear el torneo disputado
       await convertToDisputedTournamentInDB(
         academiaActual.id,
         futureTournament,
         resultData
       );
       
-      // Eliminar el torneo futuro
+      // 2. Eliminar el torneo futuro - CRÍTICO: esto debe suceder siempre
       await deleteTournamentFromDB(academiaActual.id, futureTournamentId);
       
-      // Recargar ambas listas
+      console.log('✅ Conversión completada');
+      
+      // 3. Actualizar el contador de torneos pendientes
+      setEndedTournamentsCount(prev => Math.max(0, prev - 1));
+      
+      // 4. Recargar ambas listas
       await refreshAllTournaments();
     } catch (error) {
-      console.error('Error convirtiendo torneo:', error);
-      // Si falla, recargar para asegurar consistencia
+      console.error('❌ Error convirtiendo torneo:', error);
       await refreshAllTournaments();
       throw error;
     }
   }, [academiaActual, getTournamentById, refreshAllTournaments]);
   
   const value: TournamentContextType = {
-    // Estados
     tournaments,
     loadingTournaments,
     tournamentsError,
@@ -531,36 +533,26 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     loadingDisputedTournaments,
     disputedTournamentsError,
     isLoading,
-    
-    // Funciones de carga
+    endedTournamentsCount, // ✅ NUEVO
     loadTournaments,
     loadDisputedTournaments,
     refreshAllTournaments,
-    
-    // Consultas - Torneos Futuros
     getTournamentById,
     getTournamentsByPlayer,
     getFutureTournaments,
     getUpcomingTournaments,
     getEndedTournaments,
-    
-    // Consultas - Torneos Disputados
+    getEndedTournamentsNeedingRegistration, // ✅ NUEVO
     getDisputedTournamentById,
     getDisputedTournamentsByPlayer,
     getDisputedTournamentsByDateRange,
     getPlayerTournamentStats,
-    
-    // CRUD - Torneos Futuros
     addTournament,
     updateTournament,
     deleteTournament,
-    
-    // CRUD - Torneos Disputados
     addDisputedTournament,
     updateDisputedTournament,
     deleteDisputedTournament,
-    
-    // Conversión
     convertToDisputed
   };
   
@@ -571,7 +563,6 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
   );
 };
 
-// Hook personalizado para usar el contexto
 export const useTournament = (): TournamentContextType => {
   const context = useContext(TournamentContext);
   if (context === undefined) {

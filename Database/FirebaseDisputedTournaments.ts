@@ -2,14 +2,28 @@ import { db } from "../firebase/firebase-config";
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy } from "firebase/firestore";
 import { DisputedTournament } from "../types/types";
 
-// Agregar un torneo disputado
+// ✅ NUEVA FUNCIÓN: Helper para limpiar undefined de objetos
+const cleanUndefinedFields = (obj: any): any => {
+  const cleaned: any = {};
+  Object.keys(obj).forEach(key => {
+    if (obj[key] !== undefined) {
+      cleaned[key] = obj[key];
+    }
+  });
+  return cleaned;
+};
+
+// ✅ ACTUALIZADA: Agregar un torneo disputado con limpieza de undefined
 export const addDisputedTournament = async (academiaId: string, tournamentData: Omit<DisputedTournament, "id">) => {
   try {
     const disputedTournamentsCollection = collection(db, "academias", academiaId, "disputedTournaments");
-    const dataWithRegistrationDate = {
+    
+    // Limpiar campos undefined antes de enviar a Firebase
+    const dataWithRegistrationDate = cleanUndefinedFields({
       ...tournamentData,
       fechaRegistro: new Date().toISOString()
-    };
+    });
+    
     const docRef = await addDoc(disputedTournamentsCollection, dataWithRegistrationDate);
     console.log("Torneo disputado agregado con ID:", docRef.id);
     return docRef.id;
@@ -74,7 +88,7 @@ export const getPlayerDisputedTournaments = async (
   }
 };
 
-// Actualizar un torneo disputado
+// ✅ ACTUALIZADA: Actualizar un torneo disputado con limpieza
 export const updateDisputedTournament = async (
   academiaId: string, 
   id: string, 
@@ -82,10 +96,14 @@ export const updateDisputedTournament = async (
 ) => {
   try {
     const tournamentDoc = doc(db, "academias", academiaId, "disputedTournaments", id);
-    await updateDoc(tournamentDoc, {
+    
+    // Limpiar campos undefined antes de actualizar
+    const cleanedData = cleanUndefinedFields({
       ...dataToUpdate,
-      fechaRegistro: new Date().toISOString() // Actualizar fecha de última modificación
+      fechaRegistro: new Date().toISOString()
     });
+    
+    await updateDoc(tournamentDoc, cleanedData);
     console.log("Torneo disputado actualizado con éxito:", id);
   } catch (error) {
     console.error("Error al actualizar torneo disputado:", error);
@@ -105,10 +123,10 @@ export const deleteDisputedTournament = async (academiaId: string, id: string) =
   }
 };
 
-// Convertir un torneo futuro en disputado
+// ✅ ACTUALIZADA: Convertir un torneo futuro en disputado con validación
 export const convertToDisputedTournament = async (
   academiaId: string,
-  futureTournament: any, // Tournament type from your existing code
+  futureTournament: any,
   resultData: {
     resultado: string;
     rendimientoJugador: DisputedTournament['rendimientoJugador'];
@@ -116,6 +134,7 @@ export const convertToDisputedTournament = async (
   }
 ) => {
   try {
+    // Construir objeto base
     const disputedTournamentData: Omit<DisputedTournament, "id"> = {
       jugadorId: futureTournament.jugadorId,
       nombreTorneo: futureTournament.nombreTorneo,
@@ -123,8 +142,14 @@ export const convertToDisputedTournament = async (
       fechaFin: futureTournament.fechaFin,
       torneoFuturoId: futureTournament.id,
       fechaRegistro: new Date().toISOString(),
-      ...resultData
+      resultado: resultData.resultado,
+      rendimientoJugador: resultData.rendimientoJugador
     };
+    
+    // Solo agregar observaciones si existe y no está vacío
+    if (resultData.observaciones && resultData.observaciones.trim() !== '') {
+      disputedTournamentData.observaciones = resultData.observaciones.trim();
+    }
     
     return await addDisputedTournament(academiaId, disputedTournamentData);
   } catch (error) {

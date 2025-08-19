@@ -88,16 +88,27 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
       return;
     }
 
-    const tournamentData: Omit<DisputedTournament, 'id' | 'jugadorId' | 'fechaRegistro'> = {
+    // ✅ ACTUALIZADO: Construir objeto sin campos undefined
+    const tournamentData: any = {
       nombreTorneo: nombreTorneo.trim(),
       fechaInicio: dateToISOString(fechaInicio),
       fechaFin: dateToISOString(fechaFin),
       resultado: resultado,
-      rendimientoJugador,
-      ...(observaciones.trim() && { observaciones: observaciones.trim() }),
-      ...(futureTournamentToConvert?.id && { torneoFuturoId: futureTournamentToConvert.id })
+      rendimientoJugador
     };
+    
+    // Solo agregar observaciones si tiene contenido
+    const trimmedObservaciones = observaciones.trim();
+    if (trimmedObservaciones) {
+      tournamentData.observaciones = trimmedObservaciones;
+    }
+    
+    // Solo agregar torneoFuturoId si existe
+    if (futureTournamentToConvert?.id) {
+      tournamentData.torneoFuturoId = futureTournamentToConvert.id;
+    }
 
+    console.log('📤 Enviando datos del torneo:', tournamentData);
     onSave(tournamentData);
     onClose();
   };
@@ -232,7 +243,12 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
 
         {error && (
           <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className="text-red-400 text-sm">{error}</p>
+            <p className="text-red-400 text-sm flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {error}
+            </p>
           </div>
         )}
 
