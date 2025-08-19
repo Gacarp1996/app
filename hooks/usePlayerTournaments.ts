@@ -38,7 +38,7 @@ export const usePlayerTournaments = ({
   const [isDisputedTournamentModalOpen, setIsDisputedTournamentModalOpen] = useState(false);
   const [editingDisputedTournament, setEditingDisputedTournament] = useState<DisputedTournament | null>(null);
   const [tournamentToConvert, setTournamentToConvert] = useState<Tournament | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<'future' | 'disputed'>('future');
+  const [activeSubTab, setActiveSubTab] = useState<'future' | 'disputed'>('disputed'); // ✅ CAMBIO: 'future' -> 'disputed'
 
   useEffect(() => {
     if (activeTab === 'tournaments' && playerId) {
