@@ -4,7 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlayer } from '../../contexts/PlayerContext';
 import { useSession } from '../../contexts/SessionContext'; 
 import { getAcademiaUsers, AcademiaUser } from '../../Database/FirebaseRoles';
-import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
+// ✅ MODIFICADO: Importar hasValidPlanWithContent en lugar de getTrainingPlan
+import { hasValidPlanWithContent } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
 import { TrainingSession, Player, Objective, PostTrainingSurvey } from '../../types/types';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -143,7 +144,7 @@ const useSubdirectorDashboardData = () => {
     setActiveTrainers(trainers);
   };
 
-  // Widget 2: Jugadores Activos - SIMPLIFICADO CON CONTEXTO
+  // Widget 2: Jugadores Activos - ✅ MODIFICADO PARA USAR hasValidPlanWithContent
   const processPlayerStatus = async (players: Player[], todaySessions: TrainingSession[]) => {
     if (!academiaActual) return;
 
@@ -162,12 +163,11 @@ const useSubdirectorDashboardData = () => {
         // Verificar si tiene objetivos
         const hasObjectives = objectives.some((obj: Objective) => obj.jugadorId === player.id);
         
-        // Verificar si tiene plan de entrenamiento
-        const trainingPlan = await getTrainingPlan(academiaActual.id, player.id);
-        const hasTrainingPlan = trainingPlan !== null;
+        // ✅ MODIFICADO: Usar la nueva función que valida contenido real
+        const hasTrainingPlan = await hasValidPlanWithContent(academiaActual.id, player.id);
 
-        // Si no tiene ni objetivos ni plan de entrenamiento
-        if (!hasObjectives && !hasTrainingPlan) {
+        // Si no tiene ni objetivos ni plan de entrenamiento válido con contenido
+        if (!hasTrainingPlan) {
           playersWithoutPlan.push(player);
         }
       } catch (error) {

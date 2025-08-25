@@ -6,20 +6,18 @@ import { useAcademia } from '../contexts/AcademiaContext';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useTraining } from '../contexts/TrainingContext';
 import { useSession } from '../contexts/SessionContext';
-import { useNotification } from '../hooks/useNotification'; // ✅ NUEVO IMPORT
+import { useNotification } from '../hooks/useNotification';
 import { UI_LABELS } from '../constants/training';
 import PostTrainingSurveyModal from '@/components/training/PostTrainingSurveyModal';
 
-// ✅ INTERFACE ACTUALIZADA - Sin sessions prop
 const SessionDetailPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { academiaActual } = useAcademia();
   const { players } = usePlayer();
   const { loadSessionForEdit } = useTraining();
-  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
+  const notification = useNotification();
   
-  // ✅ USAR SessionContext
   const { getSessionById } = useSession();
   
   const [survey, setSurvey] = useState<PostTrainingSurvey | null>(null);
@@ -27,7 +25,6 @@ const SessionDetailPage: React.FC = () => {
   const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
   const [isEditingSurvey, setIsEditingSurvey] = useState(false);
 
-  // ✅ OBTENER SESIÓN DEL CONTEXTO
   const session = sessionId ? getSessionById(sessionId) : undefined;
   const player = session ? players.find(p => p.id === session.jugadorId) : null;
 
@@ -54,21 +51,16 @@ const SessionDetailPage: React.FC = () => {
   const handleModifySession = () => {
     if (!session || !player) return;
     
-    // Convertir los ejercicios al formato del contexto
     const exercisesForContext = session.ejercicios.map(ex => ({
       ...ex,
       loggedForPlayerId: player.id,
       loggedForPlayerName: player.name
     }));
     
-    // Cargar la sesión en el contexto
     loadSessionForEdit([player], exercisesForContext);
-    
-    // Navegar a la página de entrenamiento con un parámetro especial
     navigate(`/training/${player.id}?edit=${sessionId}`);
   };
 
-  // Función para volver al perfil del jugador
   const handleGoBack = () => {
     if (player) {
       navigate(`/player/${player.id}`);
@@ -77,7 +69,6 @@ const SessionDetailPage: React.FC = () => {
     }
   };
 
-  // Función helper para obtener el label UI para mostrar
   const getUILabel = (value: string, type: 'tipo' | 'area'): string => {
     if (type === 'tipo' && value in UI_LABELS.TIPOS) {
       return UI_LABELS.TIPOS[value as keyof typeof UI_LABELS.TIPOS];
@@ -85,7 +76,6 @@ const SessionDetailPage: React.FC = () => {
     if (type === 'area' && value in UI_LABELS.AREAS) {
       return UI_LABELS.AREAS[value as keyof typeof UI_LABELS.AREAS];
     }
-    // Fallback: capitalizar primera letra
     return value.charAt(0).toUpperCase() + value.slice(1);
   };
 
@@ -95,10 +85,8 @@ const SessionDetailPage: React.FC = () => {
     actitudMental?: number;
     sensacionesTenisticas?: number;
   }) => {
-    if (!academiaActual || !sessionId) return;
+    if (!academiaActual || !sessionId || !session) return;
     
-    // ✅ MIGRADO: alert → notification.warning
-    // Validar que todas las respuestas estén presentes
     if (!responses.cansancioFisico || !responses.concentracion || 
         !responses.actitudMental || !responses.sensacionesTenisticas) {
       notification.warning('Encuesta incompleta', 'Por favor completa todas las preguntas de la encuesta');
@@ -107,27 +95,27 @@ const SessionDetailPage: React.FC = () => {
     
     try {
       if (isEditingSurvey && survey) {
-        // Actualizar encuesta existente
+        // ✅ SOLUCIÓN: Actualizar encuesta manteniendo la fecha original
         await updateSurvey(academiaActual.id, survey.id, {
           cansancioFisico: responses.cansancioFisico,
           concentracion: responses.concentracion,
           actitudMental: responses.actitudMental,
-          sensacionesTenisticas: responses.sensacionesTenisticas
+          sensacionesTenisticas: responses.sensacionesTenisticas,
+          // ✅ IMPORTANTE: Mantener la fecha original de la encuesta
+          fecha: survey.fecha
         });
-        // ✅ MIGRADO: alert → notification.success
         notification.success('Encuesta actualizada', 'Los cambios se han guardado correctamente');
       } else {
-        // Crear nueva encuesta
+        // ✅ SOLUCIÓN: Crear nueva encuesta con la fecha de la sesión
         await addPostTrainingSurvey(academiaActual.id, {
           jugadorId: playerId,
           sessionId: sessionId,
-          fecha: new Date().toISOString(),
+          fecha: session.fecha, // ✅ Usar la fecha de la sesión, NO la fecha actual
           cansancioFisico: responses.cansancioFisico,
           concentracion: responses.concentracion,
           actitudMental: responses.actitudMental,
           sensacionesTenisticas: responses.sensacionesTenisticas
         });
-        // ✅ MIGRADO: alert → notification.success
         notification.success('Encuesta guardada', 'La encuesta post-entrenamiento se ha registrado correctamente');
       }
       
@@ -135,7 +123,6 @@ const SessionDetailPage: React.FC = () => {
       await loadSurvey();
     } catch (error) {
       console.error('Error guardando encuesta:', error);
-      // ✅ MIGRADO: alert → notification.error
       notification.error('Error al guardar la encuesta', 'Por favor, intenta de nuevo');
     }
   };
@@ -161,20 +148,19 @@ const SessionDetailPage: React.FC = () => {
     );
   }
 
+  // ... resto del componente sin cambios ...
+  
   return (
     <div className="min-h-screen bg-black relative">
-      {/* Efectos de fondo sutiles - REDUCIDOS */}
       <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
       <div className="fixed top-20 left-20 w-64 h-64 lg:w-96 lg:h-96 bg-green-500/3 rounded-full blur-3xl"></div>
       <div className="fixed bottom-20 right-20 w-64 h-64 lg:w-96 lg:h-96 bg-cyan-500/3 rounded-full blur-3xl"></div>
       
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
         
-        {/* Header con navegación - BRILLO REDUCIDO */}
         <div className="mb-6 lg:mb-8">
           <div className="bg-gray-900/50 backdrop-blur-sm p-4 sm:p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800">
             
-            {/* Botón volver y breadcrumb */}
             <div className="flex items-center gap-3 mb-4">
               <button
                 onClick={handleGoBack}
@@ -187,7 +173,6 @@ const SessionDetailPage: React.FC = () => {
                 <span className="hidden sm:inline">Volver al Perfil</span>
               </button>
               
-              {/* Breadcrumb */}
               <nav className="flex items-center gap-2 text-sm text-gray-400">
                 <span>{player.name}</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -201,7 +186,6 @@ const SessionDetailPage: React.FC = () => {
               </nav>
             </div>
 
-            {/* Título y fecha */}
             <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
               <div className="flex-1">
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-green-400 mb-2">
@@ -222,7 +206,6 @@ const SessionDetailPage: React.FC = () => {
                 </div>
               </div>
               
-              {/* Botón cerrar para escritorio */}
               <button
                 onClick={handleGoBack}
                 className="hidden lg:flex items-center justify-center w-10 h-10 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all duration-200"
@@ -236,7 +219,6 @@ const SessionDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Botón para modificar entrenamiento */}
         <div className="mb-6">
           <button
             onClick={handleModifySession}
@@ -251,7 +233,6 @@ const SessionDetailPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Ejercicios realizados */}
         <div className="bg-gray-900/50 backdrop-blur-sm p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800 mb-6">
           <h2 className="text-xl lg:text-2xl font-semibold text-green-400 mb-6">Ejercicios Realizados</h2>
           {session.ejercicios.length > 0 ? (
@@ -293,7 +274,6 @@ const SessionDetailPage: React.FC = () => {
           )}
         </div>
 
-        {/* Observaciones */}
         {session.observaciones && (
           <div className="bg-gray-900/50 backdrop-blur-sm p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800 mb-6">
             <h2 className="text-xl lg:text-2xl font-semibold text-green-400 mb-4">Observaciones</h2>
@@ -303,7 +283,6 @@ const SessionDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Sección de Encuesta Post-Entrenamiento */}
         <div className="bg-gray-900/50 backdrop-blur-sm p-6 lg:p-8 rounded-xl shadow-lg border border-gray-800 mb-8">
           <h2 className="text-xl lg:text-2xl font-semibold text-green-400 mb-6">Encuesta Post-Entrenamiento</h2>
           
@@ -393,7 +372,6 @@ const SessionDetailPage: React.FC = () => {
           )}
         </div>
 
-        {/* Link de vuelta mejorado */}
         <div className="text-center">
           <Link 
             to={`/player/${player.id}`} 
@@ -406,7 +384,6 @@ const SessionDetailPage: React.FC = () => {
           </Link>
         </div>
 
-        {/* Modal de Encuesta */}
         {isSurveyModalOpen && player && (
           <PostTrainingSurveyModal
             isOpen={isSurveyModalOpen}

@@ -71,7 +71,7 @@ export const useSessionSurveys = ({
     return true;
   }, [askForSurveys]);
 
-  // Guardar respuesta de encuesta
+  // ✅ SOLUCIÓN: Guardar respuesta de encuesta con fecha correcta
   const handleSurveySubmit = useCallback(async (
     playerId: string, 
     responses: SurveyResponses,
@@ -81,6 +81,20 @@ export const useSessionSurveys = ({
       if (!currentUser || !academiaId) {
         throw new Error('Error: No se puede identificar al entrenador.');
       }
+
+      // ✅ CAMBIO CLAVE: Obtener la fecha de la sesión del jugador
+      const playerSession = pendingSessionsToSave.find(
+        session => session.jugadorId === playerId
+      );
+      
+      if (!playerSession || !playerSession.fecha) {
+        console.error('No se encontró sesión o fecha para el jugador:', playerId);
+        throw new Error(`No se encontró sesión para el jugador: ${playerId}`);
+      }
+      
+      // ✅ Usar la fecha de la sesión en lugar de la fecha actual
+      const surveyDate = playerSession.fecha;
+      console.log(`Usando fecha de sesión para encuesta del jugador ${playerId}:`, surveyDate);
 
       let currentSessionIds = sessionIds;
       
@@ -115,7 +129,7 @@ export const useSessionSurveys = ({
         onSessionsSaved(sessionIdsMap);
       }
 
-      // Guardar encuesta
+      // Guardar encuesta con la fecha correcta
       const sessionId = currentSessionIds.get(playerId);
       if (!sessionId) {
         throw new Error(`No se encontró sessionId para el jugador: ${playerId}`);
@@ -128,12 +142,15 @@ export const useSessionSurveys = ({
         }
       });
 
+      // ✅ CAMBIO PRINCIPAL: Usar surveyDate (fecha de la sesión) en lugar de new Date().toISOString()
       await addPostTrainingSurvey(academiaId, {
         jugadorId: playerId,
         sessionId: sessionId,
-        fecha: new Date().toISOString(),
+        fecha: surveyDate, // ✅ Fecha sincronizada con la sesión
         ...validResponses
       });
+      
+      console.log(`✅ Encuesta guardada para ${playerId} con fecha: ${surveyDate}`);
       
       // Avanzar al siguiente jugador o finalizar
       if (currentSurveyPlayerIndex < pendingSurveyPlayers.length - 1) {
@@ -150,7 +167,7 @@ export const useSessionSurveys = ({
     currentUser, 
     academiaId, 
     sessionIds, 
-    pendingSessionsToSave, 
+    pendingSessionsToSave, // ✅ Ya está en las dependencias, contiene la fecha correcta
     currentSurveyPlayerIndex, 
     pendingSurveyPlayers.length,
     onSurveysComplete,

@@ -14,7 +14,7 @@ import { useSessionParticipants } from './useSessionParticipants';
 import { useSessionSurveys } from './useSessionSurveys';
 import { useSessionSave } from './useSessionSave';
 import { useSessionPersistence } from './useSessionPersistence';
-import { useNotification } from './useNotification'; // ✅ NUEVO IMPORT
+import { useNotification } from './useNotification';
 
 interface UseTrainingSessionProps {
   allTournaments: Tournament[];
@@ -28,7 +28,7 @@ export const useTrainingSession = ({
   originalSession
 }: UseTrainingSessionProps) => {
   const navigate = useNavigate();
-  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
+  const notification = useNotification();
   const { currentUser } = useAuth();
   const { academiaActual } = useAcademia();
   const { players: allPlayers, refreshPlayers } = usePlayer();
@@ -162,14 +162,12 @@ export const useTrainingSession = ({
     }
   }, [originalSession?.id]);
 
-  // ✅ MIGRADO: Handler para agregar ejercicio
   const handleAddExerciseToSession = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
     const validation = exerciseForm.validateForm(participantsManager.activePlayerIds);
     
     if (!validation.isValid) {
-      // MIGRADO: alert → notification.error
       notification.error(validation.error || 'Error en el formulario');
       return;
     }
@@ -282,6 +280,7 @@ export const useTrainingSession = ({
     handleDeclineSurveys,
     
     allPlayers,
+    allObjectives,  // ✅ AGREGADO
     allTournaments,
   };
 };

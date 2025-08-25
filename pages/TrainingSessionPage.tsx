@@ -5,7 +5,7 @@ import { usePlayer } from '../contexts/PlayerContext';
 import { useAcademia } from '../contexts/AcademiaContext';
 import { useSession } from '../contexts/SessionContext';
 import { useTournament } from '../contexts/TournamentContext';
-import { useNotification } from '../hooks/useNotification'; // ✅ NUEVO IMPORT
+import { useNotification } from '../hooks/useNotification';
 import PostTrainingSurveyModal from '../components/training/PostTrainingSurveyModal';
 import SurveyConfirmationModal from '../components/training/SurveyConfirmationModal';
 import SurveyExitConfirmModal from '../components/training/SurveyExitConfirmModal';
@@ -18,7 +18,6 @@ import SessionSummary from '../components/training/SessionSummary';
 import ObjectiveModal from '@/components/player-profile/ObjectiveModal';
 import ActiveSessionRecommendations from '../components/training/ActiveSessionRecommendations';
 
-// ✅ INTERFACE ACTUALIZADA - Ya no necesita allTournaments
 interface TrainingSessionPageProps {
   // Ya no necesita props, todo viene del contexto
 }
@@ -30,22 +29,16 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
   const { players: allPlayers } = usePlayer();
   const { academiaActual } = useAcademia();
   const academiaId = academiaActual?.id || '';
-  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
+  const notification = useNotification();
   
-  // ✅ USAR SessionContext para obtener sesiones
   const { getSessionById } = useSession();
-  
-  // ✅ USAR TournamentContext para obtener torneos
   const { tournaments } = useTournament();
   
-  // Detectar si estamos en modo edición
   const editSessionId = searchParams.get('edit');
   const isEditMode = !!editSessionId;
   
-  // Estado para tracking de navegación
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
-  // ✅ OBTENER SESIÓN ORIGINAL DEL CONTEXTO
   const originalSession = isEditMode ? getSessionById(editSessionId) : null;
   const originalPlayer = originalSession ? allPlayers.find(p => p.id === originalSession.jugadorId) : null;
 
@@ -66,7 +59,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
     observaciones,
     isAddSpecificExerciseModalOpen,
     enabledSurveyQuestions,
-    sessionDate,                    // ✅ NUEVO
+    sessionDate,
     
     // Estados del formulario
     currentTipo,
@@ -97,7 +90,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
     setCurrentEjercicioEspecifico,
     setTiempoCantidad,
     setIntensidad,
-    setSessionDate,                  // ✅ NUEVO
+    setSessionDate,
     
     // Handlers
     handlePlayerToggleActive,
@@ -117,21 +110,21 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
     handleDeclineSurveys,
     handleConfirmExitSurveys,
     handleCancelExitSurveys,
+    
+    // Datos adicionales
+    allObjectives,  // ✅ AGREGADO
   } = useTrainingSession({
-    allTournaments: tournaments,  // ✅ AHORA VIENE DEL CONTEXTO
+    allTournaments: tournaments,
     editSessionId,
-    originalSession              // ✅ YA VIENE DEL CONTEXTO
+    originalSession
   });
 
-  // Detectar cambios para mostrar advertencia
   useEffect(() => {
     setHasUnsavedChanges(exercises.length > 0 || observaciones.trim().length > 0);
   }, [exercises, observaciones]);
 
-  // ✅ FUNCIÓN MIGRADA CON SONNER - Manejar navegación hacia atrás
   const handleGoBack = async () => {
     if (hasUnsavedChanges) {
-      // MIGRADO: window.confirm → notification.confirm
       const confirmExit = await notification.confirm({
         title: 'Cambios sin guardar',
         message: '¿Estás seguro de que quieres salir? Se perderán todos los cambios no guardados.',
@@ -144,15 +137,12 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
     }
 
     if (isEditMode && originalPlayer) {
-      // Si estamos editando, volver al perfil del jugador
       navigate(`/player/${originalPlayer.id}`);
     } else {
-      // Si estamos creando nueva sesión, volver a start-training
       navigate('/start-training');
     }
   };
 
-  // Estados de carga y error
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -180,7 +170,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
     );
   }
 
-  // Render principal del componente
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       {/* Efectos de fondo sutiles */}
@@ -193,7 +182,8 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
         <ObjectiveModal 
           isOpen={isObjectiveModalOpen} 
           onClose={() => setIsObjectiveModalOpen(false)} 
-          selectedPlayers={participants} 
+          selectedPlayers={participants}
+          allObjectives={allObjectives}  // ✅ AGREGADO
           allTournaments={tournaments}  
         />
         <ManageParticipantsModal 
@@ -205,7 +195,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           onAddParticipant={handleAddParticipant} 
         />
         
-        {/* Modal para agregar ejercicios específicos */}
         <AddSpecificExerciseModal
           isOpen={isAddSpecificExerciseModalOpen}
           onClose={() => setIsAddSpecificExerciseModalOpen(false)}
@@ -215,7 +204,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           currentEjercicio={currentEjercicio}
         />
         
-        {/* Modal de encuestas post-entrenamiento */}
         {isSurveyModalOpen && pendingSurveyPlayers[currentSurveyPlayerIndex] && (
           <PostTrainingSurveyModal
             isOpen={isSurveyModalOpen}
@@ -227,7 +215,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
             enabledQuestions={enabledSurveyQuestions}
           />
         )}
-        {/* Modal de confirmación de encuesta */}
         <SurveyConfirmationModal
           isOpen={isSurveyConfirmationModalOpen}
           onClose={handleDeclineSurveys}
@@ -235,7 +222,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           playersCount={pendingSurveyPlayers.length}
         />
         
-        {/* Modal de confirmación de salida de encuesta */}
         <SurveyExitConfirmModal
           isOpen={isSurveyExitConfirmModalOpen}
           onClose={handleCancelExitSurveys}
@@ -248,7 +234,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
         {/* Header limpio y responsive */}
         <div className="mb-4 sm:mb-6">
           <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-gray-800">
-            {/* Navegación superior simplificada */}
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={handleGoBack}
@@ -263,7 +248,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
                 </span>
               </button>
 
-              {/* Selector de fecha móvil optimizado */}
               <div className="flex items-center gap-2 bg-gray-800/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-700">
                 <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -282,7 +266,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
               </div>
             </div>
 
-            {/* Título simplificado */}
             <div className="text-center sm:text-left">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -299,7 +282,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
                   )}
                 </div>
                 
-                {/* Botones compactos */}
                 <div className="flex gap-2 justify-center sm:justify-end">
                   <button 
                     onClick={() => setIsParticipantModalOpen(true)} 
@@ -321,7 +303,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           </div>
         </div>
 
-        {/* Advertencia compacta en modo edición */}
         {isEditMode && (
           <div className="mb-4 bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
             <div className="flex items-center gap-2">
@@ -336,11 +317,8 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           </div>
         )}
 
-        {/* Layout principal responsive */}
         <div className="space-y-4 sm:space-y-6 lg:grid lg:grid-cols-12 lg:gap-6 lg:space-y-0">
-          {/* Columna principal */}
           <div className="lg:col-span-8 space-y-4 sm:space-y-6">
-            {/* Selector de jugadores compacto */}
             <PlayerSelector
               participants={participants}
               activePlayerIds={activePlayerIds}
@@ -348,7 +326,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
               onToggleSelectAll={toggleSelectAllPlayers}
             />
 
-            {/* Panel de recomendaciones colapsible en móvil */}
             <div className="lg:block">
               <ActiveSessionRecommendations
                 participants={participants}
@@ -356,7 +333,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
               />
             </div>
             
-            {/* Objetivos compactos para un solo jugador */}
             {singleActivePlayer && objectivesForSingleActivePlayer.length > 0 && (
               <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg p-3 sm:p-4 border border-gray-800">
                 <p className="text-sm text-gray-400">
@@ -368,7 +344,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
               </div>
             )}
 
-            {/* Formulario de ejercicio mejorado */}
             <ExerciseForm
               currentTipo={currentTipo}
               currentArea={currentArea}
@@ -390,7 +365,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
               onAddSpecificExercise={handleAddSpecificExercise}
             />
 
-            {/* Observaciones compactas */}
             <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg p-3 sm:p-4 border border-gray-800">
                 <h2 className="text-lg font-semibold text-white mb-3">Observaciones</h2>
                 <textarea
@@ -402,7 +376,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
                 />
             </div>
 
-            {/* Configuración de encuestas - Solo mostrar en modo creación */}
             {!isEditMode && (
               <SurveySettings
                 askForSurveys={askForSurveys}
@@ -411,17 +384,14 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
             )}
           </div>
 
-          {/* Columna lateral - Lista de ejercicios y resumen */}
           <SessionSummary
             exercises={exercises}
             participants={participants}
           />
         </div>
 
-        {/* Botón de finalizar optimizado para móvil */}
         <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 bg-black/90 backdrop-blur-lg border-t border-gray-800 lg:relative lg:mt-6 lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:border-0 z-40">
           <div className="flex gap-2 sm:gap-3 max-w-4xl mx-auto">
-            {/* Botón cancelar compacto */}
             <button 
               onClick={handleGoBack}
               className="lg:hidden px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all duration-200 flex-shrink-0 text-sm"
@@ -429,7 +399,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
               Cancelar
             </button>
             
-            {/* Botón finalizar */}
             <button 
               onClick={handleFinishTraining} 
               className="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold text-sm sm:text-base lg:text-lg rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-red-500/25"
@@ -449,7 +418,6 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           </div>
         </div>
         
-        {/* Espaciado para botón fijo en móvil */}
         <div className="h-16 sm:h-20 lg:hidden"></div>
       </div>
     </div>

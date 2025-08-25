@@ -54,6 +54,41 @@ export const getTrainingPlan = async (academiaId: string, playerId: string): Pro
   }
 };
 
+// NUEVA FUNCIÓN: Verifica si un jugador tiene un plan válido con contenido real
+export const hasValidPlanWithContent = async (
+  academiaId: string, 
+  playerId: string
+): Promise<boolean> => {
+  try {
+    const plan = await getTrainingPlan(academiaId, playerId);
+    
+    if (!plan || !plan.planificacion) return false;
+    
+    // Verificar que tenga contenido real (al menos un tipo con porcentaje > 0)
+    const hasContent = Object.values(plan.planificacion).some(tipo => 
+      tipo?.porcentajeTotal && tipo.porcentajeTotal > 0
+    );
+    
+    if (!hasContent) {
+      // Si no tiene contenido (todo en 0), no es válido para el widget
+      return false;
+    }
+    
+    // Opcional: También verificar que sea válido según las reglas estrictas
+    // Esto asegura que solo contemos planes que cumplan con las validaciones
+    const validation = validateStrictPlan(plan);
+    
+    // Un plan se considera "con planificación" si:
+    // 1. Tiene al menos algo de contenido (hasContent = true)
+    // 2. Es válido según las reglas (puede ser incompleto pero válido)
+    return validation.isValid || validation.isComplete;
+    
+  } catch (error) {
+    console.error("Error verificando plan con contenido:", error);
+    return false;
+  }
+};
+
 export const saveTrainingPlan = async (
   academiaId: string, 
   playerId: string, 
@@ -115,7 +150,7 @@ export const deleteTrainingPlan = async (academiaId: string, playerId: string): 
   }
 };
 
-// ✅ ACTUALIZADA: Validación que reconoce que Puntos no requiere ejercicios
+// ACTUALIZADA: Validación que reconoce que Puntos no requiere ejercicios
 export const validateStrictPlan = (plan: Partial<TrainingPlan>): StrictValidationResult => {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -141,7 +176,7 @@ export const validateStrictPlan = (plan: Partial<TrainingPlan>): StrictValidatio
     const tipoPlan = plan.planificacion[tipo];
     const tipoPorcentaje = tipoPlan?.porcentajeTotal || 0;
     
-    // ✅ IMPORTANTE: Determinar si este tipo requiere ejercicios
+    // IMPORTANTE: Determinar si este tipo requiere ejercicios
     const requiresExercises = tipoRequiereEjercicios(tipo as TipoType);
     
     if (tipoPorcentaje === undefined || tipoPorcentaje === null) {
@@ -171,7 +206,7 @@ export const validateStrictPlan = (plan: Partial<TrainingPlan>): StrictValidatio
         if (areaPorcentaje > 0) {
           hasAreaDetail = true;
           
-          // ✅ CLAVE: Solo validar ejercicios si el tipo los requiere
+          // CLAVE: Solo validar ejercicios si el tipo los requiere
           if (requiresExercises) {
             const ejercicios = getEjerciciosForTipoArea(tipo as TipoType, area as any);
             
@@ -202,7 +237,7 @@ export const validateStrictPlan = (plan: Partial<TrainingPlan>): StrictValidatio
               }
             }
           } else {
-            // ✅ Para Puntos: considerarlo completo sin necesidad de ejercicios
+            // Para Puntos: considerarlo completo sin necesidad de ejercicios
             // No agregar errores por falta de ejercicios
             hasEjercicioDetail = true; // Marcar como completo a este nivel
           }

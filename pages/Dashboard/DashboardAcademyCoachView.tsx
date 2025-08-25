@@ -3,7 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAcademia } from '../../contexts/AcademiaContext';
 import { usePlayer } from '../../contexts/PlayerContext';
 import { useSession } from '../../contexts/SessionContext'; 
-import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
+// ✅ MODIFICADO: Importar hasValidPlanWithContent en lugar de getTrainingPlan
+import { hasValidPlanWithContent } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
 import { Player, TrainingSession, Objective, PostTrainingSurvey } from '../../types/types';
 import TrainedPlayersWidget from '@/components/dashboard/TrainedPlayersWidget';
@@ -147,12 +148,11 @@ const useAcademyCoachDashboard = () => {
     for (const player of coachPlayers) {
       try {
         const hasObjectives = objectives.some((obj: Objective) => obj.jugadorId === player.id);
-       
         
-        const trainingPlan = await getTrainingPlan(academiaActual.id, player.id);
-        const hasTrainingPlan = trainingPlan !== null;
+        // ✅ MODIFICADO: Usar la nueva función que valida contenido real
+        const hasTrainingPlan = await hasValidPlanWithContent(academiaActual.id, player.id);
 
-        if (!hasObjectives && !hasTrainingPlan) {
+        if (!hasTrainingPlan) {
           playersWithoutPlan.push(player);
         }
       } catch (error) {

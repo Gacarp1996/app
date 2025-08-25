@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlayer } from '../../contexts/PlayerContext';
 import { useSession } from '../../contexts/SessionContext'; 
 import { getAcademiaUsers, AcademiaUser } from '../../Database/FirebaseRoles';
-import { getTrainingPlan } from '../../Database/FirebaseTrainingPlans';
+import { hasValidPlanWithContent } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
 import { TrainingSession, Player, Objective, PostTrainingSurvey } from '../../types/types';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -48,7 +48,6 @@ const useDirectorDashboardData = () => {
   const { players: allPlayersFromContext } = usePlayer();
   const { objectives } = useObjective();
   
-  // ✅ USAR SessionContext
   const { 
     getTodaySessions,
     getSessionsByDateRange,
@@ -70,7 +69,6 @@ const useDirectorDashboardData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // ✅ USAR DATOS DEL CONTEXTO
   const [todaySessions, setTodaySessions] = useState<TrainingSession[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
 
@@ -89,7 +87,6 @@ const useDirectorDashboardData = () => {
     setError(null);
     
     try {
-      // ✅ USAR FUNCIONES DEL CONTEXTO
       const todaySessionsData = getTodaySessions();
       const users = await getAcademiaUsers(academiaActual.id);
 
@@ -146,7 +143,7 @@ const useDirectorDashboardData = () => {
     setActiveTrainers(trainers);
   };
 
-  // Widget 2: Jugadores Activos - SIMPLIFICADO CON CONTEXTO
+  // Widget 2: Jugadores Activos - MODIFICADO PARA USAR hasValidPlanWithContent
   const processPlayerStatus = async (players: Player[], todaySessions: TrainingSession[]) => {
     if (!academiaActual) return;
 
@@ -165,12 +162,11 @@ const useDirectorDashboardData = () => {
         // Verificar si tiene objetivos
         const hasObjectives = objectives.some((obj: Objective) => obj.jugadorId === player.id);
         
-        // Verificar si tiene plan de entrenamiento
-        const trainingPlan = await getTrainingPlan(academiaActual.id, player.id);
-        const hasTrainingPlan = trainingPlan !== null;
-
-        // Si no tiene ni objetivos ni plan de entrenamiento
-        if (!hasObjectives && !hasTrainingPlan) {
+        // MODIFICADO: Usar la nueva función que valida contenido real
+        const hasTrainingPlan = await hasValidPlanWithContent(academiaActual.id, player.id);
+        
+        // Si no tiene ni objetivos ni plan de entrenamiento válido con contenido
+        if (!hasTrainingPlan) {
           playersWithoutPlan.push(player);
         }
       } catch (error) {
@@ -207,7 +203,6 @@ const useDirectorDashboardData = () => {
     startDate.setDate(endDate.getDate() - 7);
 
     try {
-      // ✅ USAR FUNCIÓN DEL CONTEXTO
       const weekSessions = getSessionsByDateRange(startDate, endDate);
       
       // Obtener todas las encuestas de la última semana
@@ -290,7 +285,7 @@ const useDirectorDashboardData = () => {
     loading,
     error,
     refreshData: async () => {
-      await refreshSessions(); // ✅ REFRESCAR SESIONES DEL CONTEXTO
+      await refreshSessions();
       await loadDashboardData();
     }
   };
