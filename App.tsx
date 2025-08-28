@@ -1,8 +1,7 @@
-// src/App.tsx - ACTUALIZADO con TournamentProvider y Sonner
-
+// src/App.tsx
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'sonner'; // ✅ NUEVO IMPORT
+import { Toaster } from 'sonner';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AcademiaProvider, useAcademia } from './contexts/AcademiaContext';
@@ -15,6 +14,7 @@ import LoginPage from './pages/LoginPage';
 import AcademiaSelectPage from './pages/AcademiaSelectPage';
 import AppWithAcademia from './components/shared/AppWithAcademia';
 import { SessionProvider } from './contexts/SessionContext';
+import { usePWAUpdate } from './hooks/usePWAUpdate'; // ← NUEVA IMPORTACIÓN
 
 // Componente que maneja la lógica de rutas después de la autenticación
 const AuthenticatedApp: React.FC = () => {
@@ -65,6 +65,8 @@ const AuthenticatedApp: React.FC = () => {
 
 // Componente principal de la aplicación
 const App: React.FC = () => {
+  usePWAUpdate(); // ← NUEVA LÍNEA - Inicializar sistema de actualizaciones PWA
+  
   return (
     <ThemeProvider>
       <HashRouter>
@@ -77,7 +79,6 @@ const App: React.FC = () => {
                     <SessionProvider>
                       <AuthenticatedApp />
                       
-                      {/* ✅ NUEVO: Toaster de Sonner configurado para tema oscuro */}
                       <Toaster 
                         theme="dark"
                         position="top-right"
@@ -96,7 +97,7 @@ const App: React.FC = () => {
                         richColors
                         expand={false}
                         visibleToasts={5}
-                        offset="80px" // Para que no tape el header
+                        offset="80px"
                       />
                     </SessionProvider>
                   </TournamentProvider>

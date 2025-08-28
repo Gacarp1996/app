@@ -81,8 +81,10 @@ const ObjectiveDetailPage: React.FC<{ onDataChange?: () => void }> = ({ onDataCh
     try {
       const updatedData = {
         textoObjetivo: editText.trim(),
-        cuerpoObjetivo: editBody.trim() || undefined
+        cuerpoObjetivo: editBody.trim() || ""
       };
+
+ console.log('🔄 Actualizando objetivo:', { id: objective.id, data: updatedData }); // ✅ NUEVO: Log para debug
 
       await updateObjective(objective.id, updatedData);
       
@@ -94,10 +96,8 @@ const ObjectiveDetailPage: React.FC<{ onDataChange?: () => void }> = ({ onDataCh
 
       // ✅ NAVEGACIÓN MEJORADA
       if (isFromTraining) {
-        // Si venimos del entrenamiento, volver atrás
         navigate(-1);
       } else if (player) {
-        // Si no, ir al perfil del jugador
         navigate(`/player/${player.id}`);
       }
     } catch (err) {

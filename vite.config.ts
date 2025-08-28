@@ -1,28 +1,26 @@
+// vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      registerType: 'prompt', // Para control manual de actualizaciones
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       
-      // Web App Manifest
       manifest: {
         name: 'TennisCoaching App',
         short_name: 'TennisCoach',
         description: 'Aplicación para gestión de academias de tenis',
-        theme_color: '#10b981', // green-500 de tu tema
-        background_color: '#000000', // negro de tu tema oscuro
+        theme_color: '#10b981',
+        background_color: '#000000',
         display: 'standalone',
         orientation: 'portrait-primary',
         scope: '/',
-        start_url: '/',
-        
+        start_url: '/#/', // Importante: con hash para HashRouter
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -38,74 +36,65 @@ export default defineConfig({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'maskable'
           }
         ]
       },
       
-      // Configuración del Service Worker
       workbox: {
-        // Archivos a pre-cachear (críticos para funcionamiento)
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         
-        // Estrategias de cache por tipo de recurso
+        // Importante para HashRouter
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/\.well-known/],
+        
         runtimeCaching: [
-          // Documentos HTML
           {
-            urlPattern: ({ url }) => url.pathname.endsWith('.html'),
-            handler: 'StaleWhileRevalidate',
+            urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
+            handler: 'NetworkFirst',
             options: {
-              cacheName: 'html-cache',
+              cacheName: 'firestore-cache',
+              networkTimeoutSeconds: 3,
               expiration: {
                 maxEntries: 50,
+                maxAgeSeconds: 60 * 60 // 1 hora
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/esm\.sh\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'esm-cache',
+              expiration: {
+                maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 7 // 7 días
               }
             }
           },
-          
-          // API de Firebase/Firestore
           {
-            urlPattern: ({ url }) => url.hostname.includes('firestore.googleapis.com'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'firestore-cache',
-              networkTimeoutSeconds: 5,
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 // 1 hora
-              }
-            }
-          },
-          
-          // Assets estáticos (JS, CSS, imágenes)
-          {
-            urlPattern: ({ request }) => 
-              request.destination === 'script' || 
-              request.destination === 'style' ||
-              request.destination === 'image',
-            handler: 'CacheFirst',
+            urlPattern: /\.(js|css|png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'assets-cache',
               expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 días
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 días
               }
             }
           }
         ],
         
-        // Configuraciones adicionales
-        skipWaiting: true,
+        skipWaiting: false, // Control manual
         clientsClaim: true,
-        cleanupOutdatedCaches: true,
-        
-        // Tamaño máximo del cache (importante para tus SLOs de costo)
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024 // 5MB max por archivo
+        cleanupOutdatedCaches: true
       },
       
-      // Configuración de desarrollo
       devOptions: {
-        enabled: false, // Solo en producción por defecto
+        enabled: true, // Para testing en dev
         type: 'module'
       }
     })
