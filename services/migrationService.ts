@@ -138,7 +138,6 @@ export class MigrationService {
     
     // Si está muy lejos del 100%, usar distribución por defecto
     if (Math.abs(total - 100) > 20) {
-      console.warn(`Plan suma ${total}%, muy lejos del 100%. Usando valores por defecto.`);
       const defaultPlan = TrainingStructureService.generateDefaultPlan();
       plan.planificacion = defaultPlan.planificacion;
       return;

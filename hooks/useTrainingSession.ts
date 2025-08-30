@@ -30,7 +30,7 @@ export const useTrainingSession = ({
   const navigate = useNavigate();
   const notification = useNotification();
   const { currentUser } = useAuth();
-  const { academiaActual } = useAcademia();
+  const { academiaActual } = useAcademia(); // ✅ Obtener academia completa
   const { players: allPlayers, refreshPlayers } = usePlayer();
   const { objectives: allObjectives } = useObjective();
   const { 
@@ -64,6 +64,7 @@ export const useTrainingSession = ({
 
   const localStorage = useSessionPersistence(academiaId);
 
+  // ✅ CRÍTICO: Pasar academiaActual completa a useSessionSave
   const {
     observaciones,
     specificExercises,
@@ -78,7 +79,8 @@ export const useTrainingSession = ({
     currentUser,
     originalSession,
     isEditMode,
-    sessionDate
+    sessionDate,
+    academiaData: academiaActual // ✅ AGREGADO: Pasar datos completos de academia
   });
 
   const exerciseForm = useExerciseForm({
@@ -140,7 +142,7 @@ export const useTrainingSession = ({
     ) {
       const player = allPlayers.find(p => p.id === originalSession.jugadorId);
       if (player) {
-        console.log('🔄 Cargando sesión para edición - Jugador:', player.name);
+        console.log('Cargando sesión para edición:', originalSession.id);
         
         const exercisesForContext = SessionService.convertToSessionExercises(
           originalSession.ejercicios,
@@ -151,7 +153,7 @@ export const useTrainingSession = ({
         loadSessionForEdit([player], exercisesForContext);
         editSessionLoadedRef.current = true;
         
-        console.log('✅ Sesión cargada para edición con', exercisesForContext.length, 'ejercicios');
+        console.log('Sesión cargada exitosamente para edición');
       }
     }
   }, [isEditMode, originalSession?.id, allPlayers, loadSessionForEdit]);
@@ -280,7 +282,7 @@ export const useTrainingSession = ({
     handleDeclineSurveys,
     
     allPlayers,
-    allObjectives,  // ✅ AGREGADO
+    allObjectives,
     allTournaments,
   };
 };

@@ -68,7 +68,7 @@ const GlobalHeader: React.FC = () => {
 
   // ✅ NUEVA FUNCIÓN: Solo abre el modal, no navega
   const handleOpenConfig = () => {
-    console.log('🔧 Abriendo configuración desde GlobalHeader...');
+ 
     openConfigModal(); // Solo abre el modal global
     closeDropdown(); // Cerrar dropdown si está abierto
   };

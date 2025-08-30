@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
 import { Player } from '@/types/types';
+import { rateLimiter } from '@/utils/rateLimiter';
 
 
 interface SurveyQuestion {
@@ -132,6 +133,10 @@ const PostTrainingSurveyModal: React.FC<PostTrainingSurveyModalProps> = ({
   };
 
   const handleSubmit = () => {
+
+     if (!rateLimiter.canExecute(`survey-submit-${player.id}`, 3000)) {
+    return;
+  }
     // Validar solo las preguntas habilitadas
     const requiredFields = enabledQuestions;
     const missingFields = requiredFields.filter(field => responses[field as keyof typeof responses] === null);

@@ -6,9 +6,9 @@ export const addTournament = async (academiaId: string, tournamentData: Omit<Tou
   try {
     const tournamentsCollection = collection(db, "academias", academiaId, "tournaments");
     const docRef = await addDoc(tournamentsCollection, tournamentData);
-    console.log("Torneo agregado con ID:", docRef.id);
+ 
   } catch (error) {
-    console.error("Error al agregar torneo:", error);
+   
   }
 };
 
@@ -25,7 +25,7 @@ export const getTournaments = async (academiaId: string): Promise<Tournament[]> 
     });
     return tournaments;
   } catch (error) {
-    console.error("Error al obtener torneos:", error);
+ 
     return [];
   }
 };
@@ -34,9 +34,9 @@ export const updateTournament = async (academiaId: string, id: string, dataToUpd
   try {
     const tournamentDoc = doc(db, "academias", academiaId, "tournaments", id);
     await updateDoc(tournamentDoc, dataToUpdate);
-    console.log("Torneo actualizado con éxito:", id);
+   
   } catch (error) {
-    console.error("Error al actualizar torneo:", error);
+    
   }
 };
 
@@ -44,8 +44,8 @@ export const deleteTournament = async (academiaId: string, id: string) => {
   try {
     const tournamentDoc = doc(db, "academias", academiaId, "tournaments", id);
     await deleteDoc(tournamentDoc);
-    console.log("Torneo eliminado con éxito:", id);
+    
   } catch (error) {
-    console.error("Error al eliminar torneo:", error);
+    
   }
 };

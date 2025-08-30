@@ -221,18 +221,7 @@ export class RecommendationEngine {
       // 3. Calcular estadísticas
       const stats = calculateExerciseStatsByTime(exercises);
       
-      console.group(`🧮 Debug Cálculos - ${player.name}`);
-      console.log('📝 Ejercicios brutos:', exercises.map(e => ({
-        tipo: e.tipo,
-        area: e.area,
-        ejercicio: e.ejercicio || 'N/A',  // ✅ Manejar ausencia de ejercicio
-        tiempo: e.tiempoCantidad
-      })));
-      console.log('📊 Stats calculadas:', {
-        totalMinutes: stats.totalMinutes,
-        typeStats: stats.typeStats
-      });
-      console.groupEnd();
+    
       
       results.push({
         playerId: player.id,
@@ -278,22 +267,6 @@ export class RecommendationEngine {
       
       const validation = validateStrictTrainingPlan(plan);
       
-      console.group(`🔍 Debug Plan Jugador: ${stats.playerName}`);
-      console.log('📋 Plan migrado:', {
-        existe: !!plan,
-        tienePlanificacion: !!(plan?.planificacion),
-        keysPlanificacion: Object.keys(plan?.planificacion || {}),
-        version: plan?.version
-      });
-      console.log('✅ Validation result:', {
-        isValid: validation.isValid,
-        isComplete: validation.isComplete,
-        canGenerate: validation.canGenerateRecommendations,
-        errors: validation.errors,
-        totalPercentage: validation.totalPercentage
-      });
-      console.log('🚨 Errores específicos:', validation.errors);
-      console.groupEnd();
 
       if (!validation.canGenerateRecommendations) {
         result[stats.playerId] = {
@@ -324,30 +297,6 @@ export class RecommendationEngine {
         // ✅ NUEVO: Determinar si este tipo requiere ejercicios
         const requiresExercises = tipoRequiereEjercicios(tipo as TipoType);
         
-        console.log(`🎾 Procesando tipo ${tipo}:`, {
-          tipoData: {
-            existe: !!tipoData,
-            porcentajeTotal: tipoData?.porcentajeTotal,
-            requiereEjercicios: requiresExercises  // ✅ NUEVO
-          },
-          stats: {
-            existe: !!typeStats,
-            total: typeStats?.total || 0,
-            percentage: currentPercentage
-          },
-          calculo: {
-            currentPercentage,
-            plannedPercentage,
-            gap: Math.round(gap * 10) / 10,
-            action,
-            priority
-          },
-          decision: {
-            umbralGap: Math.abs(gap) > 5,
-            tieneDatos: (typeStats?.total || 0) > 0,
-            deberiaCrearItem: Math.abs(gap) > 5 || (typeStats?.total || 0) > 0
-          }
-        });
         
         // Agregar recomendación de tipo si hay gap significativo o datos
         if (Math.abs(gap) > 5 || typeStats?.total > 0) {

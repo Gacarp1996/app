@@ -84,7 +84,7 @@ const ObjectiveDetailPage: React.FC<{ onDataChange?: () => void }> = ({ onDataCh
         cuerpoObjetivo: editBody.trim() || ""
       };
 
- console.log('🔄 Actualizando objetivo:', { id: objective.id, data: updatedData }); // ✅ NUEVO: Log para debug
+
 
       await updateObjective(objective.id, updatedData);
       

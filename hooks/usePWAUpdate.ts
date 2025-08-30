@@ -11,7 +11,7 @@ export function usePWAUpdate() {
       immediate: true,
       
       onNeedRefresh() {
-        console.log('Nueva versión detectada');
+    
         
         // Dismiss cualquier toast anterior
         if (updateToastRef.current) {
@@ -32,9 +32,9 @@ export function usePWAUpdate() {
               });
               // Forzar actualización
               updateSW(true).then(() => {
-                console.log('SW actualizado, recargando...');
+      
               }).catch((err) => {
-                console.error('Error actualizando:', err);
+           
                 window.location.reload();
               });
             }
@@ -55,8 +55,8 @@ export function usePWAUpdate() {
       },
       
       onOfflineReady() {
-        console.log('App lista para funcionar offline');
-        toast.success('✓ App lista para usar sin conexión', {
+        
+        toast.success('✔ App lista para usar sin conexión', {
           duration: 3000,
           style: {
             background: 'rgba(17, 24, 39, 0.95)',
@@ -67,25 +67,25 @@ export function usePWAUpdate() {
       },
       
       onRegisteredSW(swUrl, r) {
-        console.log(`Service Worker registrado: ${swUrl}`);
+
         
         // Verificar actualizaciones cada hora
         if (r) {
           setInterval(() => {
-            console.log('Verificando actualizaciones...');
+          
             r.update();
           }, 60 * 60 * 1000); // 1 hora
           
           // Verificar cuando la ventana recupera el foco
           window.addEventListener('focus', () => {
-            console.log('Ventana en foco, verificando actualizaciones...');
+         
             r.update();
           });
         }
       },
       
       onRegisterError(error) {
-        console.error('Error registrando Service Worker:', error);
+  
       }
     });
 

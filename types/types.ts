@@ -1,4 +1,4 @@
-// types.ts - ARCHIVO COMPLETO CON VALIDACIONES ESTRICTAS ACTUALIZADAS
+// types/types.ts - ARCHIVO COMPLETO CON VALIDACIONES ESTRICTAS ACTUALIZADAS
 import { TipoType, AreaType } from '../constants/training';
 
 export interface Player {
@@ -151,6 +151,35 @@ export interface SessionExercise extends LoggedExercise {
   loggedForPlayerName: string;
 }
 
+// ✅ NUEVAS INTERFACES PARA SISTEMA DE APROBACIÓN
+export interface JoinRequest {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName?: string;
+  academiaId: string;
+  publicIdUsed: string;  // Para tracking de qué código usó
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  requestedAt: string;    // ISO timestamp
+  processedAt?: string;   // ISO timestamp cuando se aprueba/rechaza
+  processedBy?: string;   // userId del director que procesó
+  expiresAt: string;      // ISO timestamp (requestedAt + 7 días)
+  metadata?: {
+    userAgent?: string;   // Para detectar posibles bots
+    ipHash?: string;      // Hash del IP para detectar spam
+  };
+}
+
+export interface PublicIdRotation {
+  id: string;
+  academiaId: string;
+  oldPublicId: string;
+  newPublicId: string;
+  rotatedBy: string;      // userId del director
+  rotatedAt: string;      // ISO timestamp
+  reason?: string;
+}
+
 // ✅ ACTUALIZADO: Tipos para planes de entrenamiento con porcentajes absolutos y validaciones estrictas
 export interface TrainingPlanArea {
   porcentajeDelTotal: number;     // % ABSOLUTO del total del entrenamiento (OBLIGATORIO)
@@ -278,6 +307,18 @@ export function isStrictValidationResult(obj: any): obj is StrictValidationResul
     typeof obj.totalPercentage === 'number' &&
     typeof obj.canGenerateRecommendations === 'boolean' &&
     ['TIPO', 'AREA', 'EJERCICIO'].includes(obj.granularityLevel);
+}
+
+// ✅ NUEVO: Type guard para JoinRequest
+export function isJoinRequest(obj: any): obj is JoinRequest {
+  return obj &&
+    typeof obj.userId === 'string' &&
+    typeof obj.userEmail === 'string' &&
+    typeof obj.academiaId === 'string' &&
+    typeof obj.publicIdUsed === 'string' &&
+    ['pending', 'approved', 'rejected', 'expired'].includes(obj.status) &&
+    typeof obj.requestedAt === 'string' &&
+    typeof obj.expiresAt === 'string';
 }
 
 // Helper types para validación

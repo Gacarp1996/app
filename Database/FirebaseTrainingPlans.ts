@@ -132,7 +132,7 @@ export const saveTrainingPlan = async (
       });
     }
     
-    console.log("✅ Plan de entrenamiento guardado exitosamente");
+
   } catch (error) {
     console.error("❌ Error al guardar plan de entrenamiento:", error);
     throw error;
@@ -143,7 +143,7 @@ export const deleteTrainingPlan = async (academiaId: string, playerId: string): 
   try {
     const planDoc = doc(db, "academias", academiaId, "trainingPlans", playerId);
     await deleteDoc(planDoc);
-    console.log("Plan de entrenamiento eliminado exitosamente");
+
   } catch (error) {
     console.error("Error al eliminar plan de entrenamiento:", error);
     throw error;

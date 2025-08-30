@@ -25,7 +25,7 @@ export const addDisputedTournament = async (academiaId: string, tournamentData: 
     });
     
     const docRef = await addDoc(disputedTournamentsCollection, dataWithRegistrationDate);
-    console.log("Torneo disputado agregado con ID:", docRef.id);
+
     return docRef.id;
   } catch (error) {
     console.error("Error al agregar torneo disputado:", error);
@@ -104,7 +104,7 @@ export const updateDisputedTournament = async (
     });
     
     await updateDoc(tournamentDoc, cleanedData);
-    console.log("Torneo disputado actualizado con éxito:", id);
+
   } catch (error) {
     console.error("Error al actualizar torneo disputado:", error);
     throw error;
@@ -116,7 +116,7 @@ export const deleteDisputedTournament = async (academiaId: string, id: string) =
   try {
     const tournamentDoc = doc(db, "academias", academiaId, "disputedTournaments", id);
     await deleteDoc(tournamentDoc);
-    console.log("Torneo disputado eliminado con éxito:", id);
+
   } catch (error) {
     console.error("Error al eliminar torneo disputado:", error);
     throw error;

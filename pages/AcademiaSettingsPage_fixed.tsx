@@ -102,7 +102,7 @@ const AcademiaSettingsPage: FC = () => {
         recommendationsAnalysisWindowDays: pendingRecommendationsDays
       });
 
-      console.log('✅ Configuración de recomendaciones guardada');
+
     } catch (error) {
       console.error('❌ Error guardando configuración de recomendaciones:', error);
     } finally {

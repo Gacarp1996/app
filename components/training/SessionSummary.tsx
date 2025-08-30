@@ -29,13 +29,7 @@ const SessionSummary: React.FC<SessionSummaryProps> = ({
               {exercises.map((ex, index) => {
                 // Debug log para diagnosticar datos inconsistentes
                 if (!ex.tipo || !ex.area) {
-                  console.warn('🚨 Ejercicio con datos incompletos:', {
-                    id: ex.id,
-                    tipo: ex.tipo,
-                    area: ex.area,
-                    ejercicio: ex.ejercicio,
-                    completeObject: ex
-                  });
+                  console.warn('Datos de ejercicio incompletos:');;
                 }
                 
                 return (

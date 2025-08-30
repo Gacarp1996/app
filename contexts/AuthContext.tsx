@@ -14,10 +14,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('🔧 Inicializando AuthContext con Firebase Auth');
+ 
     
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log('👤 Estado de autenticación cambió:', user ? `Usuario: ${user.uid}` : 'Sin usuario');
+
       setCurrentUser(user);
       setLoading(false);
     }, (error) => {
@@ -26,7 +26,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return () => {
-      console.log('🔄 Limpiando suscripción de AuthContext');
+
       unsubscribe();
     };
   }, []); // ← Sin dependencias, solo se ejecuta una vez

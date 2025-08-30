@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import Modal from '../shared/Modal';
 import { Player } from '../../types/types';
 import { useNotification } from '../../hooks/useNotification';
+import { rateLimiter } from '@/utils/rateLimiter';
 
 interface ManageParticipantsModalProps {
     isOpen: boolean;
@@ -32,10 +33,16 @@ const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({
     }, [currentParticipants, allPlayersFromStorage, searchTerm]);
 
     const handleRemoveWithConfirmation = async (player: Player) => {
-        if (currentParticipants.length <= 1) {
-            notification.error('Debe haber al menos un participante en la sesión.');
-            return;
-        }
+      // Rate limiting
+      if (!rateLimiter.canExecute(`remove-participant-${player.id}`, 3000)) {
+        notification.warning('Por favor espera antes de intentar nuevamente');
+        return;
+     }
+  
+      if (currentParticipants.length <= 1) {
+       notification.error('Debe haber al menos un participante en la sesión.');
+       return;
+     }
         
         const confirmed = await notification.confirm({
             title: 'Quitar participante',
@@ -51,13 +58,20 @@ const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({
         }
     };
 
-    const handleAddWithFeedback = (player: Player) => {
-        onAddParticipant(player);
+      const handleAddWithFeedback = (player: Player) => {
+        // Rate limiting
+        if (!rateLimiter.canExecute(`add-participant-${player.id}`, 2000)) {
+          notification.warning('Por favor espera antes de agregar otro jugador');
+          return;
+        }
+  
+       onAddParticipant(player);
         setSearchTerm('');
         setActiveTab('current');
         notification.success(`${player.name} agregado a la sesión`);
-    };
-    
+      };
+
+      
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Gestionar Participantes de la Sesión">
             <div className="flex flex-col max-h-[calc(100vh-200px)] sm:max-h-[70vh]">

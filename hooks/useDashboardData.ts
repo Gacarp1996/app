@@ -67,14 +67,9 @@ export const useDashboardData = () => {
   }, [academiaActual, allPlayers, loadingPlayers, loadingSessions]);
 
   const loadDashboardData = async () => {
-    console.log('🚀 INICIANDO CARGA DE DASHBOARD:', {
-      academiaActual: academiaActual?.id,
-      loadingPlayers,
-      loadingSessions
-    });
-
+ 
     if (!academiaActual) {
-      console.log('⏸️ DASHBOARD PAUSADO - Sin academia');
+      
       return;
     }
     
@@ -86,12 +81,7 @@ export const useDashboardData = () => {
       const todaySessions = getTodaySessions();
       const users = await getAcademiaUsers(academiaActual.id);
 
-      console.log('📊 DATOS OBTENIDOS PARA DASHBOARD:', {
-        sesionesHoy: todaySessions.length,
-        usuarios: users.length,
-        academia: academiaActual.id
-      });
-
+      
       // Usar allPlayers del contexto
       const activePlayers = allPlayers.filter(p => p.estado === 'activo');
 
@@ -104,7 +94,6 @@ export const useDashboardData = () => {
       ]);
 
     } catch (err) {
-      console.error('Error cargando datos del dashboard:', err);
       setError('Error cargando los datos del dashboard');
     } finally {
       setLoading(false);
@@ -113,26 +102,10 @@ export const useDashboardData = () => {
 
   // Widget 1: Entrenadores Activos - ACTUALIZADO
   const processActiveTrainers = async (todaySessions: TrainingSession[], users: AcademiaUser[]) => {
-    // 🚨 DEBUG: Ver qué sesiones llegan
-    console.log('🔍 DEBUG - Sesiones de hoy para dashboard:', {
-      total: todaySessions.length,
-      sesiones: todaySessions.map(s => ({
-        id: s.id,
-        fecha: s.fecha,
-        jugadorId: s.jugadorId,
-        entrenadorId: s.entrenadorId
-      }))
-    });
 
-    // 🚨 DEBUG: Ver qué usuarios llegan
-    console.log('🔍 DEBUG - Usuarios de academia:', {
-      total: users.length,
-      usuarios: users.map(u => ({
-        userId: u.userId,
-        userName: u.userName,
-        userEmail: u.userEmail
-      }))
-    });
+   
+
+   
 
     // Contar entrenamientos por entrenador
     const trainerSessionsCount: { [key: string]: number } = {};
@@ -142,8 +115,6 @@ export const useDashboardData = () => {
       }
     });
 
-    // 🚨 DEBUG: Ver conteo de sesiones por entrenador
-    console.log('🔍 DEBUG - Conteo por entrenador:', trainerSessionsCount);
 
     // Crear lista de entrenadores activos con sus datos
     const trainers: ActiveTrainer[] = Object.entries(trainerSessionsCount).map(([trainerId, count]) => {
@@ -155,16 +126,6 @@ export const useDashboardData = () => {
         sessionsToday: count
       };
       
-      // 🚨 DEBUG: Ver cada entrenador procesado
-      console.log('🔍 DEBUG - Entrenador procesado:', {
-        trainerId,
-        user: user ? {
-          userId: user.userId,
-          userName: user.userName,
-          userEmail: user.userEmail
-        } : 'No encontrado',
-        trainerResult: trainer
-      });
       
       return trainer;
     });
@@ -172,7 +133,6 @@ export const useDashboardData = () => {
     // Ordenar por número de sesiones (descendente)
     trainers.sort((a, b) => b.sessionsToday - a.sessionsToday);
     
-    console.log('🔍 DEBUG - Entrenadores finales:', trainers);
     
     setActiveTrainers(trainers);
   };
@@ -206,7 +166,7 @@ export const useDashboardData = () => {
           playersWithoutPlan.push(player);
         }
       } catch (error) {
-        console.error(`Error verificando planificación para jugador ${player.id}:`, error);
+        console.error(`Error verificando planificación para jugador`);
       }
     }
 
@@ -303,7 +263,6 @@ export const useDashboardData = () => {
       });
 
     } catch (error) {
-      console.error('Error calculando satisfacción semanal:', error);
       setWeeklySatisfaction({
         generalAverage: 0,
         playerAverages: [],

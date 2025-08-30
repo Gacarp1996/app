@@ -11,19 +11,17 @@ export const ExerciseStructureConfig: React.FC<ExerciseStructureConfigProps> = (
   const handleAddExercise = () => {
     if (newExerciseName.trim()) {
       // TODO: Implementar lógica para agregar ejercicio
-      console.log('Agregar ejercicio:', newExerciseName);
+     
       setNewExerciseName('');
     }
   };
 
   const handleEditExercise = (exerciseName: string) => {
-    // TODO: Implementar lógica para editar ejercicio
-    console.log('Editar ejercicio:', exerciseName);
+  
   };
 
   const handleDeleteExercise = (exerciseName: string) => {
-    // TODO: Implementar lógica para eliminar ejercicio
-    console.log('Eliminar ejercicio:', exerciseName);
+
   };
 
   return (

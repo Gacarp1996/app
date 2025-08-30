@@ -7,7 +7,7 @@ import { collection, getDocs, doc, updateDoc, writeBatch } from "firebase/firest
  */
 export const migrateSessionsFondoToJuegoDeBase = async (academiaId: string): Promise<{ success: boolean; migratedSessions: number; migratedExercises: number; errors: any[] }> => {
   try {
-    console.log(`🔄 Iniciando migración de sesiones para academia: ${academiaId}`);
+
     
     const sessionsCollection = collection(db, "academias", academiaId, "sessions");
     const sessionsSnapshot = await getDocs(sessionsCollection);
@@ -29,7 +29,7 @@ export const migrateSessionsFondoToJuegoDeBase = async (academiaId: string): Pro
       if (sessionData.ejercicios && Array.isArray(sessionData.ejercicios)) {
         const updatedEjercicios = sessionData.ejercicios.map((ejercicio: any) => {
           if (ejercicio.area === "Fondo") {
-            console.log(`📝 Migrando ejercicio: ${ejercicio.ejercicio || ejercicio.name || 'Sin nombre'} de "Fondo" a "Juego de base"`);
+           
             migratedExercises++;
             sessionNeedsMigration = true;
             return {
@@ -49,7 +49,7 @@ export const migrateSessionsFondoToJuegoDeBase = async (academiaId: string): Pro
           // Ejecutar batch si llegamos al límite
           if (batchOperations >= MAX_BATCH_SIZE) {
             await batch.commit();
-            console.log(`✅ Batch ejecutado: ${batchOperations} operaciones`);
+           
             batchOperations = 0;
           }
         }
@@ -59,10 +59,10 @@ export const migrateSessionsFondoToJuegoDeBase = async (academiaId: string): Pro
     // Ejecutar el batch final si hay operaciones pendientes
     if (batchOperations > 0) {
       await batch.commit();
-      console.log(`✅ Batch final ejecutado: ${batchOperations} operaciones`);
+     
     }
     
-    console.log(`✅ Migración completada: ${migratedSessions} sesiones y ${migratedExercises} ejercicios migrados`);
+
     
     return {
       success: true,
@@ -72,7 +72,7 @@ export const migrateSessionsFondoToJuegoDeBase = async (academiaId: string): Pro
     };
     
   } catch (error) {
-    console.error("❌ Error durante la migración:", error);
+   
     return {
       success: false,
       migratedSessions: 0,
@@ -112,7 +112,7 @@ export const checkSessionsNeedingMigration = async (academiaId: string): Promise
     
     return { sessionsWithFondo, exercisesWithFondo };
   } catch (error) {
-    console.error("Error verificando sesiones que necesitan migración:", error);
+
     return { sessionsWithFondo: 0, exercisesWithFondo: 0 };
   }
 };

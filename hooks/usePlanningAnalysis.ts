@@ -76,9 +76,7 @@ export const usePlanningAnalysis = ({
         setLoading(true);
         setError('');
         
-        if (DEBUG_MODE) {
-          console.log('📋 [PLANNING] Cargando plan para', player.name);
-        }
+       
 
         const plan = await getTrainingPlan(academiaId, player.id);
         
@@ -89,7 +87,7 @@ export const usePlanningAnalysis = ({
         setTrainingPlan(plan);
         
       } catch (err) {
-        console.error('❌ [PLANNING] Error cargando datos:', err);
+
         setError('Error al cargar los datos de análisis');
       } finally {
         setLoading(false);
@@ -128,12 +126,7 @@ export const usePlanningAnalysis = ({
     // Usar función centralizada que YA CALCULA PORCENTAJES ABSOLUTOS
     const stats = calculateExerciseStatsByTime(allExercises);
     
-    if (DEBUG_MODE && stats.totalMinutes > 0) {
-      console.log(`📊 [PLANNING] Stats para ${player.name}:`, {
-        totalMinutes: stats.totalMinutes,
-        typeStats: stats.typeStats
-      });
-    }
+ 
 
     return {
       typeStats: stats.typeStats as Record<string, TypeStats>,
@@ -164,13 +157,6 @@ export const usePlanningAnalysis = ({
         children: []
       };
 
-      if (DEBUG_MODE) {
-        console.log(`📈 Tipo ${tipoKey}:`, {
-          plan: tipoPlan.porcentajeTotal,
-          real: tipoRealizadoTotal,
-          diferencia: tipoNode.diferencia
-        });
-      }
 
       // Construir nodos de área
       if (tipoPlan.areas) {
@@ -190,13 +176,7 @@ export const usePlanningAnalysis = ({
             children: []
           };
 
-          if (DEBUG_MODE && areaRealizadaTotal > 0) {
-            console.log(`  📊 Área ${areaKey}:`, {
-              plan: areaPlan.porcentajeDelTotal,
-              real: areaRealizadaTotal,
-              diferencia: areaNode.diferencia
-            });
-          }
+
 
           // Si hay ejercicios específicos planificados, agregarlos
           if (areaPlan.ejercicios && Object.keys(areaPlan.ejercicios).length > 0) {
@@ -225,9 +205,7 @@ export const usePlanningAnalysis = ({
       tree.push(tipoNode);
     });
 
-    if (DEBUG_MODE) {
-      console.log(`🌳 [PLANNING] Árbol final para ${player.name}:`, tree);
-    }
+   
     
     return tree;
   }, [trainingPlan, realStats, enabled, player.name]);

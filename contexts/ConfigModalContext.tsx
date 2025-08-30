@@ -22,24 +22,24 @@ export const ConfigModalProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [isAdvancedModalOpen, setIsAdvancedModalOpen] = useState(false);
 
   const openConfigModal = () => {
-    console.log('🔧 Abriendo modal de configuración...');
+   
     setIsConfigModalOpen(true);
   };
 
   const closeConfigModal = () => {
-    console.log('🔧 Cerrando modal de configuración...');
+
     setIsConfigModalOpen(false);
   };
 
   const openAdvancedModal = () => {
-    console.log('🔧 Abriendo modal avanzado...');
+
     setIsAdvancedModalOpen(true);
     // Cerrar el modal principal cuando se abre el avanzado
     setIsConfigModalOpen(false);
   };
 
   const closeAdvancedModal = () => {
-    console.log('🔧 Cerrando modal avanzado...');
+
     setIsAdvancedModalOpen(false);
   };
 

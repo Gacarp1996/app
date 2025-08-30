@@ -59,7 +59,7 @@ export const addUserToAcademia = async (
       invitedBy: invitedBy || null
     });
   } catch (error) {
-    console.error("Error agregando usuario a academia:", error);
+   
     throw error;
   }
 };
@@ -84,8 +84,11 @@ export const getUserRoleInAcademia = async (
       return role as UserRole;
     }
     return null;
-  } catch (error) {
-    console.error("Error obteniendo rol del usuario:", error);
+  } catch (error: any) {
+    // Solo loguear si NO es un error de permisos esperado
+    if (!error.message?.includes('Missing or insufficient permissions')) {
+ 
+    }
     return null;
   }
 };
@@ -111,7 +114,7 @@ export const getAcademiaUsers = async (academiaId: string): Promise<AcademiaUser
       } as AcademiaUser;
     });
   } catch (error) {
-    console.error("Error obteniendo usuarios de academia:", error);
+    
     return [];
   }
 };
@@ -126,21 +129,55 @@ export const updateUserRole = async (
     const userRef = doc(db, "academias", academiaId, "usuarios", userId);
     await updateDoc(userRef, { role: newRole });
   } catch (error) {
-    console.error("Error actualizando rol:", error);
+
     throw error;
   }
 };
 
-// Eliminar un usuario de una academia
+// ✅ ELIMINAR UN USUARIO DE UNA ACADEMIA - VERSIÓN CORREGIDA
 export const removeUserFromAcademia = async (
   academiaId: string,
   userId: string
 ): Promise<void> => {
   try {
+    // 1. Eliminar de la subcolección usuarios
     const userRef = doc(db, "academias", academiaId, "usuarios", userId);
     await deleteDoc(userRef);
+
+    
+    // 2. CORREGIDO: Actualizar userAcademias para quitar esta academia
+    const userAcademiasRef = doc(db, "userAcademias", userId);
+    const userAcademiasDoc = await getDoc(userAcademiasRef);
+    
+    if (userAcademiasDoc.exists()) {
+      const data = userAcademiasDoc.data();
+      const academiasActuales = data.academias || [];
+      const academiasActualizadas = academiasActuales.filter(
+        (a: any) => a.academiaId !== academiaId
+      );
+      
+      
+      
+      if (academiasActualizadas.length > 0) {
+        // Si quedan academias, actualizar el documento
+        await updateDoc(userAcademiasRef, {
+          academias: academiasActualizadas,
+          ultimaActualizacion: serverTimestamp()
+        });
+
+      } else {
+        // Si no quedan academias, eliminar el documento completo
+        await deleteDoc(userAcademiasRef);
+
+      }
+    } else {
+
+    }
+    
+
+    
   } catch (error) {
-    console.error("Error eliminando usuario:", error);
+
     throw error;
   }
 };
@@ -176,7 +213,7 @@ export const getUserAcademias = async (userId: string): Promise<AcademiaWithRole
     
     return userAcademias;
   } catch (error) {
-    console.error("Error obteniendo academias del usuario:", error);
+ 
     return [];
   }
 };
@@ -206,7 +243,7 @@ export const countDirectors = async (academiaId: string): Promise<number> => {
     
     return snapshot1.size + snapshot2.size;
   } catch (error) {
-    console.error("Error contando directores:", error);
+  
     return 0;
   }
 };
@@ -246,7 +283,7 @@ export const canDirectorLeaveAcademia = async (
       message: `Puedes abandonar. Hay ${directorCount - 1} director(es) más en la academia.`
     };
   } catch (error) {
-    console.error("Error verificando si director puede abandonar:", error);
+   
     return {
       canLeave: false,
       directorCount: 0,
@@ -279,7 +316,7 @@ export const safeRemoveUserFromAcademia = async (
       message: isLeavingVoluntarily ? 'Has abandonado la academia exitosamente' : 'Usuario eliminado'
     };
   } catch (error) {
-    console.error("Error eliminando usuario de forma segura:", error);
+
     return {
       success: false,
       message: 'Error al procesar la solicitud'
@@ -332,7 +369,7 @@ export const deleteAcademia = async (academiaId: string): Promise<void> => {
     // Finalmente eliminar el documento de la academia
     await deleteDoc(doc(db, "academias", academiaId));
   } catch (error) {
-    console.error("Error eliminando academia:", error);
+  
     throw error;
   }
 };

@@ -62,7 +62,7 @@ const TrainingRecommendations: React.FC<TrainingRecommendationsProps> = ({ playe
           }
         }
       } catch (error) {
-        console.error(`Error verificando plan de ${player.name}:`, error);
+       
       }
     }
     

@@ -87,7 +87,7 @@ const STALE_TIME = 60 * 1000; // 1 minuto para considerar datos obsoletos
 
 export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { academiaActual } = useAcademia();
-  const { currentUser } = useAuth();
+  const { currentUser } = useAuth(); // ✅ YA ESTÁ IMPORTADO
   
   // Estados principales
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
@@ -166,44 +166,23 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
       return;
     }
     
-    console.log('🔄 SESSION CONTEXT: Iniciando carga de sesiones para academia:', academiaActual.id);
-    
     setLoadingSessions(true);
     setSessionsError(null);
     
     try {
       const loadedSessions = await getSessionsFromDB(academiaActual.id);
       
-      console.log('🔄 SESSION CONTEXT: Sesiones recibidas de Firebase:', {
-        total: loadedSessions.length,
-        jugadoresUnicos: [...new Set(loadedSessions.map(s => s.jugadorId))],
-        fechaMasReciente: loadedSessions.length > 0 ? 
-          loadedSessions.reduce((latest, current) => 
-            new Date(current.fecha) > new Date(latest.fecha) ? current : latest
-          ).fecha : null
-      });
-      
       // Limitar sesiones en memoria (mantener las más recientes)
       const sortedSessions = loadedSessions
         .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
         .slice(0, MAX_SESSIONS_IN_MEMORY);
       
-      console.log('🔄 SESSION CONTEXT: Sesiones después de ordenar y limitar:', {
-        mantenidas: sortedSessions.length,
-        descartadas: loadedSessions.length - sortedSessions.length,
-        limitePorMemoria: MAX_SESSIONS_IN_MEMORY
-      });
-      
       setSessions(sortedSessions);
       setLastRefresh(new Date());
-      
-      // Limpiar cache al cargar datos frescos
       clearCache();
       
-      console.log('✅ SESSION CONTEXT: Sesiones cargadas exitosamente en estado');
-      
     } catch (error) {
-      console.error('❌ SESSION CONTEXT: Error cargando sesiones:', error);
+      console.error('Error cargando sesiones:', error);
       setSessionsError('Error al cargar las sesiones');
       setSessions([]);
     } finally {
@@ -370,7 +349,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       return data;
     } catch (error) {
-      console.error('Error obteniendo jugadores entrenados:', error);
+      console.error('Error obteniendo jugadores entrenados por coach:', error);
       return [];
     }
   }, [academiaActual, cache, updateCacheSafely]);
@@ -427,7 +406,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
   
   // FUNCIONES CRUD
   
-  // Agregar sesión con actualización optimista
+  // ✅ CRÍTICO: Agregar sesión con currentUser para registro
   const addSession = useCallback(async (sessionData: Omit<TrainingSession, 'id'>): Promise<string> => {
     if (!academiaActual) {
       throw new Error('No hay academia seleccionada');
@@ -444,8 +423,12 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     setSessions(prev => [optimisticSession, ...prev].slice(0, MAX_SESSIONS_IN_MEMORY));
     
     try {
-      // Llamar a Firebase
-      const realId = await addSessionToDB(academiaActual.id, sessionData);
+      // ✅ CRÍTICO: Pasar currentUser a FirebaseSessions
+      const realId = await addSessionToDB(
+        academiaActual.id, 
+        sessionData, 
+        currentUser || undefined
+      );
       
       // Actualizar con el ID real
       setSessions(prev => prev.map(s => 
@@ -460,12 +443,11 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     } catch (error) {
       // Revertir cambio optimista en caso de error
       setSessions(prev => prev.filter(s => s.id !== tempId));
-      console.error('Error agregando sesión:', error);
       throw error;
     }
-  }, [academiaActual, clearCache]);
+  }, [academiaActual, clearCache, currentUser]);
   
-  // Actualizar sesión con actualización optimista
+  // ✅ CRÍTICO: Actualizar sesión con currentUser para registro
   const updateSession = useCallback(async (sessionId: string, updates: Partial<TrainingSession>): Promise<void> => {
     if (!academiaActual) {
       throw new Error('No hay academia seleccionada');
@@ -480,8 +462,13 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
     
     try {
-      // Llamar a Firebase
-      await updateSessionInDB(academiaActual.id, sessionId, updates);
+      // ✅ CRÍTICO: Pasar currentUser a FirebaseSessions
+      await updateSessionInDB(
+        academiaActual.id, 
+        sessionId, 
+        updates, 
+        currentUser || undefined
+      );
       
       // Actualizar estado real
       setSessions(prev => prev.map(s => 
@@ -505,10 +492,9 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
         newMap.delete(sessionId);
         return newMap;
       });
-      console.error('Error actualizando sesión:', error);
       throw error;
     }
-  }, [academiaActual, clearCache]);
+  }, [academiaActual, clearCache, currentUser]);
   
   // Eliminar sesión con actualización optimista
   const deleteSession = useCallback(async (sessionId: string): Promise<void> => {
@@ -536,7 +522,6 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
           new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
         ));
       }
-      console.error('Error eliminando sesión:', error);
       throw error;
     }
   }, [academiaActual, sessions, clearCache]);

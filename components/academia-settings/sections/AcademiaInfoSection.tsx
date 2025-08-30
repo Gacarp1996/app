@@ -1,19 +1,27 @@
+// components/academia-settings/sections/AcademiaInfoSection.tsx
 import React, { useState, useEffect } from 'react';
-import { obtenerIdPublico } from '../../../Database/FirebaseAcademias';
-import { copyToClipboard } from './helpers';
+import { obtenerIdPublico, rotarCodigoPublico } from '../../../Database/FirebaseAcademias';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useNotification } from '../../../hooks/useNotification';
+import { UserRole } from '../../../Database/FirebaseRoles';
 
 interface AcademiaInfoSectionProps {
   academiaName: string;
   academiaId: string; // Este es el Firebase ID
+  currentUserRole?: UserRole | null; // ✅ AGREGADO para verificar permisos
 }
 
 export const AcademiaInfoSection: React.FC<AcademiaInfoSectionProps> = ({ 
   academiaName, 
-  academiaId 
+  academiaId,
+  currentUserRole 
 }) => {
   const [publicId, setPublicId] = useState<string | null>(null);
   const [loadingPublicId, setLoadingPublicId] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const { currentUser } = useAuth();
+  const notification = useNotification();
 
   useEffect(() => {
     const loadPublicId = async () => {
@@ -22,7 +30,7 @@ export const AcademiaInfoSection: React.FC<AcademiaInfoSectionProps> = ({
         const id = await obtenerIdPublico(academiaId);
         setPublicId(id);
       } catch (error) {
-        console.error('Error obteniendo ID público:', error);
+        
       } finally {
         setLoadingPublicId(false);
       }
@@ -31,6 +39,33 @@ export const AcademiaInfoSection: React.FC<AcademiaInfoSectionProps> = ({
     loadPublicId();
   }, [academiaId]);
 
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } else {
+        // Fallback para contextos no seguros
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          return true;
+        } finally {
+          textArea.remove();
+        }
+      }
+    } catch (error) {
+     
+      return false;
+    }
+  };
+
   const handleCopyId = async () => {
     if (!publicId) return;
     
@@ -38,6 +73,36 @@ export const AcademiaInfoSection: React.FC<AcademiaInfoSectionProps> = ({
     if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleRotateCode = async () => {
+    if (!currentUser || rotating) return;
+
+    const confirmed = await notification.confirm({
+      title: 'Rotar código de academia',
+      message: 'Esto generará un nuevo código y el anterior dejará de funcionar. Todas las solicitudes pendientes con el código anterior serán invalidadas. ¿Continuar?',
+      type: 'warning',
+      confirmText: 'Sí, rotar código',
+      cancelText: 'Cancelar'
+    });
+    
+    if (!confirmed) return;
+
+    setRotating(true);
+    try {
+      const result = await rotarCodigoPublico(academiaId, currentUser.uid, 'Rotación manual por director');
+      if (result.success && result.newCode) {
+        setPublicId(result.newCode);
+        notification.success('Código actualizado exitosamente', `El nuevo código es: ${result.newCode}`);
+      } else {
+        notification.error('Error al rotar código', result.message);
+      }
+    } catch (error) {
+
+      notification.error('Error inesperado', 'No se pudo rotar el código');
+    } finally {
+      setRotating(false);
     }
   };
 
@@ -85,6 +150,26 @@ export const AcademiaInfoSection: React.FC<AcademiaInfoSectionProps> = ({
                   </svg>
                 )}
               </button>
+
+              {/* ✅ BOTÓN PARA ROTAR CÓDIGO - Solo directores */}
+              {currentUserRole === 'academyDirector' && (
+                <button
+                  onClick={handleRotateCode}
+                  disabled={rotating}
+                  className="p-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 rounded-lg transition-colors group"
+                  title="Generar nuevo código"
+                >
+                  {rotating ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  )}
+                </button>
+              )}
+
               {copied && (
                 <span className="text-green-400 text-sm font-medium animate-fade-in">
                   ¡Copiado!
@@ -106,11 +191,30 @@ export const AcademiaInfoSection: React.FC<AcademiaInfoSectionProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>
-                Comparte este código de 6 caracteres con otros entrenadores para que puedan unirse a la academia.
-                Es la forma más fácil y segura de invitar nuevos miembros.
+                Comparte este código de 6 caracteres con otros entrenadores para que puedan solicitar unirse a la academia.
+                {currentUserRole === 'academyDirector' && (
+                  <span className="block mt-2 text-yellow-300">
+                    Como director, deberás aprobar todas las solicitudes de unión desde la sección de configuración.
+                  </span>
+                )}
               </span>
             </p>
           </div>
+
+          {/* ✅ ADVERTENCIA SOBRE ROTACIÓN DE CÓDIGO */}
+          {currentUserRole === 'academyDirector' && (
+            <div className="mt-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+              <p className="text-orange-300 text-xs flex items-start gap-2">
+                <svg className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <span>
+                  <strong>Rotar código:</strong> Usa el botón naranja para generar un nuevo código si el actual ha sido comprometido. 
+                  El código anterior dejará de funcionar inmediatamente.
+                </span>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from '../shared/Modal';
 import { Objective, Player, Tournament } from '@/types/types';
+import { rateLimiter } from '@/utils/rateLimiter';
 
 interface ObjectiveModalProps {
   isOpen: boolean;
@@ -28,9 +29,12 @@ const ObjectiveModal: React.FC<ObjectiveModalProps> = ({
   const tournaments = allTournaments || [];
 
   const handleObjectiveClick = (objectiveId: string) => {
-    navigate(`/objective/${objectiveId}/edit`);
-    onClose(); 
-  };
+  if (!rateLimiter.canExecute(`objective-click-${objectiveId}`, 1000)) {
+    return;
+  }
+  navigate(`/objective/${objectiveId}/edit`);
+  onClose(); 
+};
 
   const getNextTournamentInfo = (playerId: string): React.ReactNode => {
     if (tournaments.length === 0) {

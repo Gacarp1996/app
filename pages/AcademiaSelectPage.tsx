@@ -2,15 +2,64 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAcademia } from '../contexts/AcademiaContext';
-import { useNotification } from '../hooks/useNotification'; // ✅ NUEVO IMPORT
+import { useNotification } from '../hooks/useNotification';
+// ✅ AGREGADO: Importar funciones de roles para registro
+import { getUserRoleInAcademia, addUserToAcademia, UserRole } from '../Database/FirebaseRoles';
 import Modal from '../components/shared/Modal';
-import { crearAcademia, obtenerAcademiaPorId, buscarAcademiaPorIdPublico } from '../Database/FirebaseAcademias';
+import { crearAcademia, obtenerAcademiaPorId, buscarAcademiaPorIdPublico, crearSolicitudUnion } from '../Database/FirebaseAcademias';
+import { Academia, TipoEntidad } from '../types/types';
+
+// ✅ FUNCIÓN HELPER PARA DETERMINAR TIPO DE ENTIDAD
+const getEntityType = (academiaData: Academia | null): TipoEntidad => {
+  if (academiaData?.tipo) {
+    return academiaData.tipo;
+  }
+  return 'academia';
+};
+
+// ✅ FUNCIÓN HELPER: Asegurar que el usuario esté registrado en la academia
+const ensureUserRegistration = async (
+  academiaId: string, 
+  userId: string, 
+  userEmail: string, 
+  userName: string,
+  academiaData: Academia | null
+): Promise<UserRole | null> => {
+  try {
+    // Verificar si ya tiene rol
+    let role = await getUserRoleInAcademia(academiaId, userId);
+    
+    if (!role && academiaData) {
+      // Si no tiene rol, asignarlo según la lógica de negocio
+      const entityType = getEntityType(academiaData);
+      
+      if (academiaData.creadorId === userId) {
+        // Es el creador
+        const creatorRole: UserRole = entityType === 'grupo-entrenamiento' ? 'groupCoach' : 'academyDirector';
+        await addUserToAcademia(academiaId, userId, userEmail, creatorRole, userName);
+        role = creatorRole;
+        console.log(`Usuario ${userId} registrado como creador con rol: ${creatorRole}`);
+      } else {
+        // Usuario regular
+        const defaultRole: UserRole = entityType === 'grupo-entrenamiento' ? 'assistantCoach' : 'academyCoach';
+        await addUserToAcademia(academiaId, userId, userEmail, defaultRole, userName);
+        role = defaultRole;
+        console.log(`Usuario ${userId} registrado con rol por defecto: ${defaultRole}`);
+      }
+    }
+    
+    return role;
+  } catch (error) {
+    console.error(`Error registrando usuario ${userId} en academia ${academiaId}:`, error);
+    return null;
+  }
+};
 
 const AcademiaSelectPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { setAcademiaActual, misAcademias, registrarAccesoAcademia } = useAcademia();
-  const notification = useNotification(); // ✅ USAR HOOK DE NOTIFICACIONES
+  const notification = useNotification();
 
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [isCrearGrupoModalOpen, setIsCrearGrupoModalOpen] = useState(false);
@@ -43,7 +92,6 @@ const AcademiaSelectPage: React.FC = () => {
         await setAcademiaActual(nuevaAcademia);
         await registrarAccesoAcademia(firebaseId, nuevaAcademia.nombre);
         
-        // ✅ MIGRADO: alert → notification.success con duración extendida
         notification.success(
           '¡Academia creada exitosamente!',
           `Tu código de academia es: ${publicId}. Comparte este código de 6 caracteres con otros entrenadores para que puedan unirse. Duración: 8 segundos para copiar el código.`
@@ -83,7 +131,6 @@ const AcademiaSelectPage: React.FC = () => {
         await setAcademiaActual(nuevoGrupo);
         await registrarAccesoAcademia(firebaseId, nuevoGrupo.nombre);
         
-        // ✅ MIGRADO: alert → notification.success con duración extendida
         notification.success(
           '¡Grupo creado exitosamente!',
           `Tu código de grupo es: ${publicId}. Comparte este código de 6 caracteres con tus jugadores para que puedan unirse. Duración: 8 segundos para copiar el código.`
@@ -101,7 +148,7 @@ const AcademiaSelectPage: React.FC = () => {
     }
   };
 
-  // ✅ NUEVA FUNCIÓN PARA BUSCAR ACADEMIA POR ID PÚBLICO
+  // ✅ FUNCIÓN PARA BUSCAR ACADEMIA POR ID PÚBLICO
   const handleBuscarAcademia = async () => {
     if (idIngreso.length !== 6) {
       setError('El ID debe tener exactamente 6 caracteres');
@@ -128,7 +175,7 @@ const AcademiaSelectPage: React.FC = () => {
     }
   };
 
-  // ✅ NUEVA FUNCIÓN PARA UNIRSE A LA ACADEMIA ENCONTRADA
+  // ✅ MODIFICADO: CREAR SOLICITUD EN VEZ DE UNIRSE DIRECTAMENTE
   const handleUnirseAcademia = async () => {
     if (!academiaBuscada || !currentUser) return;
 
@@ -136,37 +183,74 @@ const AcademiaSelectPage: React.FC = () => {
     setError('');
 
     try {
-      // Usar el firebaseId para operaciones internas
-      await setAcademiaActual({
-        ...academiaBuscada,
-        id: academiaBuscada.firebaseId
-      });
-      await registrarAccesoAcademia(academiaBuscada.firebaseId, academiaBuscada.nombre);
-      navigate('/');
+      // ✅ NUEVO: Crear solicitud en lugar de unirse directamente
+      const result = await crearSolicitudUnion(
+        academiaBuscada.firebaseId,
+        academiaBuscada.publicId,
+        {
+          userId: currentUser.uid,
+          email: currentUser.email || '',
+          displayName: currentUser.displayName || undefined
+        }
+      );
+
+      if (result.success) {
+        notification.success(
+          '¡Solicitud enviada!',
+          'Tu solicitud ha sido enviada al director de la academia. Recibirás una notificación cuando sea procesada.'
+        );
+        setIsIngresarModalOpen(false);
+        setAcademiaBuscada(null);
+        setIdIngreso('');
+      } else {
+        setError(result.message);
+      }
     } catch (error: any) {
-      console.error('Error uniéndose:', error);
-      setError(error.message || 'Error al unirse a la academia.');
+      console.error('Error enviando solicitud:', error);
+      setError('Error al enviar solicitud. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ CRÍTICO: Función con registro de usuario ANTES de operaciones
   const handleSeleccionarAcademia = async (academia: any) => {
+    if (!currentUser) {
+      notification.error('Error: No se pudo identificar al usuario');
+      return;
+    }
+
     setLoading(true);
     try {
       const entidadCompleta = await obtenerAcademiaPorId(academia.academiaId);
       
       if (entidadCompleta) {
+        // ✅ CRÍTICO: Asegurar registro del usuario ANTES de cualquier operación
+        const userName = currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario Anónimo';
+        const userRole = await ensureUserRegistration(
+          entidadCompleta.id,
+          currentUser.uid,
+          currentUser.email || 'no-email-provided',
+          userName,
+          entidadCompleta
+        );
+
+        if (!userRole) {
+          notification.error('Error: No se pudo registrar el usuario en la academia');
+          return;
+        }
+
+        console.log(`Usuario registrado para selección con rol: ${userRole}, procediendo a seleccionar academia`);
+
+        // ✅ AHORA SÍ: Proceder con la selección con permisos asegurados
         await setAcademiaActual(entidadCompleta);
         await registrarAccesoAcademia(academia.academiaId, academia.nombre);
         navigate('/');
       } else {
-        // ✅ MIGRADO: alert → notification.error
         notification.error('No se pudo cargar la academia', 'Por favor, intenta de nuevo.');
       }
     } catch (error) {
-      console.error('Error seleccionando:', error);
-      // ✅ MIGRADO: alert → notification.error
+      console.error('Error seleccionando academia:', error);
       notification.error('Error al seleccionar', 'Ocurrió un error al seleccionar la academia.');
     } finally {
       setLoading(false);
@@ -373,7 +457,7 @@ const AcademiaSelectPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* ✅ MODAL COMPLETAMENTE ACTUALIZADO PARA UNIRSE */}
+      {/* ✅ MODAL ACTUALIZADO PARA SOLICITUD DE UNIÓN */}
       <Modal 
         isOpen={isIngresarModalOpen} 
         onClose={() => {
@@ -382,7 +466,7 @@ const AcademiaSelectPage: React.FC = () => {
           setIdIngreso('');
           setAcademiaBuscada(null);
         }} 
-        title="Unirse a Academia o Grupo"
+        title="Solicitar Unirse a Academia o Grupo"
       >
         <div className="space-y-6">
           {/* Información mejorada */}
@@ -396,7 +480,7 @@ const AcademiaSelectPage: React.FC = () => {
               <div>
                 <p className="text-blue-400 font-medium mb-1">¿Cómo unirse?</p>
                 <p className="text-sm text-gray-300">
-                  Solo necesitas el <strong>código de 6 caracteres</strong> que te proporcionó el administrador de la academia o grupo.
+                  Ingresa el <strong>código de 6 caracteres</strong> proporcionado por el administrador. Tu solicitud será revisada y aprobada por el director.
                 </p>
               </div>
             </div>
@@ -474,10 +558,14 @@ const AcademiaSelectPage: React.FC = () => {
               <button
                 onClick={handleUnirseAcademia}
                 disabled={loading}
-                className="mt-4 w-full px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold rounded-lg transition-colors"
+                className="mt-4 w-full px-4 py-3 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 text-white font-bold rounded-lg transition-colors"
               >
-                {loading ? 'Uniéndose...' : `Unirse a ${academiaBuscada.nombre}`}
+                {loading ? 'Enviando solicitud...' : `Solicitar unirse a ${academiaBuscada.nombre}`}
               </button>
+              
+              <p className="text-xs text-gray-400 mt-3 text-center">
+                ⏱️ Tu solicitud será revisada por el director en las próximas 24-48 horas
+              </p>
             </div>
           )}
 
@@ -489,11 +577,8 @@ const AcademiaSelectPage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                 </svg>
                 <div>
-                  <p className="text-red-400 font-medium">Error al buscar</p>
+                  <p className="text-red-400 font-medium">Error</p>
                   <p className="text-red-300 text-sm mt-1">{error}</p>
-                  <p className="text-gray-400 text-xs mt-2">
-                    Verifica que el código sea correcto y que la academia esté activa.
-                  </p>
                 </div>
               </div>
             </div>
@@ -502,8 +587,8 @@ const AcademiaSelectPage: React.FC = () => {
           {/* Ayuda adicional */}
           <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-3">
             <p className="text-gray-400 text-sm">
-              <strong className="text-gray-300">💡 Consejo:</strong> Si no tienes el código, contacta al administrador de la academia. 
-              El código es único para cada academia y es la forma más segura de unirse.
+              <strong className="text-gray-300">💡 Consejo:</strong> Las solicitudes requieren aprobación del director de la academia para garantizar la seguridad. 
+              Si tu solicitud es rechazada, contacta directamente al administrador.
             </p>
           </div>
         </div>

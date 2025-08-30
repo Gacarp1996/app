@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
 import { DisputedTournament, RendimientoJugador, Tournament } from '@/types/types';
 import { validateTournamentForm, dateToISOString, isoToLocalDate } from './helpers';
+import { rateLimiter } from '@/utils/rateLimiter';
 
 interface DisputedTournamentFormModalProps {
   isOpen: boolean;
@@ -76,6 +77,9 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+     if (!rateLimiter.canExecute('disputed-tournament-save', 3000)) {
+    return;
+  }
     const validationError = validateTournamentForm({
       nombreTorneo,
       fechaInicio,
@@ -108,7 +112,7 @@ const DisputedTournamentFormModal: React.FC<DisputedTournamentFormModalProps> = 
       tournamentData.torneoFuturoId = futureTournamentToConvert.id;
     }
 
-    console.log('📤 Enviando datos del torneo:', tournamentData);
+   
     onSave(tournamentData);
     onClose();
   };

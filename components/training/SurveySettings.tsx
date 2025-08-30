@@ -1,3 +1,4 @@
+import { rateLimiter } from '@/utils/rateLimiter';
 import React from 'react';
 
 interface SurveySettingsProps {
@@ -20,7 +21,11 @@ const SurveySettings: React.FC<SurveySettingsProps> = ({
           <input
             type="checkbox"
             checked={askForSurveys}
-            onChange={(e) => onAskForSurveysChange(e.target.checked)}
+            onChange={(e) => {if (!rateLimiter.canExecute('survey-settings-toggle', 1000)) {
+            return;
+            }
+             onAskForSurveysChange(e.target.checked)
+            }}
             className="h-5 w-5 lg:h-6 lg:w-6 rounded text-green-400 bg-gray-800 border-gray-600 focus:ring-2 focus:ring-green-500/20 focus:ring-offset-0"
           />
           <span className="text-sm lg:text-base text-white">Preguntar al finalizar</span>

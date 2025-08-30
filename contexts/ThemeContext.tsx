@@ -16,7 +16,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Función vacía para mantener compatibilidad
   const toggleTheme = () => {
     // No hace nada - el tema siempre es oscuro
-    console.log('Cambio de tema deshabilitado - siempre modo oscuro');
+
   };
 
   return (

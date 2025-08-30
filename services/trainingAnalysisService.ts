@@ -159,7 +159,6 @@ export class TrainingAnalysisService {
               
               // ✅ NUEVO: Solo adaptar si el otro plan es válido
               if (otherPlan && this.isPlanValidForRecommendations(otherPlan)) {
-                console.log(`Adaptando plan de ${otherParticipant.name} para ${participant.name}`);
                 plansMap[participant.id] = otherPlan;
                 break;
               }
@@ -169,10 +168,8 @@ export class TrainingAnalysisService {
         
         // ✅ NUEVO: Log si no se pudo obtener plan válido
         if (!plansMap[participant.id]) {
-          console.warn(`⚠️ No se pudo obtener plan válido para ${participant.name}`);
         }
       } catch (error) {
-        console.error(`Error cargando plan para ${participant.name}:`, error);
       }
     }
     

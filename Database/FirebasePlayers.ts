@@ -7,9 +7,8 @@ export const addPlayer = async (academiaId: string, playerData: Omit<Player, "id
   try {
     const playersCollection = collection(db, "academias", academiaId, "players");
     const docRef = await addDoc(playersCollection, playerData);
-    console.log("Jugador agregado con ID:", docRef.id);
   } catch (error) {
-    console.error("Error al agregar jugador:", error);
+    
   }
 };
 
@@ -18,9 +17,9 @@ export const updatePlayer = async (academiaId: string, id: string, dataToUpdate:
   try {
     const playerDoc = doc(db, "academias", academiaId, "players", id);
     await updateDoc(playerDoc, dataToUpdate);
-    console.log("Jugador actualizado con éxito:", id);
+   
   } catch (error) {
-    console.error("Error al actualizar jugador:", error);
+   
   }
 };
 
@@ -36,10 +35,10 @@ export const getPlayers = async (academiaId: string): Promise<Player[]> => {
         ...data,
       };
     });
-    console.log("Jugadores obtenidos:", players);
+    
     return players;
   } catch (error) {
-    console.error("Error al obtener jugadores:", error);
+  
     return [];
   }
 };
@@ -57,7 +56,7 @@ export const getPlayerById = async (academiaId: string, id: string): Promise<Pla
       return null;
     }
   } catch (error) {
-    console.error("Error al obtener jugador por ID:", error);
+    
     return null;
   }
 };

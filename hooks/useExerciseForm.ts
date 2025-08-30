@@ -4,6 +4,7 @@ import { TipoType, AreaType } from '../constants/training';
 import { SpecificExercise } from '../types/types';
 import { TrainingStructureService } from '../services/trainingStructure';
 import { validateExerciseForm } from '../utils/validation';
+import { toast } from 'sonner'; // ✅ AGREGADO: Import de sonner
 
 interface UseExerciseFormProps {
   specificExercises: SpecificExercise[];
@@ -61,7 +62,7 @@ export const useExerciseForm = ({ specificExercises, setSpecificExercises }: Use
 
   // Handlers para ejercicios específicos
   const handleAddSpecificExercise = useCallback(() => {
-    // MODIFICADO: Solo validar ejercicio si es requerido
+    // ✅ CORREGIDO: Usar toast en lugar de alert
     if (requiresExercise) {
       const validation = validateExerciseForm(
         currentTipo,
@@ -72,13 +73,13 @@ export const useExerciseForm = ({ specificExercises, setSpecificExercises }: Use
       );
       
       if (!validation.isValid) {
-        alert('Por favor, selecciona tipo, área y ejercicio antes de crear un ejercicio específico.');
+        toast.error('Por favor, selecciona tipo, área y ejercicio antes de crear un ejercicio específico.');
         return;
       }
     } else {
       // Para PUNTOS, solo validar tipo y área
       if (!currentTipo || !currentArea) {
-        alert('Por favor, selecciona tipo y área antes de continuar.');
+        toast.error('Por favor, selecciona tipo y área antes de continuar.');
         return;
       }
     }
@@ -112,7 +113,7 @@ export const useExerciseForm = ({ specificExercises, setSpecificExercises }: Use
       if (!currentTipo || !currentArea || !tiempoCantidad || activePlayerIds.size === 0) {
         return {
           isValid: false,
-          error: 'Completa tipo, área, tiempo y selecciona al menos un jugador'  // Cambiado de 'message' a 'error'
+          error: 'Completa tipo, área, tiempo y selecciona al menos un jugador'
         };
       }
       return { isValid: true };

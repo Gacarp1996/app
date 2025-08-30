@@ -1,6 +1,7 @@
 import React from 'react';
 import { SpecificExercise } from '@/types/types';
 import { TipoType, AreaType, UI_LABELS, tipoRequiereEjercicios } from '@/constants/training';
+import { useRateLimitedCallback } from '@/utils/rateLimiter';
 
 interface ExerciseFormProps {
   currentTipo: TipoType | '';
@@ -53,13 +54,13 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
     tiempoCantidad && Number(tiempoCantidad) > 0 && 
     intensidad > 0;
 
-  // ✅ Handler personalizado para submit
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (canSubmit) {
-      onSubmit(e);
-    }
-  };
+ const handleSubmit = useRateLimitedCallback((e: React.FormEvent) => {
+  e.preventDefault();
+  if (canSubmit) {
+    onSubmit(e);
+  }
+}, 'exercise-form-submit', 2000); // 2 segundos de delay
+
 
   return (
     <form onSubmit={handleSubmit} className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 lg:p-8 border border-gray-800 shadow-lg space-y-6">

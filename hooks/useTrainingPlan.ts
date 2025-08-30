@@ -79,7 +79,7 @@ export const useTrainingPlan = ({ playerId, academiaId, activeTab }: UseTraining
         initializeEmptyPlan();
       }
     } catch (error) {
-      console.error('Error cargando plan:', error);
+      
       initializeEmptyPlan();
     } finally {
       setPlanLoading(false);
@@ -306,16 +306,10 @@ export const useTrainingPlan = ({ playerId, academiaId, activeTab }: UseTraining
           error: (error: any) => `Error al guardar: ${error?.message || 'Error desconocido'}`
         }
       );
-      
-      console.log('Plan guardado con validación:', {
-        isComplete: validation.isComplete,
-        granularityLevel: validation.granularityLevel,
-        validationErrors: validation.errors,
-        version: 2
-      });
+  
       
     } catch (error) {
-      console.error('Error guardando plan:', error);
+      
       // El error ya se muestra automáticamente con notification.promise
     } finally {
       setPlanSaving(false);

@@ -62,7 +62,7 @@ export const getPlayerSurveys = async (
   startDate?: Date,
   endDate?: Date
 ): Promise<PostTrainingSurvey[]> => {
-  console.log('Recibiendo fechas para query:', { startDate, endDate });
+
 
   try {
     const surveysCollection = collection(db, "academias", academiaId, "surveys");

@@ -173,11 +173,7 @@ const AppWithAcademia: React.FC = () => {
       const config = await getAcademiaConfig(academiaActual.id);
       setRecommendationsConfig(config);
       setPendingRecommendationsDays(config.recommendationsAnalysisWindowDays);
-      
-      console.log('🔧 Configuración de recomendaciones cargada:', {
-        academia: academiaActual.id,
-        dias: config.recommendationsAnalysisWindowDays
-      });
+    
     } catch (error) {
       console.error('❌ Error cargando configuración de recomendaciones:', error);
     } finally {
@@ -280,7 +276,7 @@ const AppWithAcademia: React.FC = () => {
 
   // ✅ NUEVO: HANDLERS PARA CONFIGURACIÓN DE RECOMENDACIONES - MIGRADO
   const handleRecommendationsConfigChange = (days: number) => {
-    console.log('🔄 Cambiando días de recomendaciones a:', days);
+
     setPendingRecommendationsDays(days);
   };
 
@@ -295,10 +291,7 @@ const AppWithAcademia: React.FC = () => {
     const loadingId = notification.loading('Guardando configuración de recomendaciones...');
     
     try {
-      console.log('💾 Guardando configuración de recomendaciones:', {
-        academia: academiaActual.id,
-        dias: pendingRecommendationsDays
-      });
+   
 
       await updateRecommendationsAnalysisWindow(academiaActual.id, pendingRecommendationsDays);
       
@@ -311,7 +304,7 @@ const AppWithAcademia: React.FC = () => {
       // MIGRADO: alert → notification.success
       notification.dismiss(loadingId);
       notification.success('Configuración de recomendaciones guardada exitosamente');
-      console.log('✅ Configuración guardada exitosamente');
+
       
     } catch (error) {
       console.error('❌ Error guardando configuración de recomendaciones:', error);

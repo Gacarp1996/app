@@ -8,6 +8,7 @@ import {
   getEjerciciosForTipoArea 
 } from '../../constants/training';
 import { StrictValidationResult } from '../../utils/validation';
+import { rateLimiter } from '@/utils/rateLimiter';
 
 interface PlanningSectionProps {
   // ✅ Props básicas existentes
@@ -510,7 +511,12 @@ const PlanningSection: React.FC<PlanningSectionProps> = ({
           {/* ✅ ACTUALIZADO: Botón de guardar usando validación del hook */}
           <div className="text-center mt-8">
             <button
-              onClick={onSavePlan}
+              onClick={() => {
+              if (!rateLimiter.canExecute('save-training-plan', 3000)) {
+                 return;
+               }
+               onSavePlan();
+             }}
               disabled={planSaving || !currentValidation.isValid}
               className={`px-8 py-4 font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg text-lg lg:text-xl ${
                 planSaving 

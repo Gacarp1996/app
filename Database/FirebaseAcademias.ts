@@ -1,6 +1,7 @@
-import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, orderBy, limit as firestoreLimit, serverTimestamp, setDoc, runTransaction, Transaction } from 'firebase/firestore';
 import { db } from '../firebase/firebase-config';
-import { Academia } from '../types/types';
+import { Academia, JoinRequest } from '../types/types';
+import { getUserRoleInAcademia, addUserToAcademia } from './FirebaseRoles';
 
 // ===== SISTEMA DE IDS PÚBLICOS DE 6 CARACTERES =====
 
@@ -22,7 +23,6 @@ const isPublicIdUnique = async (publicId: string): Promise<boolean> => {
     const querySnapshot = await getDocs(q);
     return querySnapshot.empty;
   } catch (error) {
-    console.error("❌ Error verificando ID único:", error);
     return false;
   }
 };
@@ -73,7 +73,7 @@ export const crearAcademia = async (academiaData: Omit<Academia, 'id' | 'fechaCr
       id: docRef.id // Firebase ID para uso interno
     });
     
-    console.log(`✅ Academia creada con ID público: ${publicId} (Firebase ID: ${docRef.id})`);
+   
     
     // ✅ RETORNAR AMBOS IDs
     return {
@@ -81,7 +81,7 @@ export const crearAcademia = async (academiaData: Omit<Academia, 'id' | 'fechaCr
       publicId: publicId
     };
   } catch (error) {
-    console.error("❌ Error al crear la academia:", error);
+
     throw new Error('No se pudo crear la academia.');
   }
 };
@@ -106,14 +106,13 @@ export const buscarAcademiaPorIdPublico = async (publicId: string): Promise<(Aca
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      console.log(`❌ No se encontró academia con ID público: ${normalizedId}`);
       return null;
     }
 
     const docSnap = querySnapshot.docs[0];
     const academiaData = docSnap.data() as Academia;
     
-    console.log(`✅ Academia encontrada: ${academiaData.nombre} (ID público: ${normalizedId})`);
+
     
     return {
       ...academiaData,
@@ -121,7 +120,7 @@ export const buscarAcademiaPorIdPublico = async (publicId: string): Promise<(Aca
     } as Academia & { firebaseId: string };
 
   } catch (error) {
-    console.error("❌ Error al buscar academia por ID público:", error);
+
     throw error;
   }
 };
@@ -146,14 +145,14 @@ export const buscarAcademiaPorNombreEId = async (nombre: string, idPublico: stri
     const querySnapshot = await getDocs(q);
     
     if (querySnapshot.empty) {
-      console.log(`❌ No se encontró academia con nombre "${nombre}" e ID "${normalizedId}"`);
+
       return null;
     }
 
     const docSnap = querySnapshot.docs[0];
     const academiaData = docSnap.data() as Academia;
     
-    console.log(`✅ Academia encontrada por nombre e ID: ${academiaData.nombre}`);
+
     
     return {
       ...academiaData,
@@ -161,7 +160,7 @@ export const buscarAcademiaPorNombreEId = async (nombre: string, idPublico: stri
     } as Academia & { firebaseId: string };
 
   } catch (error) {
-    console.error("❌ Error al buscar academia por nombre e ID:", error);
+
     throw error;
   }
 };
@@ -182,11 +181,10 @@ export const obtenerAcademiaPorId = async (id: string): Promise<Academia | null>
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as Academia;
     } else {
-      console.log("❌ No se encontró la academia");
       return null;
     }
   } catch (error) {
-    console.error("❌ Error al obtener la academia:", error);
+
     return null;
   }
 };
@@ -208,7 +206,7 @@ export const obtenerAcademias = async (): Promise<Academia[]> => {
     
     return academias;
   } catch (error) {
-    console.error("❌ Error al obtener las academias:", error);
+
     return [];
   }
 };
@@ -229,9 +227,9 @@ export const actualizarAcademia = async (id: string, data: Partial<Academia>): P
     
     const academiaRef = doc(db, 'academias', firebaseId);
     await updateDoc(academiaRef, data);
-    console.log(`✅ Academia actualizada: ${id}`);
+
   } catch (error) {
-    console.error("❌ Error al actualizar la academia:", error);
+
     throw error;
   }
 };
@@ -240,9 +238,9 @@ export const actualizarAcademia = async (id: string, data: Partial<Academia>): P
 export const eliminarAcademia = async (id: string): Promise<void> => {
   try {
     await actualizarAcademia(id, { activa: false });
-    console.log(`✅ Academia eliminada: ${id}`);
+
   } catch (error) {
-    console.error("❌ Error al eliminar la academia:", error);
+
     throw error;
   }
 };
@@ -259,7 +257,7 @@ export const buscarEntidadPorNombre = async (nombre: string): Promise<(Academia 
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      console.log('❌ No se encontró ninguna academia con ese nombre.');
+  
       return null;
     }
 
@@ -267,7 +265,7 @@ export const buscarEntidadPorNombre = async (nombre: string): Promise<(Academia 
     return { id: doc.id, ...doc.data() } as Academia & { id: string };
 
   } catch (error) {
-    console.error("❌ Error al buscar la entidad por nombre:", error);
+
     throw new Error('Error al buscar la entidad.');
   }
 };
@@ -280,9 +278,263 @@ export const obtenerIdPublico = async (firebaseId: string): Promise<string | nul
     const academia = await obtenerAcademiaPorId(firebaseId);
     return academia && 'publicId' in academia ? (academia as any).publicId : null;
   } catch (error) {
-    console.error("❌ Error obteniendo ID público:", error);
+
     return null;
   }
 };
 
+// ===== NUEVAS FUNCIONES PARA SISTEMA DE APROBACIÓN =====
 
+// ✅ CREAR SOLICITUD DE UNIÓN
+export const crearSolicitudUnion = async (
+  academiaId: string,
+  publicId: string,
+  userData: {
+    userId: string;
+    email: string;
+    displayName?: string;
+  }
+): Promise<{ success: boolean; message: string; requestId?: string }> => {
+  try {
+    // Validar que la academia existe y está activa
+    const academia = await obtenerAcademiaPorId(academiaId);
+    if (!academia || !academia.activa) {
+      return { success: false, message: 'Academia no disponible' };
+    }
+
+    // Verificar que el publicId coincide
+    if ((academia as any).publicId !== publicId) {
+      return { success: false, message: 'Código inválido o expirado' };
+    }
+
+    // Verificar si ya existe una solicitud pendiente
+    const solicitudesRef = collection(db, 'academias', academiaId, 'solicitudes');
+    const q = query(
+      solicitudesRef,
+      where('userId', '==', userData.userId),
+      where('status', '==', 'pending')
+    );
+    const existing = await getDocs(q);
+    
+    if (!existing.empty) {
+      return { success: false, message: 'Ya tienes una solicitud pendiente' };
+    }
+
+    // Verificar si el usuario ya es miembro
+    const userRole = await getUserRoleInAcademia(academiaId, userData.userId);
+    if (userRole) {
+      return { success: false, message: 'Ya eres miembro de esta academia' };
+    }
+
+    // Crear solicitud
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 días
+
+    const solicitud: Omit<JoinRequest, 'id'> = {
+      userId: userData.userId,
+      userEmail: userData.email,
+      userName: userData.displayName || userData.email.split('@')[0],
+      academiaId,
+      publicIdUsed: publicId,
+      status: 'pending',
+      requestedAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString()
+    };
+
+    const docRef = await addDoc(solicitudesRef, solicitud);
+    
+
+    return { 
+      success: true, 
+      message: 'Solicitud enviada. El director será notificado.',
+      requestId: docRef.id 
+    };
+    
+  } catch (error) {
+
+    return { success: false, message: 'Error al procesar solicitud' };
+  }
+};
+
+// ✅ OBTENER SOLICITUDES PENDIENTES (PARA DIRECTORES)
+export const obtenerSolicitudesPendientes = async (
+  academiaId: string,
+  limit: number = 20
+): Promise<JoinRequest[]> => {
+  try {
+    const solicitudesRef = collection(db, 'academias', academiaId, 'solicitudes');
+    const q = query(
+      solicitudesRef,
+      where('status', '==', 'pending'),
+      where('expiresAt', '>', new Date().toISOString()),
+      orderBy('expiresAt', 'asc'),
+      firestoreLimit(limit)
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as JoinRequest));
+    
+  } catch (error) {
+
+    return [];
+  }
+};
+
+// ✅ PROCESAR SOLICITUD - VERSIÓN CORREGIDA CON TRANSACCIÓN
+export const procesarSolicitud = async (
+  academiaId: string,
+  solicitudId: string,
+  action: 'approve' | 'reject',
+  processorId: string
+): Promise<{ success: boolean; message: string }> => {
+  try {    
+    const solicitudRef = doc(db, 'academias', academiaId, 'solicitudes', solicitudId);
+    const solicitudDoc = await getDoc(solicitudRef);
+    
+    if (!solicitudDoc.exists()) {
+      return { success: false, message: 'Solicitud no encontrada' };
+    }
+    
+    const solicitud = solicitudDoc.data() as JoinRequest;
+    
+    if (solicitud.status !== 'pending') {
+      return { success: false, message: 'Solicitud ya fue procesada' };
+    }
+
+    // Actualizar solicitud
+    await updateDoc(solicitudRef, {
+      status: action === 'approve' ? 'approved' : 'rejected',
+      processedAt: new Date().toISOString(),
+      processedBy: processorId
+    });
+
+
+    // Si se aprueba, agregar usuario a la academia
+    if (action === 'approve') {
+
+      
+      try {
+        await addUserToAcademia(
+          academiaId,
+          solicitud.userId,
+          solicitud.userEmail,
+          'academyCoach',
+          solicitud.userName
+        );
+   
+      } catch (error) {
+
+        throw error;
+      }
+
+      // Obtener información de la academia y actualizar userAcademias
+      try {
+        const academiaDoc = await getDoc(doc(db, 'academias', academiaId));
+        if (academiaDoc.exists()) {
+          const academiaData = academiaDoc.data();
+
+          
+          // ✅ SOLUCIÓN CON TRANSACCIÓN
+          const userAcademiasRef = doc(db, 'userAcademias', solicitud.userId);
+
+          
+          try {
+            const nuevoAcceso = {
+              academiaId: academiaId,
+              nombre: academiaData.nombre,
+              ultimoAcceso: Date.now()
+            };
+
+            
+            // Usar transacción para operación atómica
+            await runTransaction(db, async (transaction: Transaction) => {
+              const userDoc = await transaction.get(userAcademiasRef);
+              
+              if (userDoc.exists()) {
+                const data = userDoc.data();
+                const academiasActuales = data.academias || [];
+                // Filtrar para evitar duplicados
+                const academiasActualizadas = academiasActuales.filter(
+                  (a: any) => a.academiaId !== academiaId
+                );
+                // Agregar nueva academia al principio
+                academiasActualizadas.unshift(nuevoAcceso);
+                
+                transaction.update(userAcademiasRef, {
+                  academias: academiasActualizadas,
+                  ultimaActualizacion: serverTimestamp()
+                });
+              } else {
+                // Si no existe el documento, crearlo
+                transaction.set(userAcademiasRef, {
+                  academias: [nuevoAcceso],
+                  fechaCreacion: serverTimestamp(),
+                  ultimaActualizacion: serverTimestamp()
+                });
+              }
+            });
+            
+
+            
+          } catch (userAcademiasError: any) {
+          
+          }
+        }
+      } catch (academiaError) {
+
+
+      }
+    }
+
+
+    return { 
+      success: true, 
+      message: action === 'approve' ? 'Usuario aprobado' : 'Solicitud rechazada' 
+    };
+    
+  } catch (error) {
+
+    return { success: false, message: 'Error al procesar' };
+  }
+};
+
+// ✅ ROTAR CÓDIGO PÚBLICO
+export const rotarCodigoPublico = async (
+  academiaId: string,
+  userId: string,
+  reason?: string
+): Promise<{ success: boolean; newCode?: string; message: string }> => {
+  try {
+    const academia = await obtenerAcademiaPorId(academiaId);
+    if (!academia) {
+      return { success: false, message: 'Academia no encontrada' };
+    }
+
+    const oldCode = (academia as any).publicId;
+    const newCode = await generateUniquePublicId();
+
+    // Actualizar academia
+    await updateDoc(doc(db, 'academias', academiaId), {
+      publicId: newCode,
+      lastRotation: new Date().toISOString()
+    });
+
+    // Registrar rotación
+    await addDoc(collection(db, 'academias', academiaId, 'rotaciones'), {
+      oldPublicId: oldCode,
+      newPublicId: newCode,
+      rotatedBy: userId,
+      rotatedAt: new Date().toISOString(),
+      reason
+    });
+
+    return { success: true, newCode, message: 'Código actualizado' };
+    
+  } catch (error) {
+
+    return { success: false, message: 'Error al rotar código' };
+  }
+};

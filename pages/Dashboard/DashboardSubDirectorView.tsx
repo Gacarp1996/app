@@ -3,11 +3,11 @@ import { useAcademia } from '../../contexts/AcademiaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayer } from '../../contexts/PlayerContext';
 import { useSession } from '../../contexts/SessionContext'; 
-import { getAcademiaUsers, AcademiaUser } from '../../Database/FirebaseRoles';
+import { getAcademiaUsers, AcademiaUser, getUserRoleInAcademia, addUserToAcademia, UserRole } from '../../Database/FirebaseRoles';
 // ✅ MODIFICADO: Importar hasValidPlanWithContent en lugar de getTrainingPlan
 import { hasValidPlanWithContent } from '../../Database/FirebaseTrainingPlans';
 import { getBatchSurveys } from '../../Database/FirebaseSurveys';
-import { TrainingSession, Player, Objective, PostTrainingSurvey } from '../../types/types';
+import { TrainingSession, Player, Objective, PostTrainingSurvey, Academia, TipoEntidad } from '../../types/types';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import ActiveTrainersWidget from '@/components/dashboard/ActiveTrainersWidget';
 import PlayerStatusWidget from '@/components/dashboard/PlayerStatusWidget';
@@ -40,6 +40,52 @@ interface WeeklySatisfaction {
   }[];
   totalSurveys: number;
 }
+
+// ✅ FUNCIÓN HELPER PARA DETERMINAR TIPO DE ENTIDAD
+const getEntityType = (academiaData: Academia | null): TipoEntidad => {
+  if (academiaData?.tipo) {
+    return academiaData.tipo;
+  }
+  return 'academia';
+};
+
+// ✅ FUNCIÓN HELPER: Asegurar que el usuario esté registrado en la academia
+const ensureUserRegistration = async (
+  academiaId: string, 
+  userId: string, 
+  userEmail: string, 
+  userName: string,
+  academiaData: Academia | null
+): Promise<UserRole | null> => {
+  try {
+    // Verificar si ya tiene rol
+    let role = await getUserRoleInAcademia(academiaId, userId);
+    
+    if (!role && academiaData) {
+      // Si no tiene rol, asignarlo según la lógica de negocio
+      const entityType = getEntityType(academiaData);
+      
+      if (academiaData.creadorId === userId) {
+        // Es el creador
+        const creatorRole: UserRole = entityType === 'grupo-entrenamiento' ? 'groupCoach' : 'academyDirector';
+        await addUserToAcademia(academiaId, userId, userEmail, creatorRole, userName);
+        role = creatorRole;
+        console.log(`Usuario ${userId} registrado como creador con rol: ${creatorRole}`);
+      } else {
+        // Usuario regular
+        const defaultRole: UserRole = entityType === 'grupo-entrenamiento' ? 'assistantCoach' : 'academyCoach';
+        await addUserToAcademia(academiaId, userId, userEmail, defaultRole, userName);
+        role = defaultRole;
+        console.log(`Usuario ${userId} registrado con rol por defecto: ${defaultRole}`);
+      }
+    }
+    
+    return role;
+  } catch (error) {
+    console.error(`Error registrando usuario ${userId} en academia ${academiaId}:`, error);
+    return null;
+  }
+};
 
 // Hook personalizado para los datos del dashboard del subdirector
 const useSubdirectorDashboardData = () => {
@@ -75,18 +121,35 @@ const useSubdirectorDashboardData = () => {
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
 
   useEffect(() => {
-    if (academiaActual && allPlayersFromContext.length > 0) {
+    if (academiaActual && allPlayersFromContext.length > 0 && currentUser) {
       loadDashboardData();
     }
-  }, [academiaActual, allPlayersFromContext]);
+  }, [academiaActual, allPlayersFromContext, currentUser]);
 
   const loadDashboardData = async () => {
-    if (!academiaActual) return;
+    if (!academiaActual || !currentUser) return;
     
     setLoading(true);
     setError(null);
     
     try {
+      // ✅ CRÍTICO: Asegurar registro del usuario ANTES de cualquier operación
+      const userName = currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario Anónimo';
+      const userRole = await ensureUserRegistration(
+        academiaActual.id,
+        currentUser.uid,
+        currentUser.email || 'no-email-provided',
+        userName,
+        academiaActual
+      );
+
+      if (!userRole) {
+        throw new Error('No se pudo registrar el usuario en la academia');
+      }
+
+      console.log(`Usuario subdirector registrado con rol: ${userRole}, procediendo a cargar dashboard`);
+
+      // ✅ AHORA SÍ: Cargar datos con permisos asegurados
       // ✅ USAR FUNCIÓN DEL CONTEXTO
       const todaySessionsData = getTodaySessions();
       const users = await getAcademiaUsers(academiaActual.id);
@@ -111,7 +174,7 @@ const useSubdirectorDashboardData = () => {
 
     } catch (err) {
       console.error('Error cargando datos del dashboard:', err);
-      setError('Error cargando los datos del dashboard');
+      setError(`Error cargando los datos del dashboard: ${err instanceof Error ? err.message : 'Error desconocido'}`);
     } finally {
       setLoading(false);
     }

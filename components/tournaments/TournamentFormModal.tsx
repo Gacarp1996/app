@@ -3,6 +3,7 @@ import { TOURNAMENT_IMPORTANCE_LEVELS } from '@/constants';
 import { Tournament, TournamentImportance } from '@/types/types';
 import Modal from '../shared/Modal';
 import { validateTournamentForm, dateToISOString, isoToLocalDate } from './helpers';
+import { rateLimiter } from '@/utils/rateLimiter';
 
 interface TournamentFormModalProps {
  isOpen: boolean;
@@ -42,6 +43,9 @@ const TournamentFormModal: React.FC<TournamentFormModalProps> = ({
 
  const handleSubmit = (e: React.FormEvent) => {
    e.preventDefault();
+     if (!rateLimiter.canExecute('tournament-save', 3000)) {
+    return;
+  }
    
    const validationError = validateTournamentForm({
      nombreTorneo,

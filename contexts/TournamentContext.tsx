@@ -136,7 +136,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       if (endDate < cutoffDate) {
         // Torneo vencido hace más de 7 días - eliminar
         tournamentsToDelete.push(tournament);
-        console.log(`🗑️ Auto-eliminando torneo vencido: ${tournament.nombreTorneo} (${tournament.id})`);
+       
       } else {
         tournamentsToKeep.push(tournament);
       }
@@ -144,14 +144,14 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     
     // Eliminar torneos vencidos de Firebase
     if (tournamentsToDelete.length > 0) {
-      console.log(`🧹 Auto-limpieza: Eliminando ${tournamentsToDelete.length} torneos vencidos`);
+ 
       
       // Eliminar en paralelo pero sin bloquear la UI
       Promise.all(
         tournamentsToDelete.map(t => 
-          deleteTournamentFromDB(academiaActual.id, t.id).catch(err => 
-            console.error(`Error eliminando torneo ${t.id}:`, err)
-          )
+          deleteTournamentFromDB(academiaActual.id, t.id).catch(err => {
+
+          })
         )
       );
     }
@@ -190,7 +190,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       
       setTournaments(sortedTournaments);
     } catch (error) {
-      console.error('Error cargando torneos:', error);
+ 
       setTournamentsError('Error al cargar los torneos');
       setTournaments([]);
       setEndedTournamentsCount(0);
@@ -212,7 +212,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       const loadedTournaments = await getDisputedTournamentsFromDB(academiaActual.id);
       setDisputedTournaments(loadedTournaments);
     } catch (error) {
-      console.error('Error cargando torneos disputados:', error);
+
       setDisputedTournamentsError('Error al cargar los torneos disputados');
       setDisputedTournaments([]);
     } finally {
@@ -360,7 +360,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       
       await loadTournaments();
     } catch (error) {
-      console.error('Error agregando torneo:', error);
+  
       await loadTournaments();
       throw error;
     }
@@ -382,7 +382,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       
       await loadTournaments();
     } catch (error) {
-      console.error('Error actualizando torneo:', error);
+  
       await loadTournaments();
       throw error;
     }
@@ -402,7 +402,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       
       await loadTournaments();
     } catch (error) {
-      console.error('Error eliminando torneo:', error);
+ 
       
       if (tournamentToDelete) {
         setTournaments(prev => [...prev, tournamentToDelete].sort((a, b) => 
@@ -430,7 +430,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       
       await loadDisputedTournaments();
     } catch (error) {
-      console.error('Error agregando torneo disputado:', error);
+      
       await loadDisputedTournaments();
       throw error;
     }
@@ -450,7 +450,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       
       await loadDisputedTournaments();
     } catch (error) {
-      console.error('Error actualizando torneo disputado:', error);
+ 
       await loadDisputedTournaments();
       throw error;
     }
@@ -470,7 +470,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       
       await loadDisputedTournaments();
     } catch (error) {
-      console.error('Error eliminando torneo disputado:', error);
+     
       
       if (tournamentToDelete) {
         setDisputedTournaments(prev => [tournamentToDelete, ...prev]);
@@ -499,7 +499,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     }
     
     try {
-      console.log('🔄 Convirtiendo torneo a disputado:', futureTournamentId);
+   
       
       // 1. Crear el torneo disputado
       await convertToDisputedTournamentInDB(
@@ -511,7 +511,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       // 2. Eliminar el torneo futuro - CRÍTICO: esto debe suceder siempre
       await deleteTournamentFromDB(academiaActual.id, futureTournamentId);
       
-      console.log('✅ Conversión completada');
+  
       
       // 3. Actualizar el contador de torneos pendientes
       setEndedTournamentsCount(prev => Math.max(0, prev - 1));
@@ -519,7 +519,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       // 4. Recargar ambas listas
       await refreshAllTournaments();
     } catch (error) {
-      console.error('❌ Error convirtiendo torneo:', error);
+
       await refreshAllTournaments();
       throw error;
     }

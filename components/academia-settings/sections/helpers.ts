@@ -57,7 +57,7 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
       document.body.removeChild(textArea);
       return success;
     } catch (fallbackError) {
-      console.error('Fallback copy also failed:', fallbackError);
+      console.error('Fallback copy also failed:');
       return false;
     }
   }
@@ -162,7 +162,7 @@ export const getRoleInfo = (role: UserRole): RoleInfo => {
 export const generatePublicIdForGroup = (groupId: string): string | null => {
   // Validar que groupId existe y no está vacío
   if (!groupId || typeof groupId !== 'string' || groupId.trim() === '') {
-    console.warn('GroupId no válido:', groupId);
+    console.warn('GroupId no válido:');
     return null;
   }
 

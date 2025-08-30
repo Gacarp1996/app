@@ -1,5 +1,6 @@
 import React from 'react';
 import { Player } from '../../types/types';
+import { rateLimiter } from '@/utils/rateLimiter';
 
 interface PlayerSelectorProps {
   participants: Player[];
@@ -31,7 +32,12 @@ const PlayerSelector: React.FC<PlayerSelectorProps> = ({
         {participants.map(player => (
           <button 
             key={player.id} 
-            onClick={() => onPlayerToggleActive(player.id)}
+            onClick={() => {
+             if (!rateLimiter.canExecute(`toggle-player-${player.id}`, 500)) {
+              return;
+            }
+             onPlayerToggleActive(player.id)
+            }}
             className={`py-2 px-3 sm:px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
               activePlayerIds.has(player.id) 
                 ? 'bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400 border border-green-400 shadow-lg shadow-green-500/20' 

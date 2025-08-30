@@ -71,12 +71,12 @@ export const useActiveSessionRecommendations = ({
         const configuredDays = await getRecommendationsAnalysisWindow(academiaId);
         setAnalysisWindowDays(configuredDays);
         
-        console.log('📊 Configuración de análisis cargada:', {
-          academia: academiaId,
-          dias: configuredDays
-        });
+        //console.log('📊 Configuración de análisis cargada:', {
+          //academia: academiaId,
+          //dias: configuredDays
+        //});
       } catch (error) {
-        console.error('❌ Error cargando configuración de análisis:', error);
+        
         // Mantener default de 7 días si hay error
         setAnalysisWindowDays(7);
       } finally {
@@ -158,7 +158,6 @@ export const useActiveSessionRecommendations = ({
       setRecommendationsGenerated(true);
       
     } catch (error) {
-      console.error('❌ Error generando recomendaciones:', error);
     } finally {
       setRecommendationsLoading(false);
     }
@@ -178,7 +177,6 @@ export const useActiveSessionRecommendations = ({
       
       await generateRecommendations();
     } catch (error) {
-      console.error('❌ Error recargando:', error);
     } finally {
       setRecommendationsLoading(false);
     }
@@ -212,7 +210,7 @@ export const useActiveSessionRecommendations = ({
     if (!playerData) {
       const blocked = engineOutput.group.blocked?.find(b => b.playerId === playerId);
       if (blocked) {
-        console.warn(`⚠️ Jugador ${blocked.playerName} bloqueado:`, blocked.reasons);
+       // console.warn(`⚠️ Jugador ${blocked.playerName} bloqueado:`, blocked.reasons);
       }
     }
     
@@ -368,7 +366,7 @@ export const useActiveSessionRecommendations = ({
   // FASE 3: Log cuando cambien los jugadores bloqueados
   useEffect(() => {
     if (blockedPlayers.hasBlockedPlayers) {
-      console.warn('⚠️ Jugadores bloqueados:', blockedPlayers.players.map(p => p.playerName));
+      //console.warn('⚠️ Jugadores bloqueados:', blockedPlayers.players.map(p => p.playerName));
     }
   }, [blockedPlayers]);
 

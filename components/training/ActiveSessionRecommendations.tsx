@@ -4,6 +4,7 @@ import { RecommendationLegend } from './RecommendationLegend';
 import { useActiveSessionRecommendations } from '../../hooks/useActiveSessionRecommendations';
 import { SessionExercise } from '../../contexts/TrainingContext';
 import { getColorForAction } from '../../constants/recommendationThresholds';
+import { rateLimiter } from '@/utils/rateLimiter';
 
 interface Participant {
   id: string;
@@ -71,6 +72,9 @@ const ActiveSessionRecommendations: React.FC<ActiveSessionRecommendationsProps> 
 
   // ✅ FUNCIÓN para generar recomendaciones y expandir
   const handleGenerateRecommendations = () => {
+     if (!rateLimiter.canExecute('generate-recommendations', 5000)) { // 5 segundos
+    return;
+  }
     generateRecommendations();
     setIsExpanded(true);
   };

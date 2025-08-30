@@ -6,9 +6,7 @@ export const addObjective = async (academiaId: string, objectiveData: Omit<Objec
   try {
     const objectivesCollection = collection(db, "academias", academiaId, "objectives");
     const docRef = await addDoc(objectivesCollection, objectiveData);
-    console.log("Objetivo agregado con ID:", docRef.id);
   } catch (error) {
-    console.error("Error al agregar objetivo:", error);
   }
 };
 
@@ -25,7 +23,7 @@ export const getObjectives = async (academiaId: string): Promise<Objective[]> =>
     });
     return objectives;
   } catch (error) {
-    console.error("Error al obtener objetivos:", error);
+   
     return [];
   }
 };
@@ -35,9 +33,9 @@ export const updateObjective = async (academiaId: string, id: string, dataToUpda
   try {
     const objectiveDoc = doc(db, "academias", academiaId, "objectives", id);
     await updateDoc(objectiveDoc, dataToUpdate);
-    console.log("Objetivo actualizado con éxito:", id);
+   
   } catch (error) {
-    console.error("Error al actualizar objetivo:", error);
+    
   }
 };
 
@@ -45,8 +43,7 @@ export const deleteObjective = async (academiaId: string, id: string) => {
   try {
     const objectiveDoc = doc(db, "academias", academiaId, "objectives", id);
     await deleteDoc(objectiveDoc);
-    console.log("Objetivo eliminado con éxito:", id);
+    
   } catch (error) {
-    console.error("Error al eliminar objetivo:", error);
   }
 };
