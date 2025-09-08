@@ -1,4 +1,3 @@
-// src/App.tsx
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
@@ -15,6 +14,9 @@ import AcademiaSelectPage from './pages/AcademiaSelectPage';
 import AppWithAcademia from './components/shared/AppWithAcademia';
 import { SessionProvider } from './contexts/SessionContext';
 import { usePWAUpdate } from './hooks/usePWAUpdate'; // ← NUEVA IMPORTACIÓN
+import SecurityMonitor from './components/security/SecurityMonitor'; // 🛡️ NUEVO
+import RoleMigrationGuard from './components/security/RoleMigrationGuard'; // 🛡️ NUEVO GUARD
+import SecurityInitializer from './components/SecurityInitializer'; // 🛡️ NUEVO INICIALIZADOR
 
 // Componente que maneja la lógica de rutas después de la autenticación
 const AuthenticatedApp: React.FC = () => {
@@ -71,40 +73,45 @@ const App: React.FC = () => {
     <ThemeProvider>
       <HashRouter>
         <AuthProvider>
-          <AcademiaProvider>
-            <ConfigModalProvider>
-              <PlayerProvider>
-                <ObjectiveProvider>
-                  <TournamentProvider> 
-                    <SessionProvider>
-                      <AuthenticatedApp />
-                      
-                      <Toaster 
-                        theme="dark"
-                        position="top-right"
-                        toastOptions={{
-                          duration: 4000,
-                          style: {
-                            background: 'rgba(17, 24, 39, 0.95)',
-                            color: '#fff',
-                            border: '1px solid rgba(55, 65, 81, 0.5)',
-                            backdropFilter: 'blur(12px)',
-                            fontSize: '14px',
-                          },
-                          className: 'sonner-toast-custom',
-                        }}
-                        closeButton
-                        richColors
-                        expand={false}
-                        visibleToasts={5}
-                        offset="80px"
-                      />
-                    </SessionProvider>
-                  </TournamentProvider>
-                </ObjectiveProvider>
-              </PlayerProvider>
-            </ConfigModalProvider>
-          </AcademiaProvider>
+          <SecurityInitializer>
+            <AcademiaProvider>
+              <ConfigModalProvider>
+                <PlayerProvider>
+                  <ObjectiveProvider>
+                    <TournamentProvider> 
+                      <SessionProvider>
+                        <AuthenticatedApp />
+                        
+                        <Toaster 
+                          theme="dark"
+                          position="top-right"
+                          toastOptions={{
+                            duration: 4000,
+                            style: {
+                              background: 'rgba(17, 24, 39, 0.95)',
+                              color: '#fff',
+                              border: '1px solid rgba(55, 65, 81, 0.5)',
+                              backdropFilter: 'blur(12px)',
+                              fontSize: '14px',
+                            },
+                            className: 'sonner-toast-custom',
+                          }}
+                          closeButton
+                          richColors
+                          expand={false}
+                          visibleToasts={5}
+                          offset="80px"
+                        />
+                        
+                        {/* 🛡️ MONITOR DE SEGURIDAD (solo en desarrollo) */}
+                        <SecurityMonitor />
+                      </SessionProvider>
+                    </TournamentProvider>
+                  </ObjectiveProvider>
+                </PlayerProvider>
+              </ConfigModalProvider>
+            </AcademiaProvider>
+          </SecurityInitializer>
         </AuthProvider>
       </HashRouter>
     </ThemeProvider>

@@ -7,6 +7,279 @@ import {
   TrainingPlan,
   VALIDATION_CONSTANTS
 } from '../types/types';
+import { UserRole } from '../Database/FirebaseRoles';
+
+// ===== VALIDACIONES DE SEGURIDAD =====
+
+export interface SecurityValidationResult {
+  isValid: boolean;
+  errors: string[];
+  sanitizedValue?: string;
+}
+
+// Validación de email
+export const validateEmail = (email: string): SecurityValidationResult => {
+  const errors: string[] = [];
+  
+  if (!email || email.trim() === '') {
+    errors.push('Email es requerido');
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (email && !emailRegex.test(email)) {
+    errors.push('Formato de email inválido');
+  }
+  
+  if (email && email.length > 254) {
+    errors.push('Email demasiado largo');
+  }
+  
+  // Verificar caracteres peligrosos
+  const dangerousChars = /<script|javascript:|data:|vbscript:|onload|onerror/i;
+  if (email && dangerousChars.test(email)) {
+    errors.push('Email contiene caracteres no permitidos');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedValue: email?.trim().toLowerCase()
+  };
+};
+
+// Validación de roles
+export const validateUserRole = (role: string): SecurityValidationResult => {
+  const errors: string[] = [];
+  const validRoles: UserRole[] = [
+    'academyDirector', 
+    'academySubdirector', 
+    'academyCoach', 
+    'groupCoach', 
+    'assistantCoach'
+  ];
+  
+  if (!role || role.trim() === '') {
+    errors.push('Rol es requerido');
+  }
+  
+  if (role && !validRoles.includes(role as UserRole)) {
+    errors.push('Rol no válido');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedValue: role?.trim()
+  };
+};
+
+// Validación de nombres de usuario
+export const validateUserName = (userName: string): SecurityValidationResult => {
+  const errors: string[] = [];
+  
+  if (!userName || userName.trim() === '') {
+    errors.push('Nombre de usuario es requerido');
+  }
+  
+  if (userName && userName.length > 50) {
+    errors.push('Nombre de usuario demasiado largo (máx. 50 caracteres)');
+  }
+  
+  if (userName && userName.length < 2) {
+    errors.push('Nombre de usuario demasiado corto (mín. 2 caracteres)');
+  }
+  
+  // Verificar caracteres peligrosos para XSS
+  const xssPattern = /<script|javascript:|data:|vbscript:|onload|onerror|<iframe|<object|<embed/i;
+  if (userName && xssPattern.test(userName)) {
+    errors.push('Nombre contiene caracteres no permitidos');
+  }
+  
+  // Permitir solo letras, números, espacios y algunos caracteres especiales seguros
+  const allowedPattern = /^[a-zA-ZÀ-ÿ0-9\s\-_.áéíóúÁÉÍÓÚñÑ]+$/;
+  if (userName && !allowedPattern.test(userName)) {
+    errors.push('Nombre contiene caracteres no válidos');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedValue: userName?.trim().replace(/\s+/g, ' ') // Limpiar espacios extra
+  };
+};
+
+// Validación de ID de academia
+export const validateAcademiaId = (academiaId: string): SecurityValidationResult => {
+  const errors: string[] = [];
+  
+  if (!academiaId || academiaId.trim() === '') {
+    errors.push('ID de academia es requerido');
+  }
+  
+  // Los IDs de Firebase suelen tener entre 20-28 caracteres alfanuméricos
+  const idPattern = /^[a-zA-Z0-9_-]+$/;
+  if (academiaId && !idPattern.test(academiaId)) {
+    errors.push('ID de academia no válido');
+  }
+  
+  if (academiaId && (academiaId.length < 6 || academiaId.length > 50)) {
+    errors.push('ID de academia tiene longitud inválida');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedValue: academiaId?.trim()
+  };
+};
+
+// Validación general de texto libre (para prevenir XSS)
+export const validateSafeText = (text: string, maxLength: number = 500): SecurityValidationResult => {
+  const errors: string[] = [];
+  
+  if (text && text.length > maxLength) {
+    errors.push(`Texto demasiado largo (máx. ${maxLength} caracteres)`);
+  }
+  
+  // Verificar ataques XSS comunes
+  const xssPatterns = [
+    /<script[^>]*>.*?<\/script>/gi,
+    /<iframe[^>]*>.*?<\/iframe>/gi,
+    /javascript:/gi,
+    /data:text\/html/gi,
+    /vbscript:/gi,
+    /onload\s*=/gi,
+    /onerror\s*=/gi,
+    /onclick\s*=/gi,
+    /onmouseover\s*=/gi
+  ];
+  
+  for (const pattern of xssPatterns) {
+    if (text && pattern.test(text)) {
+      errors.push('Texto contiene contenido potencialmente peligroso');
+      break;
+    }
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedValue: text?.trim()
+  };
+};
+
+// Función para sanitizar datos de usuario completos
+export const validateAndSanitizeUserData = (userData: {
+  userId: string;
+  userEmail: string;
+  userName: string;
+  role: UserRole;
+}) => {
+  const results = {
+    userId: validateAcademiaId(userData.userId), // Reutilizamos la validación de ID
+    userEmail: validateEmail(userData.userEmail),
+    userName: validateUserName(userData.userName),
+    role: validateUserRole(userData.role)
+  };
+  
+  const allErrors = Object.values(results).flatMap(result => result.errors);
+  const isValid = allErrors.length === 0;
+  
+  const sanitizedData = isValid ? {
+    userId: results.userId.sanitizedValue!,
+    userEmail: results.userEmail.sanitizedValue!,
+    userName: results.userName.sanitizedValue!,
+    role: results.role.sanitizedValue! as UserRole
+  } : null;
+  
+  return {
+    isValid,
+    errors: allErrors,
+    sanitizedData
+  };
+};
+export const validateRole = (role: string): SecurityValidationResult => {
+  const validRoles: UserRole[] = ['academyDirector', 'academySubdirector', 'academyCoach', 'groupCoach', 'assistantCoach'];
+  const errors: string[] = [];
+  
+  if (!role) {
+    errors.push('Rol es requerido');
+  }
+  
+  if (role && !validRoles.includes(role as UserRole)) {
+    errors.push(`Rol inválido. Roles válidos: ${validRoles.join(', ')}`);
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedValue: role
+  };
+};
+
+// Sanitización de strings
+export const sanitizeString = (input: string): string => {
+  if (!input) return '';
+  
+  return input
+    .trim()
+    .replace(/[<>]/g, '') // Remover < y >
+    .replace(/javascript:/gi, '') // Remover javascript:
+    .replace(/data:/gi, '') // Remover data:
+    .replace(/vbscript:/gi, '') // Remover vbscript:
+    .replace(/onload|onerror|onclick/gi, '') // Remover event handlers
+    .slice(0, 1000); // Limitar longitud
+};
+
+// Validación completa de usuario
+export const validateUserData = (userData: {
+  email: string;
+  userName: string;
+  role: string;
+}): SecurityValidationResult => {
+  const emailValidation = validateEmail(userData.email);
+  const userNameValidation = validateUserName(userData.userName);
+  const roleValidation = validateRole(userData.role);
+  
+  const allErrors = [
+    ...emailValidation.errors,
+    ...userNameValidation.errors,
+    ...roleValidation.errors
+  ];
+  
+  return {
+    isValid: allErrors.length === 0,
+    errors: allErrors
+  };
+};
+
+// Validación de IDs (para prevenir inyección)
+export const validateId = (id: string, fieldName: string = 'ID'): SecurityValidationResult => {
+  const errors: string[] = [];
+  
+  if (!id || id.trim() === '') {
+    errors.push(`${fieldName} es requerido`);
+  }
+  
+  // Verificar longitud razonable
+  if (id && (id.length < 1 || id.length > 128)) {
+    errors.push(`${fieldName} tiene longitud inválida`);
+  }
+  
+  // Verificar caracteres válidos para Firebase IDs
+  const validIdRegex = /^[a-zA-Z0-9_-]+$/;
+  if (id && !validIdRegex.test(id)) {
+    errors.push(`${fieldName} contiene caracteres inválidos`);
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedValue: id?.trim()
+  };
+};
+
+// ===== VALIDACIONES EXISTENTES DE ENTRENAMIENTO =====
 
 // NUEVO: Re-declarar interfaces que necesitamos exportar desde aquí
 export interface StrictValidationResult {

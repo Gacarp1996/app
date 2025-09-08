@@ -4,59 +4,15 @@ import { AcademiaUser, UserRole } from '../../../Database/FirebaseRoles';
 import { TipoEntidad } from '../../../types/types';
 import { UserManagementSection } from '../users/UserManagementSection';
 import { AcademiaInfoSection } from '../sections/AcademiaInfoSection';
-import { PendingRequestsSection } from '../sections/PendingRequestsSection';
-import { obtenerSolicitudesPendientes } from '../../../Database/FirebaseAcademias';
+import { 
+  copyToClipboard,
+  shouldShowUserManagement,
+  shouldShowEntityInfo,
+  shouldShowAdvancedConfig,
+  shouldShowDeleteOption,
+  generatePublicIdForGroup
+} from './helpers';
 import { RoleBadge } from '../users/RoleBadge';
-
-// Helper functions
-const copyToClipboard = async (text: string): Promise<boolean> => {
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } else {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.style.position = "fixed";
-      textArea.style.left = "-999999px";
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        return true;
-      } finally {
-        textArea.remove();
-      }
-    }
-  } catch (error) {
-    console.error('Error copiando:', error);
-    return false;
-  }
-};
-
-const shouldShowUserManagement = (role: UserRole | null, entityType: TipoEntidad): boolean => {
-  if (entityType === 'grupo-entrenamiento') {
-    return role === 'groupCoach';
-  }
-  return role === 'academyDirector' || role === 'academySubdirector';
-};
-
-const shouldShowEntityInfo = (role: UserRole | null): boolean => {
-  return role === 'academyDirector' || role === 'groupCoach';
-};
-
-const shouldShowAdvancedConfig = (role: UserRole | null): boolean => {
-  return role === 'academyDirector' || role === 'academySubdirector' || role === 'groupCoach';
-};
-
-const shouldShowDeleteOption = (role: UserRole | null): boolean => {
-  return role === 'academyDirector' || role === 'groupCoach';
-};
-
-const generatePublicIdForGroup = (groupId: string): string => {
-  return groupId.substring(0, 6).toUpperCase();
-};
 
 // Componente para mostrar la información del perfil del usuario
 const UserProfileSection: React.FC<{
@@ -207,21 +163,23 @@ const GroupInfoSection: React.FC<{
 interface MainConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
+  // Información de la entidad (academia o grupo)
   entityName: string;
   entityId: string;
   entityType: TipoEntidad;
+  // User data
   users: AcademiaUser[];
   currentUserId: string | undefined;
   currentUserEmail: string | null | undefined;
   currentUserRole: UserRole | null;
   loadingUsers: boolean;
   processingAction: string | boolean;
+  // Actions
   onRemoveUser: (userId: string) => Promise<void>;
   onChangeRole: (userId: string) => void;
   onChangeAcademia: () => void;
   onDeleteEntity: () => void;
   onOpenAdvancedConfig: () => void;
-  onLeaveAcademia?: () => void;
 }
 
 export const MainConfigModal: React.FC<MainConfigModalProps> = ({
@@ -240,66 +198,44 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
   onChangeRole,
   onChangeAcademia,
   onDeleteEntity,
-  onOpenAdvancedConfig,
-  onLeaveAcademia
+  onOpenAdvancedConfig
 }) => {
-  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-  const [loadingRequests, setLoadingRequests] = useState(false);
-
-  useEffect(() => {
-    if (isOpen && currentUserRole === 'academyDirector' && entityType === 'academia') {
-      loadPendingRequestsCount();
-    }
-  }, [isOpen, currentUserRole, entityType, entityId]);
-
-  const loadPendingRequestsCount = async () => {
-    setLoadingRequests(true);
-    try {
-      const requests = await obtenerSolicitudesPendientes(entityId, 5);
-      setPendingRequestsCount(requests.length);
-    } catch (error) {
-      console.error('Error cargando solicitudes pendientes:', error);
-    } finally {
-      setLoadingRequests(false);
-    }
-  };
-
   if (!isOpen) return null;
 
+  // Determinar qué secciones mostrar según el rol y tipo de entidad
   const showUserManagement = shouldShowUserManagement(currentUserRole, entityType);
   const showEntityInfo = shouldShowEntityInfo(currentUserRole);
   const showAdvancedConfig = shouldShowAdvancedConfig(currentUserRole);
   const showDeleteOption = shouldShowDeleteOption(currentUserRole);
-  const showPendingRequests = currentUserRole === 'academyDirector' && entityType === 'academia';
 
+  // Títulos dinámicos según el tipo de entidad
   const isAcademia = entityType === 'academia';
   const deleteButtonText = isAcademia ? 'Eliminar Academia' : 'Eliminar Grupo';
   const deleteWarningText = isAcademia 
     ? 'Esta acción eliminará permanentemente la academia y todos sus datos asociados.'
     : 'Esta acción eliminará permanentemente el grupo de entrenamiento y todos sus datos asociados.';
   const configTitle = isAcademia ? 'Configuración de Academia' : 'Configuración de Grupo';
+  const advancedConfigTitle = isAcademia ? 'Configuración Avanzada de Academia' : 'Configuración Avanzada de Grupo';
 
   return (
     <>
+      {/* Overlay con efecto blur */}
       <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100]" onClick={onClose} />
       
+      {/* Modal */}
       <div className="fixed inset-0 z-[101] flex items-center justify-center p-2 sm:p-4">
         <div
           className="relative bg-gray-900/95 backdrop-blur-xl rounded-xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] shadow-2xl shadow-green-500/20 border border-gray-800 overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Header */}
           <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-800">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-1.5 sm:p-2 bg-green-500/20 rounded-lg relative">
+              <div className="p-1.5 sm:p-2 bg-green-500/20 rounded-lg">
                 <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                {pendingRequestsCount > 0 && !loadingRequests && (
-                  <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-                    {pendingRequestsCount}
-                  </span>
-                )}
               </div>
               <h3 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
                 <span className="hidden sm:inline">{configTitle}</span>
@@ -316,18 +252,11 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
             </button>
           </div>
           
+          {/* Contenido del Modal */}
           <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)] scrollbar-thin scrollbar-track-gray-800/30 scrollbar-thumb-gray-600/60 hover:scrollbar-thumb-gray-500/80">
             <div className="space-y-4 sm:space-y-6">
               
-              {showPendingRequests && (
-                <PendingRequestsSection 
-                  academiaId={entityId}
-                  onRequestProcessed={() => {
-                    loadPendingRequestsCount();
-                  }}
-                />
-              )}
-
+              {/* SECCIÓN 1: Gestión de usuarios - Solo para academyDirector (academia) y groupCoach (grupo) */}
               {showUserManagement && (
                 <UserManagementSection
                   users={users}
@@ -340,12 +269,12 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                 />
               )}
 
+              {/* SECCIÓN 2: Información de la entidad - Solo para academyDirector y groupCoach */}
               {showEntityInfo && entityId && (
                 isAcademia ? (
                   <AcademiaInfoSection 
                     academiaName={entityName} 
-                    academiaId={entityId}
-                    currentUserRole={currentUserRole}
+                    academiaId={entityId} 
                   />
                 ) : (
                   <GroupInfoSection 
@@ -355,48 +284,16 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                 )
               )}
 
+              {/* SECCIÓN 3: Mi Perfil - Todos los roles lo ven */}
               <UserProfileSection 
                 currentUserEmail={currentUserEmail}
                 currentUserRole={currentUserRole}
               />
 
-              {currentUserRole && isAcademia && onLeaveAcademia && (
-                <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-orange-500/20 rounded-lg">
-                      <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                    </div>
-                    <h2 className="text-xl font-bold text-white">Gestión de Membresía</h2>
-                  </div>
-                  
-                  <p className="text-gray-400 text-sm mb-4">
-                    {currentUserRole === 'academyDirector' 
-                      ? 'Como director, solo puedes abandonar si hay otros directores en la academia.'
-                      : 'Puedes abandonar la academia en cualquier momento. Esta acción es irreversible.'}
-                  </p>
-                  
-                  <button
-                    onClick={() => {
-                      if (onLeaveAcademia) {
-                        onLeaveAcademia();
-                      }
-                    }}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 hover:from-orange-500/30 hover:to-red-500/30 border border-orange-500/30 text-orange-400 font-semibold rounded-lg transition-all duration-200"
-                  >
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                      Abandonar Academia
-                    </span>
-                  </button>
-                </div>
-              )}
-
+              {/* SECCIÓN 4: Configuración Avanzada - Solo academyDirector, academySubdirector y groupCoach */}
               {showAdvancedConfig && (
                 <div className="bg-gray-800/50 p-3 sm:p-6 rounded-xl border border-gray-700">
+                  {/* Header con título e icono */}
                   <div className="flex items-center gap-2 sm:gap-3 mb-3">
                     <div className="p-1.5 sm:p-2 bg-purple-500/20 rounded-lg">
                       <svg className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -409,6 +306,7 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                         {isAcademia ? 'Estructura de ejercicios y encuestas de la academia' : 'Estructura de ejercicios y encuestas del grupo'}
                       </p>
                     </div>
+                    {/* Botón en desktop - oculto en móvil */}
                     <div className="hidden sm:block">
                       <button 
                         onClick={(e) => {
@@ -431,6 +329,7 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                     </div>
                   </div>
 
+                  {/* Botón en móvil - debajo del título */}
                   <div className="block sm:hidden">
                     <button 
                       onClick={(e) => {
@@ -454,8 +353,10 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                 </div>
               )}
 
+              {/* SECCIÓN 5: Zona de Peligro - Solo academyDirector (academia) y groupCoach (grupo) */}
               {showDeleteOption && (
                 <div className="bg-gradient-to-br from-red-500/10 to-red-600/10 p-3 sm:p-6 rounded-xl border border-red-500/30 shadow-lg">
+                  {/* Header con título e icono */}
                   <div className="flex items-center gap-2 sm:gap-3 mb-3">
                     <div className="p-1.5 sm:p-2 bg-red-500/20 rounded-lg">
                       <svg className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -471,6 +372,7 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                     {deleteWarningText} No se puede deshacer esta operación.
                   </p>
                   
+                  {/* Botón debajo del texto en móvil y desktop */}
                   <div className="flex justify-center sm:justify-end">
                     <button
                       onClick={onDeleteEntity}

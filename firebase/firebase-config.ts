@@ -5,21 +5,13 @@ import { getFirestore } from "firebase/firestore";
 
 
 const firebaseConfig = {
-
-  apiKey: "AIzaSyDqk6S7AB6x3ZzEoVJ5oXzVA4vdCh0EqZ4",
-
-  authDomain: "tennis-academy-34074.firebaseapp.com",
-
-  projectId: "tennis-academy-34074",
-
-  storageBucket: "tennis-academy-34074.firebasestorage.app",
-
-  messagingSenderId: "631257953689",
-
-  appId: "1:631257953689:web:03e2027139d1d421cd0f08",
-
-  measurementId: "G-QJG08J4WT9"
-
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 

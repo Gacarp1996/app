@@ -1,6 +1,9 @@
 // Database/FirebaseRoles.ts
 import { db } from "../firebase/firebase-config";
 import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp, writeBatch } from "firebase/firestore";
+// 🛡️ IMPORTAR VALIDACIONES DE SEGURIDAD
+import { validateEmail, validateUserName, validateRole, validateAcademiaId } from "../utils/validation";
+import { logSecurityEvent } from "../utils/securityAudit";
 
 // ACTUALIZADO: Nuevos roles del sistema
 export type UserRole = 'academyDirector' | 'academySubdirector' | 'academyCoach' | 'groupCoach' | 'assistantCoach';
@@ -49,17 +52,86 @@ export const addUserToAcademia = async (
   invitedBy?: string
 ): Promise<void> => {
   try {
-    const userRef = doc(db, "academias", academiaId, "usuarios", userId);
+    // 🛡️ VALIDACIONES DE SEGURIDAD
+    const academiaValidation = validateAcademiaId(academiaId);
+    if (!academiaValidation.isValid) {
+      throw new Error(`Academia ID inválido: ${academiaValidation.errors.join(', ')}`);
+    }
+    
+    const userIdValidation = validateAcademiaId(userId); // Reutilizamos para IDs
+    if (!userIdValidation.isValid) {
+      throw new Error(`User ID inválido: ${userIdValidation.errors.join(', ')}`);
+    }
+    
+    const emailValidation = validateEmail(userEmail);
+    if (!emailValidation.isValid) {
+      throw new Error(`Email inválido: ${emailValidation.errors.join(', ')}`);
+    }
+    
+    const roleValidation = validateRole(role);
+    if (!roleValidation.isValid) {
+      throw new Error(`Rol inválido: ${roleValidation.errors.join(', ')}`);
+    }
+    
+    const finalUserName = userName || userEmail.split('@')[0];
+    const userNameValidation = validateUserName(finalUserName);
+    if (!userNameValidation.isValid) {
+      throw new Error(`Nombre de usuario inválido: ${userNameValidation.errors.join(', ')}`);
+    }
+    
+    // 🛡️ USAR DATOS SANITIZADOS
+    const userRef = doc(db, "academias", academiaValidation.sanitizedValue!, "usuarios", userIdValidation.sanitizedValue!);
     await setDoc(userRef, {
-      userId,
-      userEmail,
-      userName: userName || userEmail.split('@')[0],
-      role,
+      userId: userIdValidation.sanitizedValue!,
+      userEmail: emailValidation.sanitizedValue!,
+      userName: userNameValidation.sanitizedValue!,
+      role: roleValidation.sanitizedValue as UserRole,
       joinedAt: serverTimestamp(),
-      invitedBy: invitedBy || null
+      invitedBy: invitedBy || null,
+      // 🛡️ METADATA DE SEGURIDAD
+      createdAt: serverTimestamp(),
+      lastValidated: serverTimestamp()
     });
+    
+    // 🔒 AUDITORÍA DE SEGURIDAD
+    await logSecurityEvent({
+      type: 'USER_ADDED',
+      severity: 'MEDIUM',
+      userId: invitedBy || 'SYSTEM',
+      userEmail: invitedBy ? undefined : 'SYSTEM',
+      academiaId: academiaValidation.sanitizedValue!,
+      action: 'Usuario agregado a academia',
+      details: {
+        targetUserId: userIdValidation.sanitizedValue!,
+        targetEmail: emailValidation.sanitizedValue!,
+        targetUserName: userNameValidation.sanitizedValue!,
+        assignedRole: roleValidation.sanitizedValue,
+        invitedBy: invitedBy || 'SYSTEM'
+      }
+    });
+    
+    console.log(`✅ Usuario ${emailValidation.sanitizedValue} agregado con rol ${role} (validado)`);
   } catch (error) {
-   
+    console.error("❌ Error agregando usuario a academia:", error);
+    
+    // 🔒 AUDITORÍA DE ERROR
+    try {
+      await logSecurityEvent({
+        type: 'SUSPICIOUS_ACTIVITY',
+        severity: 'HIGH',
+        userId: invitedBy || 'UNKNOWN',
+        academiaId: academiaId,
+        action: 'Error al agregar usuario',
+        details: {
+          error: error instanceof Error ? error.message : 'Error desconocido',
+          attemptedEmail: userEmail,
+          attemptedRole: role
+        }
+      });
+    } catch (auditError) {
+      console.error("❌ Error en auditoría:", auditError);
+    }
+    
     throw error;
   }
 };
@@ -123,13 +195,76 @@ export const getAcademiaUsers = async (academiaId: string): Promise<AcademiaUser
 export const updateUserRole = async (
   academiaId: string,
   userId: string,
-  newRole: UserRole
+  newRole: UserRole,
+  updatedBy?: string
 ): Promise<void> => {
   try {
-    const userRef = doc(db, "academias", academiaId, "usuarios", userId);
-    await updateDoc(userRef, { role: newRole });
+    // 🛡️ VALIDACIONES DE SEGURIDAD
+    const academiaValidation = validateAcademiaId(academiaId);
+    if (!academiaValidation.isValid) {
+      throw new Error(`Academia ID inválido: ${academiaValidation.errors.join(', ')}`);
+    }
+    
+    const userIdValidation = validateAcademiaId(userId);
+    if (!userIdValidation.isValid) {
+      throw new Error(`User ID inválido: ${userIdValidation.errors.join(', ')}`);
+    }
+    
+    const roleValidation = validateRole(newRole);
+    if (!roleValidation.isValid) {
+      throw new Error(`Rol inválido: ${roleValidation.errors.join(', ')}`);
+    }
+    
+    // Obtener usuario completo para auditoría
+    const userRef = doc(db, "academias", academiaValidation.sanitizedValue!, "usuarios", userIdValidation.sanitizedValue!);
+    const userDoc = await getDoc(userRef);
+    const userData = userDoc.exists() ? userDoc.data() : null;
+    const oldRole = userData?.role || null;
+    
+    await updateDoc(userRef, { 
+      role: roleValidation.sanitizedValue,
+      lastUpdated: serverTimestamp(),
+      updatedBy: updatedBy || 'SYSTEM'
+    });
+    
+    // 🔒 AUDITORÍA DE CAMBIO DE ROL
+    await logSecurityEvent({
+      type: 'ROLE_CHANGE',
+      severity: 'HIGH',
+      userId: updatedBy || 'SYSTEM',
+      academiaId: academiaValidation.sanitizedValue!,
+      action: 'Rol de usuario actualizado',
+      details: {
+        targetUserId: userIdValidation.sanitizedValue!,
+        targetEmail: userData?.userEmail || 'Unknown',
+        oldRole,
+        newRole: roleValidation.sanitizedValue,
+        updatedBy: updatedBy || 'SYSTEM'
+      }
+    });
+    
+    console.log(`✅ Rol actualizado para usuario ${userIdValidation.sanitizedValue} de ${oldRole} a ${newRole}`);
   } catch (error) {
-
+    console.error("❌ Error actualizando rol de usuario:", error);
+    
+    // 🔒 AUDITORÍA DE ERROR
+    try {
+      await logSecurityEvent({
+        type: 'SUSPICIOUS_ACTIVITY',
+        severity: 'HIGH',
+        userId: updatedBy || 'UNKNOWN',
+        academiaId: academiaId,
+        action: 'Error al actualizar rol',
+        details: {
+          error: error instanceof Error ? error.message : 'Error desconocido',
+          attemptedTargetUser: userId,
+          attemptedNewRole: newRole
+        }
+      });
+    } catch (auditError) {
+      console.error("❌ Error en auditoría:", auditError);
+    }
+    
     throw error;
   }
 };

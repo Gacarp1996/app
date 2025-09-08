@@ -1,0 +1,183 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // �️ SISTEMA DE SEGURIDAD BASADO EN ROLES PERMANENTE
+    // Estas reglas están diseñadas para funcionar indefinidamente
+    
+    // ===== FUNCIONES HELPER PARA VERIFICAR ROLES =====
+    
+    // Obtener el rol del usuario en una academia específica
+    function getUserRole(academiaId) {
+      return get(/databases/$(database)/documents/academias/$(academiaId)/usuarios/$(request.auth.uid)).data.role;
+    }
+    
+    // Verificar si el usuario pertenece a la academia
+    function belongsToAcademia(academiaId) {
+      return exists(/databases/$(database)/documents/academias/$(academiaId)/usuarios/$(request.auth.uid));
+    }
+    
+    // Verificar si puede gestionar usuarios (director o subdirector)
+    function canManageUsers(academiaId) {
+      let role = getUserRole(academiaId);
+      return role == 'academyDirector' || role == 'academySubdirector';
+    }
+    
+    // Verificar si puede gestionar la academia (solo director)
+    function canManageAcademia(academiaId) {
+      return getUserRole(academiaId) == 'academyDirector';
+    }
+    
+    // Verificar si puede entrenar (todos los roles de entrenamiento)
+    function canTrain(academiaId) {
+      let role = getUserRole(academiaId);
+      return role == 'academyDirector' || role == 'academySubdirector' || role == 'academyCoach' || role == 'groupCoach' || role == 'assistantCoach';
+    }
+    
+    // ===== REGLAS PRINCIPALES =====
+    
+    // ACADEMIAS - Estructura principal
+    match /academias/{academiaId} {
+      // Lectura: Cualquier usuario autenticado puede ver academias básicas
+      allow read: if request.auth != null;
+      
+      // Escritura: Solo directores pueden modificar la academia
+      allow write: if request.auth != null && canManageAcademia(academiaId);
+      
+      // USUARIOS DE LA ACADEMIA
+      match /usuarios/{userId} {
+        // Lectura: Miembros de la academia pueden ver otros usuarios
+        allow read: if request.auth != null && belongsToAcademia(academiaId);
+        
+        // Escritura: Solo directores y subdirectores pueden gestionar usuarios
+        allow write: if request.auth != null && canManageUsers(academiaId);
+      }
+      
+      // CONFIGURACIÓN DE LA ACADEMIA
+      match /configuracion/{configId} {
+        // Lectura: Miembros pueden leer configuración
+        allow read: if request.auth != null && belongsToAcademia(academiaId);
+        
+        // Escritura: Solo directores y subdirectores
+        allow write: if request.auth != null && canManageUsers(academiaId);
+      }
+      
+      // SESIONES DE ENTRENAMIENTO (subcollection)
+      match /sessions/{sessionId} {
+        allow read, write: if request.auth != null && canTrain(academiaId);
+      }
+      
+      // TORNEOS DISPUTADOS (subcollection)
+      match /disputedTournaments/{tournamentId} {
+        allow read, write: if request.auth != null && canTrain(academiaId);
+      }
+      
+      // TORNEOS (subcollection)
+      match /tournaments/{tournamentId} {
+        allow read, write: if request.auth != null && canTrain(academiaId);
+      }
+      
+      // TORNEOS FUTUROS (subcollection)
+      match /futureTournaments/{tournamentId} {
+        allow read, write: if request.auth != null && canTrain(academiaId);
+      }
+      
+      // JUGADORES (subcollection)
+      match /players/{playerId} {
+        allow read, write: if request.auth != null && canTrain(academiaId);
+      }
+      
+      // PLANES DE ENTRENAMIENTO (subcollection)
+      match /trainingPlans/{planId} {
+        allow read, write: if request.auth != null && canTrain(academiaId);
+      }
+      
+      // ENCUESTAS (subcollection)
+      match /surveys/{surveyId} {
+        // Lectura: Miembros de la academia
+        allow read: if request.auth != null && belongsToAcademia(academiaId);
+        
+        // Escritura: Solo directores y subdirectores
+        allow write: if request.auth != null && canManageUsers(academiaId);
+      }
+      
+      // RESPUESTAS DE ENCUESTAS (subcollection)
+      match /surveyResponses/{responseId} {
+        // Lectura: El propio usuario o gestores
+        allow read: if request.auth != null && 
+                       (request.auth.uid == resource.data.userId || 
+                        canManageUsers(academiaId));
+        
+        // Escritura: El propio usuario puede responder
+        allow write: if request.auth != null && 
+                        request.auth.uid == resource.data.userId;
+      }
+      
+      // MÉTRICAS (subcollection)
+      match /metrics/{metricId} {
+        allow read, write: if request.auth != null && canTrain(academiaId);
+      }
+    }
+    
+    // CONFIGURACIONES DE ACADEMIA (colección principal)
+    match /academiaConfigs/{academiaId} {
+      // Lectura: Miembros pueden leer configuración
+      allow read: if request.auth != null && belongsToAcademia(academiaId);
+      
+      // Escritura: Solo directores y subdirectores
+      allow write: if request.auth != null && canManageUsers(academiaId);
+    }
+    
+    // GESTIÓN DE USUARIOS Y SUS ACADEMIAS
+    match /userAcademias/{userId} {
+      // Solo el propio usuario puede leer/escribir sus academias
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /users/{userId} {
+      // Lectura: El propio usuario o miembros de academias compartidas
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Escritura: Solo el propio usuario
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // JUGADORES PRINCIPALES (si existen como colección principal)
+    match /players/{playerId} {
+      // Para colección principal de jugadores, verificar que pertenezca a la academia
+      allow read, write: if request.auth != null && 
+                           resource.data.academiaId != null &&
+                           canTrain(resource.data.academiaId);
+    }
+    
+    // OBJETIVOS PRINCIPALES (si existen como colección principal)
+    match /objectives/{objectiveId} {
+      allow read, write: if request.auth != null && 
+                           resource.data.academiaId != null &&
+                           canTrain(resource.data.academiaId);
+    }
+    
+    // SOLICITUDES DE UNIÓN
+    match /joinRequests/{requestId} {
+      // Lectura: Gestores de la academia
+      allow read: if request.auth != null && 
+                     resource.data.academiaId != null &&
+                     canManageUsers(resource.data.academiaId);
+      
+      // Escritura: Cualquier usuario puede crear solicitud, solo gestores pueden aprobar
+      allow create: if request.auth != null && 
+                       request.auth.uid == request.resource.data.userId;
+      
+      allow update, delete: if request.auth != null && 
+                               resource.data.academiaId != null &&
+                               canManageUsers(resource.data.academiaId);
+    }
+    
+    // NOTIFICACIONES
+    match /notifications/{notificationId} {
+      // Solo el destinatario puede leer sus notificaciones
+      allow read, write: if request.auth != null && 
+                           request.auth.uid == resource.data.recipientId;
+    }
+  }
+}

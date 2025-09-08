@@ -7,6 +7,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# 🔒 SEGURIDAD - Variables de entorno sensibles
+.env
+.env.local
+.env.production
+.env.development
+*.env
+
 node_modules
 dist
 dist-ssr
