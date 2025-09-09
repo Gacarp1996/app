@@ -103,6 +103,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
     handleAddSpecificExercise,
     handleSubmitSpecificExercise,
     handleAddExerciseToSession,
+    handleRemoveExercise,
     handleFinishTraining,
     handleSurveySubmit,
     handleCloseSurveyModal,
@@ -387,6 +388,7 @@ const TrainingSessionPage: React.FC<TrainingSessionPageProps> = () => {
           <SessionSummary
             exercises={exercises}
             participants={participants}
+            onRemoveExercise={handleRemoveExercise}
           />
         </div>
 

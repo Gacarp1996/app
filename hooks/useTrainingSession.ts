@@ -43,6 +43,7 @@ export const useTrainingSession = ({
     setParticipants, 
     exercises, 
     addExercise, 
+    removeExercise,
     endSession, 
     loadSession,
     loadSessionForEdit
@@ -193,6 +194,21 @@ export const useTrainingSession = ({
     exerciseForm.resetForm();
   }, [exerciseForm, participantsManager.activePlayerIds, participants, addExercise, notification]);
 
+  const handleRemoveExercise = useCallback(async (exerciseIndex: number, exerciseName: string, playerName: string) => {
+    const confirmed = await notification.confirm({
+      title: 'Eliminar Ejercicio',
+      message: `¿Estás seguro de que quieres eliminar el ejercicio "${exerciseName}" de ${playerName}?`,
+      type: 'warning',
+      confirmText: 'Sí, eliminar',
+      cancelText: 'Cancelar'
+    });
+    
+    if (confirmed) {
+      removeExercise(exerciseIndex);
+      notification.success('Ejercicio eliminado', 'El ejercicio fue eliminado correctamente');
+    }
+  }, [removeExercise, notification]);
+
   const handleSurveySubmit = useCallback(async (playerId: string, responses: any) => {
     await surveysManager.handleSurveySubmit(playerId, responses, addSessionToContext);
   }, [surveysManager, addSessionToContext]);
@@ -277,6 +293,7 @@ export const useTrainingSession = ({
     handleCancelExitSurveys: surveysManager.handleCancelExitSurveys,
     
     handleAddExerciseToSession,
+    handleRemoveExercise,
     handleFinishTraining,
     handleSurveySubmit,
     handleDeclineSurveys,

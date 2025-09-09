@@ -18,6 +18,7 @@ interface TrainingContextType {
   setExercises: React.Dispatch<React.SetStateAction<SessionExercise[]>>;
   startSession: (players: Player[]) => void;
   addExercise: (exercise: SessionExercise) => void;
+  removeExercise: (exerciseIndex: number) => void;
   endSession: () => void;
   loadSession: () => boolean;
   loadSessionForEdit: (players: Player[], exercises: SessionExercise[]) => void;
@@ -120,6 +121,19 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   }, [setSessionData]);
 
+  const removeExercise = useCallback((exerciseIndex: number) => {
+    setExercises(prev => {
+      const newExercises = prev.filter((_, index) => index !== exerciseIndex);
+      // También actualizar sessionData inmediatamente
+      setSessionData(current => current ? {
+        ...current,
+        exercises: newExercises,
+        timestamp: new Date().toISOString()
+      } : null);
+      return newExercises;
+    });
+  }, [setSessionData]);
+
   const endSession = useCallback(() => {
     setParticipants([]);
     setExercises([]);
@@ -136,6 +150,7 @@ export const TrainingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setExercises,
       startSession, 
       addExercise, 
+      removeExercise,
       endSession, 
       loadSession, 
       loadSessionForEdit

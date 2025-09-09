@@ -172,7 +172,7 @@ const useAcademyCoachDashboard = () => {
       // Procesar datos adicionales
       await Promise.all([
         processPlayerStatus(activePlayers, trainedPlayersData),
-        processWeeklySatisfaction(activePlayers, currentUser.uid)
+        processWeeklySatisfaction(activePlayers) // ✅ CORREGIDO: Sin filtro por coach
       ]);
 
       setTrainedPlayers(trainedPlayersData);
@@ -200,17 +200,18 @@ const useAcademyCoachDashboard = () => {
     // IDs de jugadores que el coach ha entrenado alguna vez
     const trainedPlayerIds = new Set(trainedPlayersData.map(tp => tp.playerId));
     
-    // Filtrar solo jugadores que el coach entrena o ha entrenado
-    const coachPlayers = players.filter(player => trainedPlayerIds.has(player.id));
+    // ✅ CORREGIDO: Un entrenador debe ver TODOS los jugadores de la academia
+    // No filtrar por jugadores entrenados, mostrar todos
+    const allAcademyPlayers = players;
     
-    // Separar jugadores activos e inactivos (del coach)
-    const activePlayers = coachPlayers.filter(player => activePlayerIds.has(player.id));
-    const inactivePlayers = coachPlayers.filter(player => !activePlayerIds.has(player.id));
+    // Separar jugadores activos e inactivos basado en entrenamientos de HOY
+    const activePlayers = allAcademyPlayers.filter(player => activePlayerIds.has(player.id));
+    const inactivePlayers = allAcademyPlayers.filter(player => !activePlayerIds.has(player.id));
 
-    // Verificar planificación para los jugadores del coach
+    // Verificar planificación para TODOS los jugadores de la academia
     const playersWithoutPlan: Player[] = [];
     
-    for (const player of coachPlayers) {
+    for (const player of allAcademyPlayers) {
       try {
         const hasObjectives = objectives.some((obj: Objective) => obj.jugadorId === player.id);
         
@@ -233,7 +234,7 @@ const useAcademyCoachDashboard = () => {
   };
 
   // Procesar satisfacción semanal (solo de los jugadores del coach)
-  const processWeeklySatisfaction = async (players: Player[], coachId: string) => {
+  const processWeeklySatisfaction = async (players: Player[], coachId?: string) => {
     if (!academiaActual || players.length === 0) {
       setWeeklySatisfaction({
         generalAverage: 0,
@@ -248,23 +249,12 @@ const useAcademyCoachDashboard = () => {
     startDate.setDate(endDate.getDate() - 7);
 
     try {
-      // ✅ USAR FUNCIÓN DEL CONTEXTO para obtener sesiones del coach
-      const coachWeekSessions = getSessionsByCoach(coachId, { start: startDate, end: endDate });
-
-      // Obtener IDs únicos de jugadores entrenados por el coach
-      const coachPlayerIds = [...new Set(coachWeekSessions.map(s => s.jugadorId))];
+      // ✅ CORREGIDO: Obtener encuestas de TODOS los jugadores de la academia
+      // No filtrar por coach para que los entrenadores vean el panorama completo
+      const allPlayerIds = players.map(p => p.id);
       
-      if (coachPlayerIds.length === 0) {
-        setWeeklySatisfaction({
-          generalAverage: 0,
-          playerAverages: [],
-          totalSurveys: 0
-        });
-        return;
-      }
-
-      // Obtener encuestas solo de los jugadores del coach
-      const surveys = await getBatchSurveys(academiaActual.id, coachPlayerIds, startDate, endDate);
+      // Obtener encuestas de todos los jugadores activos
+      const surveys = await getBatchSurveys(academiaActual.id, allPlayerIds, startDate, endDate);
 
       if (surveys.length === 0) {
         setWeeklySatisfaction({
