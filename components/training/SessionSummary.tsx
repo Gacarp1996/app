@@ -37,7 +37,7 @@ const SessionSummary: React.FC<SessionSummaryProps> = ({
                 return (
                   <li 
                     key={`${index}-${ex.id}`} 
-                    className="bg-gray-800/50 p-3 lg:p-4 rounded-lg border border-gray-700 group"
+                    className="bg-gray-800/50 p-3 lg:p-4 rounded-lg border border-gray-700"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
@@ -62,9 +62,9 @@ const SessionSummary: React.FC<SessionSummaryProps> = ({
                             ex.ejercicio || ex.ejercicioEspecifico || 'Ejercicio',
                             ex.loggedForPlayerName
                           )}
-                          className="flex-shrink-0 p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 
-                                   rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100
-                                   focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                          className="flex-shrink-0 p-2 text-red-400 hover:text-red-300 hover:bg-red-500/20 
+                                   rounded-lg transition-all duration-200 border border-red-500/30
+                                   focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:text-red-300"
                           title="Eliminar ejercicio"
                           aria-label={`Eliminar ejercicio ${ex.ejercicio || ex.ejercicioEspecifico} de ${ex.loggedForPlayerName}`}
                         >
