@@ -8,6 +8,7 @@ import { getUserRoleInAcademia, addUserToAcademia, UserRole } from '../Database/
 import Modal from '../components/shared/Modal';
 import { crearAcademia, obtenerAcademiaPorId, buscarAcademiaPorIdPublico, crearSolicitudUnion } from '../Database/FirebaseAcademias';
 import { Academia, TipoEntidad } from '../types/types';
+import { getAuth, signOut } from 'firebase/auth';
 
 // ✅ FUNCIÓN HELPER PARA DETERMINAR TIPO DE ENTIDAD
 const getEntityType = (academiaData: Academia | null): TipoEntidad => {
@@ -60,6 +61,7 @@ const AcademiaSelectPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { setAcademiaActual, misAcademias, registrarAccesoAcademia } = useAcademia();
   const notification = useNotification();
+  const auth = getAuth();
 
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [isCrearGrupoModalOpen, setIsCrearGrupoModalOpen] = useState(false);
@@ -70,6 +72,23 @@ const AcademiaSelectPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [academiaBuscada, setAcademiaBuscada] = useState<any>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // ✅ FUNCIÓN PARA MOSTRAR MODAL DE CONFIRMACIÓN
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  // ✅ FUNCIÓN PARA CERRAR SESIÓN (DESPUÉS DE CONFIRMACIÓN)
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      notification.error('Error al cerrar sesión', 'Por favor, intenta de nuevo.');
+    }
+  };
 
   // ✅ FUNCIÓN CORREGIDA PARA CREAR ACADEMIA
   const handleCrearAcademia = async (e: React.FormEvent) => {
@@ -183,6 +202,13 @@ const AcademiaSelectPage: React.FC = () => {
     setError('');
 
     try {
+      console.log('🚀 INICIANDO solicitud con datos:', {
+        academia: academiaBuscada.nombre,
+        academiaId: academiaBuscada.firebaseId,
+        publicId: academiaBuscada.publicId,
+        usuario: currentUser.email
+      });
+
       // ✅ NUEVO: Crear solicitud en lugar de unirse directamente
       const result = await crearSolicitudUnion(
         academiaBuscada.firebaseId,
@@ -194,6 +220,8 @@ const AcademiaSelectPage: React.FC = () => {
         }
       );
 
+      console.log('📋 Resultado de solicitud:', result);
+
       if (result.success) {
         notification.success(
           '¡Solicitud enviada!',
@@ -203,10 +231,11 @@ const AcademiaSelectPage: React.FC = () => {
         setAcademiaBuscada(null);
         setIdIngreso('');
       } else {
+        console.error('❌ Error en solicitud:', result.message);
         setError(result.message);
       }
     } catch (error: any) {
-      console.error('Error enviando solicitud:', error);
+      console.error('🚨 ERROR COMPLETO enviando solicitud:', error);
       setError('Error al enviar solicitud. Intenta de nuevo.');
     } finally {
       setLoading(false);
@@ -263,6 +292,20 @@ const AcademiaSelectPage: React.FC = () => {
       <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
       <div className="absolute top-1/4 left-1/4 w-64 h-64 sm:w-96 sm:h-96 lg:w-[600px] lg:h-[600px] bg-green-500/10 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 sm:w-96 sm:h-96 lg:w-[600px] lg:h-[600px] bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+      
+      {/* ✅ Botón de cerrar sesión - estilo discreto */}
+      <div className="absolute top-4 right-4 z-50">
+        <button
+          onClick={handleLogoutClick}
+          className="group flex items-center gap-2 px-4 py-2 bg-gray-900/80 backdrop-blur-sm border border-gray-700 hover:border-red-500/50 rounded-lg text-gray-300 hover:text-red-400 transition-all duration-300 shadow-lg hover:shadow-red-500/10"
+          title="Cerrar sesión"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+          </svg>
+          <span className="text-sm font-medium hidden sm:inline">Cerrar Sesión</span>
+        </button>
+      </div>
       
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
         <div className="w-full max-w-4xl lg:max-w-6xl xl:max-w-7xl">
@@ -590,6 +633,60 @@ const AcademiaSelectPage: React.FC = () => {
               <strong className="text-gray-300">💡 Consejo:</strong> Las solicitudes requieren aprobación del director de la academia para garantizar la seguridad. 
               Si tu solicitud es rechazada, contacta directamente al administrador.
             </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ✅ NUEVO: Modal de confirmación para cerrar sesión */}
+      <Modal 
+        isOpen={showLogoutModal} 
+        onClose={() => setShowLogoutModal(false)} 
+        title="¿Cerrar sesión?"
+      >
+        <div className="space-y-6">
+          {/* Mensaje de confirmación */}
+          <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 p-4 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-yellow-400">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-yellow-400 font-medium mb-1">Confirmar cierre de sesión</p>
+                <p className="text-sm text-gray-300">
+                  ¿Estás seguro de que quieres cerrar sesión? Tendrás que volver a iniciar sesión para acceder a la aplicación.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Información del usuario actual */}
+          {currentUser && (
+            <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-3">
+              <p className="text-gray-400 text-sm">
+                <strong className="text-gray-300">Usuario actual:</strong> {currentUser.email}
+              </p>
+            </div>
+          )}
+
+          {/* Botones de acción */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                handleLogout();
+              }}
+              className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors"
+            >
+              Sí, cerrar sesión
+            </button>
           </div>
         </div>
       </Modal>

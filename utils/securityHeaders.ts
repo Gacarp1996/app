@@ -106,7 +106,13 @@ export const validateSecureEnvironment = () => {
 
   // Verificar dominio válido en producción
   if (!import.meta.env.DEV) {
-    const allowedDomains = ['localhost', 'teniscoaching-app.web.app', 'your-domain.com'];
+    const allowedDomains = [
+      'localhost', 
+      'teniscoaching-app.web.app', 
+      'tennis-academy-34074.web.app',
+      'tenniscoachingapp.com',
+      'your-domain.com'
+    ];
     const currentDomain = window.location.hostname;
     if (!allowedDomains.includes(currentDomain)) {
       checks.validDomain = false;

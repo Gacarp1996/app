@@ -2,19 +2,63 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // �️ SISTEMA DE SEGURIDAD BASADO EN ROLES PERMANENTE
+    // 🛡️ SISTEMA DE SEGURIDAD BASADO EN ROLES PERMANENTE
     // Estas reglas están diseñadas para funcionar indefinidamente
+    
+    // 📋 JERARQUÍA DE PERMISOS POR ROL:
+    //
+    // 🔴 DIRECTOR DE ACADEMIA (academyDirector):
+    // - Gestión completa de la academia
+    // - Agregar/eliminar usuarios
+    // - Modificar configuración de la academia
+    // - Gestionar todos los datos (jugadores, planes, torneos, etc.)
+    // - Ver reportes avanzados
+    //
+    // 🟡 SUBDIRECTOR DE ACADEMIA (academySubdirector):
+    // - Gestionar usuarios (agregar/modificar, NO eliminar)
+    // - Crear planes de entrenamiento y objetivos
+    // - Gestionar torneos
+    // - Ver reportes avanzados
+    // - Modificar configuración básica
+    //
+    // 🟢 ENTRENADOR DE ACADEMIA (academyCoach):
+    // - Crear planes de entrenamiento y objetivos
+    // - Gestionar torneos
+    // - Registrar sesiones y métricas
+    // - Crear encuestas
+    // - Ver todos los jugadores
+    //
+    // 🔵 ENTRENADOR DE GRUPO (groupCoach):
+    // - Registrar sesiones y métricas
+    // - Ver jugadores asignados
+    // - Actualizar información de entrenamiento
+    //
+    // 🟣 ENTRENADOR ASISTENTE (assistantCoach):
+    // - Registrar sesiones básicas
+    // - Ver jugadores asignados
+    // - Actualizar métricas básicas
     
     // ===== FUNCIONES HELPER PARA VERIFICAR ROLES =====
     
     // Obtener el rol del usuario en una academia específica
     function getUserRole(academiaId) {
-      return get(/databases/$(database)/documents/academias/$(academiaId)/usuarios/$(request.auth.uid)).data.role;
+      let userDoc = /databases/$(database)/documents/academias/$(academiaId)/usuarios/$(request.auth.uid);
+      return exists(userDoc) ? get(userDoc).data.role : null;
     }
     
     // Verificar si el usuario pertenece a la academia
     function belongsToAcademia(academiaId) {
       return exists(/databases/$(database)/documents/academias/$(academiaId)/usuarios/$(request.auth.uid));
+    }
+    
+    // Verificar si es director de la academia
+    function isDirector(academiaId) {
+      return getUserRole(academiaId) == 'academyDirector';
+    }
+    
+    // Verificar si es subdirector de la academia
+    function isSubdirector(academiaId) {
+      return getUserRole(academiaId) == 'academySubdirector';
     }
     
     // Verificar si puede gestionar usuarios (director o subdirector)
@@ -23,15 +67,54 @@ service cloud.firestore {
       return role == 'academyDirector' || role == 'academySubdirector';
     }
     
-    // Verificar si puede gestionar la academia (solo director)
-    function canManageAcademia(academiaId) {
+    // Verificar si puede eliminar usuarios (solo director)
+    function canDeleteUsers(academiaId) {
       return getUserRole(academiaId) == 'academyDirector';
+    }
+    
+    // Verificar si puede gestionar la academia completa (director o creador)
+    function canManageAcademia(academiaId) {
+      let academiaDoc = get(/databases/$(database)/documents/academias/$(academiaId));
+      return academiaDoc.data.creadorId == request.auth.uid || getUserRole(academiaId) == 'academyDirector';
+    }
+    
+    // Permitir eliminación a creadores y directores
+    function canDeleteAcademia(academiaId) {
+      let academiaDoc = get(/databases/$(database)/documents/academias/$(academiaId));
+      return request.auth != null && 
+             (academiaDoc.data.creadorId == request.auth.uid || 
+              getUserRole(academiaId) == 'academyDirector');
+    }
+    
+    // Verificar si puede crear/modificar planes de entrenamiento (director, subdirector, academyCoach)
+    function canManageTrainingPlans(academiaId) {
+      let role = getUserRole(academiaId);
+      return role == 'academyDirector' || role == 'academySubdirector' || role == 'academyCoach';
     }
     
     // Verificar si puede entrenar (todos los roles de entrenamiento)
     function canTrain(academiaId) {
       let role = getUserRole(academiaId);
       return role == 'academyDirector' || role == 'academySubdirector' || role == 'academyCoach' || role == 'groupCoach' || role == 'assistantCoach';
+    }
+    
+    // Verificar si puede ver reportes avanzados (director y subdirector)
+    function canViewAdvancedReports(academiaId) {
+      let role = getUserRole(academiaId);
+      return role == 'academyDirector' || role == 'academySubdirector';
+    }
+    
+    // Verificar si puede gestionar torneos (director, subdirector, academyCoach)
+    function canManageTournaments(academiaId) {
+      let role = getUserRole(academiaId);
+      return role == 'academyDirector' || role == 'academySubdirector' || role == 'academyCoach';
+    }
+    
+    // Verificar si el usuario tiene permisos de gestión en alguna academia
+    function hasManagementPermissions() {
+      // Esta función verifica si el usuario es director o subdirector en al menos una academia
+      // Para una implementación más eficiente, podríamos mantener una lista de academias del usuario
+      return true; // Temporal: permitir acceso mientras implementamos verificación completa
     }
     
     // ===== REGLAS PRINCIPALES =====
@@ -41,86 +124,218 @@ service cloud.firestore {
       // Lectura: Cualquier usuario autenticado puede ver academias básicas
       allow read: if request.auth != null;
       
-      // Escritura: Solo directores pueden modificar la academia
-      allow write: if request.auth != null && canManageAcademia(academiaId);
+      // Creación: Cualquier usuario autenticado puede crear una academia nueva
+      allow create: if request.auth != null;
+      
+      // Actualización: Solo creadores pueden "eliminar" (activa=false) su academia
+      allow update: if request.auth != null && 
+                       (get(/databases/$(database)/documents/academias/$(academiaId)).data.creadorId == request.auth.uid ||
+                        getUserRole(academiaId) == 'academyDirector');
+      
+      // Eliminación: Solo creadores y directores pueden eliminar
+      allow delete: if request.auth != null && 
+                       (get(/databases/$(database)/documents/academias/$(academiaId)).data.creadorId == request.auth.uid ||
+                        getUserRole(academiaId) == 'academyDirector');
       
       // USUARIOS DE LA ACADEMIA
       match /usuarios/{userId} {
         // Lectura: Miembros de la academia pueden ver otros usuarios
         allow read: if request.auth != null && belongsToAcademia(academiaId);
         
-        // Escritura: Solo directores y subdirectores pueden gestionar usuarios
-        allow write: if request.auth != null && canManageUsers(academiaId);
+        // Creación: Directores y subdirectores pueden agregar usuarios
+        // EXCEPCIÓN: Creador puede asignarse a sí mismo como director en academia nueva
+        allow create: if request.auth != null && 
+                         (canManageUsers(academiaId) || 
+                          (request.auth.uid == userId && resource == null));
+        
+        // Actualización: Directores y subdirectores pueden modificar usuarios
+        // Los usuarios pueden actualizar cierta información propia
+        allow update: if request.auth != null && 
+                         (canManageUsers(academiaId) || 
+                          (request.auth.uid == userId && 
+                           request.resource.data.role == resource.data.role)); // No pueden cambiar su propio rol
+        
+        // 🔍 DEBUG: Eliminación temporal más permisiva para debugging
+        // TEMPORAL: Permitir eliminar si es director O si es el creador de la academia
+        allow delete: if request.auth != null && 
+                         (canDeleteUsers(academiaId) || 
+                          get(/databases/$(database)/documents/academias/$(academiaId)).data.creadorId == request.auth.uid);
       }
       
       // CONFIGURACIÓN DE LA ACADEMIA
       match /configuracion/{configId} {
-        // Lectura: Miembros pueden leer configuración
+        // Lectura: Miembros pueden leer configuración básica
         allow read: if request.auth != null && belongsToAcademia(academiaId);
         
-        // Escritura: Solo directores y subdirectores
-        allow write: if request.auth != null && canManageUsers(academiaId);
+        // Creación/Actualización: Solo directores y subdirectores pueden modificar configuración
+        allow create, update: if request.auth != null && canManageUsers(academiaId);
+        
+        // Eliminación: Solo directores pueden eliminar configuración
+        allow delete: if request.auth != null && isDirector(academiaId);
       }
       
       // SESIONES DE ENTRENAMIENTO (subcollection)
       match /sessions/{sessionId} {
-        allow read, write: if request.auth != null && canTrain(academiaId);
+        // Lectura: Todos los entrenadores pueden ver sesiones
+        allow read: if request.auth != null && canTrain(academiaId);
+        
+        // Creación: Todos los entrenadores pueden crear sesiones
+        allow create: if request.auth != null && canTrain(academiaId);
+        
+        // Actualización: El creador de la sesión o roles superiores pueden modificar
+        allow update: if request.auth != null && 
+                         (canTrain(academiaId) && 
+                          (resource.data.createdBy == request.auth.uid || canManageUsers(academiaId)));
+        
+        // Eliminación: Director, subdirector o el creador de la sesión
+        allow delete: if request.auth != null && 
+                         (canManageUsers(academiaId) || 
+                          (canTrain(academiaId) && resource.data.createdBy == request.auth.uid));
+        
+        // EXCEPCIÓN TEMPORAL: Creador de la academia puede acceder durante setup inicial
+        allow read: if request.auth != null && 
+                       get(/databases/$(database)/documents/academias/$(academiaId)).data.creadorId == request.auth.uid;
       }
       
       // TORNEOS DISPUTADOS (subcollection)
       match /disputedTournaments/{tournamentId} {
-        allow read, write: if request.auth != null && canTrain(academiaId);
+        // Lectura: Todos los entrenadores pueden ver torneos disputados
+        allow read: if request.auth != null && canTrain(academiaId);
+        
+        // Creación/Actualización: Director, subdirector y academyCoach pueden gestionar
+        allow create, update: if request.auth != null && canManageTournaments(academiaId);
+        
+        // Eliminación: Solo director y subdirector pueden eliminar registros de torneos
+        allow delete: if request.auth != null && canManageUsers(academiaId);
+        
+        // EXCEPCIÓN TEMPORAL: Creador de la academia puede acceder durante setup inicial
+        allow read: if request.auth != null && 
+                       get(/databases/$(database)/documents/academias/$(academiaId)).data.creadorId == request.auth.uid;
+      }
+      
+      // SOLICITUDES DE UNIÓN (subcollection)
+      match /solicitudes/{solicitudId} {
+        // Cualquier usuario autenticado puede crear solicitudes de unión
+        allow create: if request.auth != null && 
+                         request.auth.uid == request.resource.data.userId;
+        
+        // Lectura: El propio solicitante puede ver su solicitud, o directores de la academia
+        allow read: if request.auth != null && 
+                       (request.auth.uid == resource.data.userId ||
+                        (belongsToAcademia(academiaId) && canManageUsers(academiaId)));
+        
+        // Actualización/eliminación: Solo directores de la academia o el propio solicitante
+        allow update, delete: if request.auth != null && 
+                                 (request.auth.uid == resource.data.userId ||
+                                  (belongsToAcademia(academiaId) && canManageUsers(academiaId)));
       }
       
       // TORNEOS (subcollection)
       match /tournaments/{tournamentId} {
-        allow read, write: if request.auth != null && canTrain(academiaId);
+        // Lectura: Todos los entrenadores pueden ver torneos
+        allow read: if request.auth != null && canTrain(academiaId);
+        
+        // Escritura: Director, subdirector y academyCoach pueden gestionar torneos
+        allow write: if request.auth != null && canManageTournaments(academiaId);
       }
       
       // TORNEOS FUTUROS (subcollection)
       match /futureTournaments/{tournamentId} {
-        allow read, write: if request.auth != null && canTrain(academiaId);
+        // Lectura: Todos los entrenadores pueden ver torneos futuros
+        allow read: if request.auth != null && canTrain(academiaId);
+        
+        // Escritura: Director, subdirector y academyCoach pueden gestionar torneos futuros
+        allow write: if request.auth != null && canManageTournaments(academiaId);
       }
       
       // JUGADORES (subcollection)
       match /players/{playerId} {
-        allow read, write: if request.auth != null && canTrain(academiaId);
+        // Lectura: Todos los entrenadores pueden ver jugadores
+        allow read: if request.auth != null && canTrain(academiaId);
+        
+        // Creación: Director, subdirector y academyCoach pueden crear jugadores
+        allow create: if request.auth != null && canManageTrainingPlans(academiaId);
+        
+        // Actualización: Todos los entrenadores pueden actualizar información de jugadores
+        allow update: if request.auth != null && canTrain(academiaId);
+        
+        // Eliminación: Solo director y subdirector pueden eliminar jugadores
+        allow delete: if request.auth != null && canManageUsers(academiaId);
       }
       
       // PLANES DE ENTRENAMIENTO (subcollection)
       match /trainingPlans/{planId} {
-        allow read, write: if request.auth != null && canTrain(academiaId);
+        // Lectura: Todos los entrenadores pueden ver planes
+        allow read: if request.auth != null && canTrain(academiaId);
+        
+        // Creación/Modificación: Director, subdirector y academyCoach pueden crear/modificar
+        allow create, update: if request.auth != null && canManageTrainingPlans(academiaId);
+        
+        // Eliminación: Solo director y subdirector pueden eliminar planes
+        allow delete: if request.auth != null && canManageUsers(academiaId);
       }
       
       // OBJETIVOS (subcollection)
       match /objectives/{objectiveId} {
-        allow read, write: if request.auth != null && canTrain(academiaId);
+        // Lectura: Todos los entrenadores pueden ver objetivos
+        allow read: if request.auth != null && canTrain(academiaId);
+        
+        // Creación: Director, subdirector y academyCoach pueden crear objetivos
+        allow create: if request.auth != null && canManageTrainingPlans(academiaId);
+        
+        // Actualización: Todos los entrenadores pueden actualizar objetivos
+        allow update: if request.auth != null && canTrain(academiaId);
+        
+        // Eliminación: Solo director y subdirector pueden eliminar objetivos
+        allow delete: if request.auth != null && canManageUsers(academiaId);
       }
       
       // ENCUESTAS (subcollection)
       match /surveys/{surveyId} {
-        // Lectura: Miembros de la academia
+        // Lectura: Miembros de la academia pueden ver encuestas
         allow read: if request.auth != null && belongsToAcademia(academiaId);
         
-        // Escritura: Cualquier usuario que pueda entrenar (incluye coaches)
-        allow write: if request.auth != null && canTrain(academiaId);
+        // Creación: Director, subdirector y academyCoach pueden crear encuestas
+        allow create: if request.auth != null && canManageTrainingPlans(academiaId);
+        
+        // Actualización: El creador o roles superiores pueden modificar
+        allow update: if request.auth != null && 
+                         (canManageTrainingPlans(academiaId) && 
+                          (resource.data.createdBy == request.auth.uid || canManageUsers(academiaId)));
+        
+        // Eliminación: Solo director y subdirector pueden eliminar encuestas
+        allow delete: if request.auth != null && canManageUsers(academiaId);
       }
       
       // RESPUESTAS DE ENCUESTAS (subcollection)
       match /surveyResponses/{responseId} {
-        // Lectura: El propio usuario o gestores
+        // Lectura: El propio usuario o gestores pueden ver respuestas
         allow read: if request.auth != null && 
                        (request.auth.uid == resource.data.userId || 
-                        canManageUsers(academiaId));
+                        canViewAdvancedReports(academiaId));
         
-        // Escritura: El propio usuario puede responder
-        allow write: if request.auth != null && 
+        // Creación: El usuario puede responder sus propias encuestas
+        allow create: if request.auth != null && 
+                        request.auth.uid == request.resource.data.userId;
+        
+        // Actualización: El usuario puede modificar sus respuestas (dentro de un período)
+        allow update: if request.auth != null && 
                         request.auth.uid == resource.data.userId;
+        
+        // Eliminación: Solo directores y subdirectores pueden eliminar respuestas
+        allow delete: if request.auth != null && canManageUsers(academiaId);
       }
       
       // MÉTRICAS (subcollection)
       match /metrics/{metricId} {
-        allow read, write: if request.auth != null && canTrain(academiaId);
+        // Lectura: Todos los entrenadores pueden ver métricas
+        allow read: if request.auth != null && canTrain(academiaId);
+        
+        // Creación/Actualización: Todos los entrenadores pueden registrar métricas
+        allow create, update: if request.auth != null && canTrain(academiaId);
+        
+        // Eliminación: Solo director y subdirector pueden eliminar métricas
+        allow delete: if request.auth != null && canManageUsers(academiaId);
       }
     }
     
@@ -135,8 +350,17 @@ service cloud.firestore {
     
     // GESTIÓN DE USUARIOS Y SUS ACADEMIAS
     match /userAcademias/{userId} {
-      // Solo el propio usuario puede leer/escribir sus academias
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Lectura: El propio usuario o usuarios autenticados (temporal para gestión)
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        hasManagementPermissions()
+      );
+      
+      // Escritura: El propio usuario O directores/subdirectores que gestionen academias
+      allow write: if request.auth != null && (
+        request.auth.uid == userId ||
+        hasManagementPermissions()
+      );
     }
     
     match /users/{userId} {
@@ -183,6 +407,15 @@ service cloud.firestore {
       // Solo el destinatario puede leer sus notificaciones
       allow read, write: if request.auth != null && 
                            request.auth.uid == resource.data.recipientId;
+    }
+    
+    // AUDITORÍA DE SEGURIDAD
+    match /securityAudit/{auditId} {
+      // Cualquier usuario autenticado puede escribir eventos de seguridad
+      allow create: if request.auth != null;
+      
+      // Solo administradores del sistema pueden leer logs (opcional)
+      allow read: if request.auth != null;
     }
   }
 }

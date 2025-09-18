@@ -119,10 +119,11 @@ const useDirectorDashboardData = () => {
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
 
   useEffect(() => {
-    if (academiaActual && allPlayersFromContext.length > 0 && currentUser) {
+    // ✅ CAMBIO: No requerir players para cargar dashboard (academia nueva puede no tener players)
+    if (academiaActual && currentUser) {
       loadDashboardData();
     }
-  }, [academiaActual, allPlayersFromContext, currentUser]);
+  }, [academiaActual, currentUser]); // ✅ REMOVIDO allPlayersFromContext de dependencias
 
   const loadDashboardData = async () => {
     if (!academiaActual || !currentUser) {
@@ -147,13 +148,11 @@ const useDirectorDashboardData = () => {
         throw new Error('No se pudo registrar el usuario en la academia');
       }
 
-      console.log(`Usuario registrado con rol: ${userRole}, procediendo a cargar dashboard`);
-
       // ✅ AHORA SÍ: Cargar datos con permisos asegurados
       const todaySessionsData = getTodaySessions();
       const users = await getAcademiaUsers(academiaActual.id);
 
-      // Usar jugadores del contexto
+      // Usar jugadores del contexto (puede ser array vacío para academia nueva)
       const players = allPlayersFromContext;
 
       // Filtrar solo jugadores activos

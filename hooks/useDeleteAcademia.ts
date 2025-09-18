@@ -44,6 +44,8 @@ export const useDeleteAcademia = ({
   };
 
   const handleDeleteAcademia = async (e?: React.FormEvent) => {
+    console.log('🔍 HOOK DEBUG: handleDeleteAcademia llamado');
+    
     if (e) {
       e.preventDefault();
     }
@@ -51,6 +53,9 @@ export const useDeleteAcademia = ({
   
 
     if (!academiaActual || !currentUser) {
+      console.log('❌ HOOK DEBUG: Faltan datos necesarios');
+      console.log('academiaActual:', academiaActual);
+      console.log('currentUser:', currentUser);
       setDeleteError('Error: Faltan datos necesarios');
       return;
     }
@@ -69,21 +74,34 @@ export const useDeleteAcademia = ({
     setDeleteError('');
 
     try {
+      console.log('🔍 DEBUG ELIMINACIÓN: Iniciando proceso');
+      console.log('🔍 Usuario actual:', currentUser.uid);
+      console.log('🔍 Academia actual:', {
+        id: academiaActual.id,
+        nombre: academiaActual.nombre,
+        creadorId: academiaActual.creadorId,
+        tipo: academiaActual.tipo
+      });
+      
       const credential = EmailAuthProvider.credential(
         currentUser.email,
         deletePassword
       );
       
       await reauthenticateWithCredential(currentUser, credential);
+      console.log('✅ Reautenticación exitosa');
 
+      console.log('🔍 Intentando actualizar documento...');
       await updateDoc(doc(db, 'academias', academiaActual.id), {
         activa: false,
         fechaEliminacion: new Date(),
         eliminadaPor: currentUser.uid,
         motivoEliminacion: 'Eliminación por usuario',
       });
+      console.log('✅ Documento actualizado exitosamente');
 
       await eliminarAcademiaDeMisAcademias(academiaActual.id);
+      console.log('✅ Eliminado de mis academias');
 
       if (onSuccess) {
         onSuccess();

@@ -61,19 +61,46 @@ export const crearAcademia = async (academiaData: Omit<Academia, 'id' | 'fechaCr
     // Generar ID público único de 6 caracteres
     const publicId = await generateUniquePublicId();
     
-    const docRef = await addDoc(collection(db, 'academias'), {
+    console.log('🔍 DEBUG: Datos para crear academia:', {
       ...academiaData,
+      publicId,
+      fechaCreacion: 'serverTimestamp()',
+      activa: true
+    });
+    
+    // Crear la academia con un ID específico para evitar el updateDoc
+    const docRef = doc(collection(db, 'academias'));
+    
+    const academiaCompleta = {
+      ...academiaData,
+      id: docRef.id, // Incluir el ID desde el inicio
       publicId: publicId, // ← ID PÚBLICO DE 6 CARACTERES
-      fechaCreacion: new Date(),
+      fechaCreacion: serverTimestamp(),
       activa: true,
-    });
+    };
     
-    // Actualizar el documento para añadir el Firebase ID interno
-    await updateDoc(doc(db, 'academias', docRef.id), {
-      id: docRef.id // Firebase ID para uso interno
-    });
+    await setDoc(docRef, academiaCompleta);
     
-   
+    console.log('✅ Academia creada con ID:', docRef.id);
+    console.log('🆔 PublicId asignado:', publicId);
+    console.log('📄 Documento completo guardado:', academiaCompleta);
+    
+    // Verificar inmediatamente que se guardó correctamente
+    setTimeout(async () => {
+      try {
+        const verificacion = await getDoc(docRef);
+        if (verificacion.exists()) {
+          const data = verificacion.data();
+          console.log('✅ VERIFICACIÓN: Academia guardada correctamente');
+          console.log('🔍 PublicId en BD:', data.publicId);
+          console.log('🔍 Activa en BD:', data.activa);
+        } else {
+          console.log('❌ VERIFICACIÓN: Academia NO encontrada en BD');
+        }
+      } catch (error) {
+        console.log('❌ Error en verificación:', error);
+      }
+    }, 2000); // Verificar después de 2 segundos
     
     // ✅ RETORNAR AMBOS IDs
     return {
@@ -81,7 +108,8 @@ export const crearAcademia = async (academiaData: Omit<Academia, 'id' | 'fechaCr
       publicId: publicId
     };
   } catch (error) {
-
+    console.error('🚨 ERROR completo creando academia:', error);
+    console.error('🚨 Datos que causaron el error:', academiaData);
     throw new Error('No se pudo crear la academia.');
   }
 };
@@ -91,6 +119,9 @@ export const buscarAcademiaPorIdPublico = async (publicId: string): Promise<(Aca
   try {
     // Normalizar el ID público (mayúsculas, sin espacios)
     const normalizedId = publicId.toUpperCase().trim();
+    
+    console.log('🔍 BÚSQUEDA: ID original recibido:', publicId);
+    console.log('🔍 BÚSQUEDA: ID normalizado para buscar:', normalizedId);
     
     if (normalizedId.length !== 6) {
       throw new Error('El ID de la academia debe tener exactamente 6 caracteres');
@@ -103,17 +134,38 @@ export const buscarAcademiaPorIdPublico = async (publicId: string): Promise<(Aca
       where("activa", "==", true)
     );
     
+    console.log('🔍 BÚSQUEDA: Ejecutando query con filtros:', {
+      publicId: normalizedId,
+      activa: true
+    });
+    
     const querySnapshot = await getDocs(q);
+    
+    console.log('🔍 BÚSQUEDA: Resultados encontrados:', querySnapshot.size);
+    
+    // Debug: Buscar en TODAS las academias para ver qué publicIds existen
+    const allAcademiasRef = collection(db, 'academias');
+    const allSnapshot = await getDocs(allAcademiasRef);
+    console.log('🔍 DEBUG: Todos los publicIds en la BD:');
+    allSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      console.log(`  📋 ${doc.id}: publicId="${data.publicId}", activa=${data.activa}, nombre="${data.nombre}"`);
+    });
 
     if (querySnapshot.empty) {
+      console.log('❌ No se encontraron academias con ese publicId');
       return null;
     }
 
     const docSnap = querySnapshot.docs[0];
     const academiaData = docSnap.data() as Academia;
-    
+    console.log('✅ Academia encontrada:', { 
+      id: docSnap.id, 
+      nombre: academiaData.nombre, 
+      tipo: academiaData.tipo, 
+      publicId: (academiaData as any).publicId 
+    });
 
-    
     return {
       ...academiaData,
       firebaseId: docSnap.id // Guardamos el Firebase ID para operaciones internas
@@ -340,9 +392,8 @@ export const crearSolicitudUnion = async (
       requestedAt: now.toISOString(),
       expiresAt: expiresAt.toISOString()
     };
-
-    const docRef = await addDoc(solicitudesRef, solicitud);
     
+    const docRef = await addDoc(solicitudesRef, solicitud);
 
     return { 
       success: true, 
@@ -351,12 +402,10 @@ export const crearSolicitudUnion = async (
     };
     
   } catch (error) {
-
+    console.error('Error en crearSolicitudUnion:', error);
     return { success: false, message: 'Error al procesar solicitud' };
   }
-};
-
-// ✅ OBTENER SOLICITUDES PENDIENTES (PARA DIRECTORES)
+};// ✅ OBTENER SOLICITUDES PENDIENTES (PARA DIRECTORES)
 export const obtenerSolicitudesPendientes = async (
   academiaId: string,
   limit: number = 20
@@ -390,114 +439,104 @@ export const procesarSolicitud = async (
   action: 'approve' | 'reject',
   processorId: string
 ): Promise<{ success: boolean; message: string }> => {
-  try {    
-    const solicitudRef = doc(db, 'academias', academiaId, 'solicitudes', solicitudId);
-    const solicitudDoc = await getDoc(solicitudRef);
-    
-    if (!solicitudDoc.exists()) {
-      return { success: false, message: 'Solicitud no encontrada' };
-    }
-    
-    const solicitud = solicitudDoc.data() as JoinRequest;
-    
-    if (solicitud.status !== 'pending') {
-      return { success: false, message: 'Solicitud ya fue procesada' };
-    }
-
-    // Actualizar solicitud
-    await updateDoc(solicitudRef, {
-      status: action === 'approve' ? 'approved' : 'rejected',
-      processedAt: new Date().toISOString(),
-      processedBy: processorId
-    });
-
-
-    // Si se aprueba, agregar usuario a la academia
-    if (action === 'approve') {
-
+  try {
+    // Usar transacción para garantizar consistencia
+    const result = await runTransaction(db, async (transaction) => {
+      // ===== FASE 1: TODAS LAS LECTURAS PRIMERO =====
+      const solicitudRef = doc(db, 'academias', academiaId, 'solicitudes', solicitudId);
       
-      try {
-        await addUserToAcademia(
-          academiaId,
-          solicitud.userId,
-          solicitud.userEmail,
-          'academyCoach',
-          solicitud.userName
-        );
-   
-      } catch (error) {
-
-        throw error;
+      // Leer solicitud
+      const solicitudDoc = await transaction.get(solicitudRef);
+      if (!solicitudDoc.exists()) {
+        throw new Error('Solicitud no encontrada');
       }
-
-      // Obtener información de la academia y actualizar userAcademias
-      try {
-        const academiaDoc = await getDoc(doc(db, 'academias', academiaId));
-        if (academiaDoc.exists()) {
-          const academiaData = academiaDoc.data();
-
-          
-          // ✅ SOLUCIÓN CON TRANSACCIÓN
-          const userAcademiasRef = doc(db, 'userAcademias', solicitud.userId);
-
-          
-          try {
-            const nuevoAcceso = {
-              academiaId: academiaId,
-              nombre: academiaData.nombre,
-              ultimoAcceso: Date.now()
-            };
-
-            
-            // Usar transacción para operación atómica
-            await runTransaction(db, async (transaction: Transaction) => {
-              const userDoc = await transaction.get(userAcademiasRef);
-              
-              if (userDoc.exists()) {
-                const data = userDoc.data();
-                const academiasActuales = data.academias || [];
-                // Filtrar para evitar duplicados
-                const academiasActualizadas = academiasActuales.filter(
-                  (a: any) => a.academiaId !== academiaId
-                );
-                // Agregar nueva academia al principio
-                academiasActualizadas.unshift(nuevoAcceso);
-                
-                transaction.update(userAcademiasRef, {
-                  academias: academiasActualizadas,
-                  ultimaActualizacion: serverTimestamp()
-                });
-              } else {
-                // Si no existe el documento, crearlo
-                transaction.set(userAcademiasRef, {
-                  academias: [nuevoAcceso],
-                  fechaCreacion: serverTimestamp(),
-                  ultimaActualizacion: serverTimestamp()
-                });
-              }
-            });
-            
-
-            
-          } catch (userAcademiasError: any) {
-          
-          }
+      
+      const solicitud = solicitudDoc.data() as JoinRequest;
+      if (solicitud.status !== 'pending') {
+        throw new Error('Solicitud ya fue procesada');
+      }
+      
+      // Variables para datos que necesitaremos
+      let academiaData = null;
+      let userAcademiasData = null;
+      
+      // Leer academia y userAcademias solo si se va a aprobar
+      if (action === 'approve') {
+        const academiaRef = doc(db, 'academias', academiaId);
+        const academiaDoc = await transaction.get(academiaRef);
+        if (!academiaDoc.exists()) {
+          throw new Error('Academia no encontrada');
         }
-      } catch (academiaError) {
-
-
+        academiaData = academiaDoc.data();
+        
+        const userAcademiasRef = doc(db, 'userAcademias', solicitud.userId);
+        const userAcademiasDoc = await transaction.get(userAcademiasRef);
+        userAcademiasData = userAcademiasDoc.exists() ? userAcademiasDoc.data() : null;
       }
-    }
-
-
-    return { 
-      success: true, 
-      message: action === 'approve' ? 'Usuario aprobado' : 'Solicitud rechazada' 
-    };
+      
+      // ===== FASE 2: TODAS LAS ESCRITURAS DESPUÉS =====
+      
+      // Actualizar estado de la solicitud
+      transaction.update(solicitudRef, {
+        status: action === 'approve' ? 'approved' : 'rejected',
+        processedAt: new Date().toISOString(),
+        processedBy: processorId
+      });
+      
+      // Si se aprueba, realizar todas las escrituras
+      if (action === 'approve' && academiaData) {
+        // Agregar usuario a la subcolección usuarios
+        const userRef = doc(db, 'academias', academiaId, 'usuarios', solicitud.userId);
+        transaction.set(userRef, {
+          userId: solicitud.userId,
+          userEmail: solicitud.userEmail,
+          userName: solicitud.userName || solicitud.userEmail,
+          role: 'academyCoach',
+          joinedAt: new Date(),
+          invitedBy: processorId
+        });
+        
+        // Actualizar userAcademias
+        const userAcademiasRef = doc(db, 'userAcademias', solicitud.userId);
+        const nuevoAcceso = {
+          academiaId: academiaId,
+          nombre: academiaData.nombre,
+          id: academiaData.id,
+          role: 'academyCoach' as const
+        };
+        
+        if (userAcademiasData) {
+          const academias = userAcademiasData.academias || [];
+          // Verificar si ya existe para evitar duplicados
+          const existeAcceso = academias.some((a: any) => a.academiaId === academiaId);
+          if (!existeAcceso) {
+            academias.push(nuevoAcceso);
+            transaction.update(userAcademiasRef, {
+              academias,
+              ultimaActualizacion: new Date().toISOString()
+            });
+          }
+        } else {
+          transaction.set(userAcademiasRef, {
+            academias: [nuevoAcceso],
+            ultimaActualizacion: new Date().toISOString()
+          });
+        }
+      }
+      
+      return {
+        success: true,
+        message: action === 'approve' ? 'Usuario agregado exitosamente' : 'Solicitud rechazada'
+      };
+    });
     
-  } catch (error) {
-
-    return { success: false, message: 'Error al procesar' };
+    return result;
+  } catch (error: any) {
+    console.error('Error procesando solicitud:', error);
+    return {
+      success: false,
+      message: error.message || 'Error procesando solicitud'
+    };
   }
 };
 

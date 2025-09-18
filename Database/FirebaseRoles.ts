@@ -1,6 +1,6 @@
 // Database/FirebaseRoles.ts
-import { db } from "../firebase/firebase-config";
-import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp, writeBatch } from "firebase/firestore";
+import { db, auth } from "../firebase/firebase-config";
+import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp, writeBatch, runTransaction } from "firebase/firestore";
 // 🛡️ IMPORTAR VALIDACIONES DE SEGURIDAD
 import { validateEmail, validateUserName, validateRole, validateAcademiaId } from "../utils/validation";
 import { logSecurityEvent } from "../utils/securityAudit";
@@ -269,52 +269,73 @@ export const updateUserRole = async (
   }
 };
 
-// ✅ ELIMINAR UN USUARIO DE UNA ACADEMIA - VERSIÓN CORREGIDA
+// ✅ ELIMINAR UN USUARIO DE UNA ACADEMIA - VERSIÓN TRANSACCIONAL MEJORADA
 export const removeUserFromAcademia = async (
   academiaId: string,
   userId: string
 ): Promise<void> => {
-  try {
-    // 1. Eliminar de la subcolección usuarios
-    const userRef = doc(db, "academias", academiaId, "usuarios", userId);
-    await deleteDoc(userRef);
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Usuario no autenticado');
+  }
+  
+  // Verificar permisos antes de la transacción
+  const currentUserRole = await getUserRoleInAcademia(academiaId, currentUser.uid);
+  if (currentUserRole !== 'academyDirector') {
+    throw new Error(`Sin permisos para eliminar usuarios. Rol actual: ${currentUserRole}`);
+  }
 
+  // Usar transacción para garantizar consistencia
+  await runTransaction(db, async (transaction) => {
+    // ===== FASE 1: TODAS LAS LECTURAS PRIMERO =====
     
-    // 2. CORREGIDO: Actualizar userAcademias para quitar esta academia
+    // 1. Referencias de documentos
+    const userRef = doc(db, "academias", academiaId, "usuarios", userId);
     const userAcademiasRef = doc(db, "userAcademias", userId);
-    const userAcademiasDoc = await getDoc(userAcademiasRef);
+    
+    // 2. Leer todos los documentos necesarios
+    const userDoc = await transaction.get(userRef);
+    const userAcademiasDoc = await transaction.get(userAcademiasRef);
+    
+    // 3. Validar que el usuario existe en la academia
+    if (!userDoc.exists()) {
+      throw new Error('Usuario no encontrado en la academia');
+    }
+    
+    // 4. Preparar datos para actualización de userAcademias
+    let academiasActualizadas: any[] = [];
+    let shouldUpdateUserAcademias = false;
+    let shouldDeleteUserAcademias = false;
     
     if (userAcademiasDoc.exists()) {
       const data = userAcademiasDoc.data();
       const academiasActuales = data.academias || [];
-      const academiasActualizadas = academiasActuales.filter(
+      academiasActualizadas = academiasActuales.filter(
         (a: any) => a.academiaId !== academiaId
       );
       
-      
-      
       if (academiasActualizadas.length > 0) {
-        // Si quedan academias, actualizar el documento
-        await updateDoc(userAcademiasRef, {
-          academias: academiasActualizadas,
-          ultimaActualizacion: serverTimestamp()
-        });
-
+        shouldUpdateUserAcademias = true;
       } else {
-        // Si no quedan academias, eliminar el documento completo
-        await deleteDoc(userAcademiasRef);
-
+        shouldDeleteUserAcademias = true;
       }
-    } else {
-
     }
     
-
+    // ===== FASE 2: TODAS LAS ESCRITURAS DESPUÉS =====
     
-  } catch (error) {
-
-    throw error;
-  }
+    // 5. Eliminar usuario de la academia
+    transaction.delete(userRef);
+    
+    // 6. Actualizar o eliminar userAcademias según corresponda
+    if (shouldUpdateUserAcademias) {
+      transaction.update(userAcademiasRef, {
+        academias: academiasActualizadas,
+        ultimaActualizacion: serverTimestamp()
+      });
+    } else if (shouldDeleteUserAcademias) {
+      transaction.delete(userAcademiasRef);
+    }
+  });
 };
 
 // Obtener todas las academias donde un usuario tiene un rol

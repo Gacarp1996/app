@@ -4,6 +4,7 @@ import { AcademiaUser, UserRole } from '../../../Database/FirebaseRoles';
 import { TipoEntidad } from '../../../types/types';
 import { UserManagementSection } from '../users/UserManagementSection';
 import { AcademiaInfoSection } from '../sections/AcademiaInfoSection';
+import { PendingRequestsSection } from '../sections/PendingRequestsSection';
 import { 
   copyToClipboard,
   shouldShowUserManagement,
@@ -180,6 +181,7 @@ interface MainConfigModalProps {
   onChangeAcademia: () => void;
   onDeleteEntity: () => void;
   onOpenAdvancedConfig: () => void;
+  onReloadUsers?: () => Promise<void>; // ✅ NUEVA: Función para recargar usuarios tras procesar solicitudes
 }
 
 export const MainConfigModal: React.FC<MainConfigModalProps> = ({
@@ -198,7 +200,8 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
   onChangeRole,
   onChangeAcademia,
   onDeleteEntity,
-  onOpenAdvancedConfig
+  onOpenAdvancedConfig,
+  onReloadUsers // ✅ NUEVA prop para recargar usuarios
 }) => {
   if (!isOpen) return null;
 
@@ -282,6 +285,14 @@ export const MainConfigModal: React.FC<MainConfigModalProps> = ({
                     groupId={entityId} 
                   />
                 )
+              )}
+
+              {/* SECCIÓN 2.5: Solicitudes Pendientes - Solo para academyDirector */}
+              {currentUserRole === 'academyDirector' && entityId && (
+                <PendingRequestsSection 
+                  academiaId={entityId}
+                  onRequestProcessed={onReloadUsers} // ✅ CONECTAR callback para recargar usuarios
+                />
               )}
 
               {/* SECCIÓN 3: Mi Perfil - Todos los roles lo ven */}

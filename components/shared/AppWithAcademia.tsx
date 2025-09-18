@@ -36,9 +36,11 @@ import {
 } from '../../Database/FirebaseAcademiaConfig';
 import { 
   useAcademiaSettings, 
-  useUserManagement, 
-  useDeleteAcademia 
+  useUserManagement
 } from '../../hooks/useAcademiaSettings';
+import { 
+  useDeleteAcademia 
+} from '../../hooks/useDeleteAcademia';
 import { 
   updateUserRole, 
   removeUserFromAcademia, 
@@ -135,13 +137,13 @@ const AppWithAcademia: React.FC = () => {
     handleDeleteAcademia,
     openDeleteModal,
     closeDeleteModal
-  } = useDeleteAcademia(
+  } = useDeleteAcademia({
     academiaActual,
     currentUser,
     eliminarAcademiaDeMisAcademias,
-    hookNavigate,
-    () => {}
-  );
+    navigate: hookNavigate,
+    onSuccess: () => {}
+  });
 
   useEffect(() => {
     if (!academiaActual) {
@@ -378,11 +380,22 @@ const AppWithAcademia: React.FC = () => {
   const handleDeleteWithCallback = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🔍 DEBUG ELIMINACIÓN (AppWithAcademia): Iniciando...');
+    console.log('🔍 Academia a eliminar:', academiaActual);
+    console.log('🔍 Usuario actual:', {
+      uid: currentUser?.uid,
+      email: currentUser?.email
+    });
+    
     try {
+      console.log('🔍 Llamando a handleDeleteAcademia...');
       await handleDeleteAcademia(e);
+      console.log('✅ handleDeleteAcademia completado exitosamente');
       closeConfigModal();
     } catch (error) {
-      console.error('Error en eliminación:', error);
+      console.error('❌ Error en eliminación (AppWithAcademia):', error);
+      console.error('❌ Tipo de error:', error?.constructor?.name);
+      console.error('❌ Mensaje de error:', (error as any)?.message);
     }
   };
 
@@ -471,6 +484,7 @@ const AppWithAcademia: React.FC = () => {
           onChangeAcademia={handleChangeAcademia}
           onDeleteEntity={openDeleteModal}
           onOpenAdvancedConfig={handleOpenAdvancedConfig}
+          onReloadUsers={loadUsers} // ✅ CONECTAR función para recargar usuarios tras procesar solicitudes
         />
       )}
 
